@@ -2,8 +2,8 @@ name: senoquant
 contributions:
   commands:
     - id: senoquant.make_widget
-      python_name: senoquant._widget:ExampleWidget
-      title: Example QtPy Widget
+      python_name: senoquant._widget:SenoQuantWidget
+      title: SenoQuant
   widgets:
     - command: senoquant.make_widget
-      display_name: Example QtPy Widget
+      display_name: SenoQuant

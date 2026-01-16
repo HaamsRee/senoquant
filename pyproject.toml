@@ -15,16 +15,16 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: BSD License",
 ]
+
 dependencies = [
-  "napari",
-  "qtpy",
+  # "napari",
 ]
 
 [project.entry-points."napari.manifest"]
 senoquant = "senoquant:napari.yaml"
 
-[tool.setuptools]
-package-dir = { "" = "src" }
+[project.optional-dependencies]
+all = ["napari[all]"]
 
 [tool.setuptools.package-data]
 senoquant = ["napari.yaml"]

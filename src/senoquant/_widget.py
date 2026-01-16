@@ -3,7 +3,7 @@
 from qtpy.QtWidgets import QLabel, QTabWidget, QVBoxLayout, QWidget
 
 
-class ExampleWidget(QWidget):
+class SenoQuantWidget(QWidget):
     def __init__(self, napari_viewer):
         super().__init__()
         self._viewer = napari_viewer
