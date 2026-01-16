@@ -1,0 +1,9 @@
+name: senoquant
+contributions:
+  commands:
+    - id: senoquant.make_widget
+      python_name: senoquant._widget:ExampleWidget
+      title: Example QtPy Widget
+  widgets:
+    - command: senoquant.make_widget
+      display_name: Example QtPy Widget
