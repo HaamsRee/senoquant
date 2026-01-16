@@ -8,6 +8,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QFrame,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -392,6 +393,15 @@ class SegmentationTab(QWidget):
                 )
                 widget.setSingleStep(0.1)
                 widget.setValue(float(setting.get("default", 0.0)))
+                form_layout.addRow(label, widget)
+            elif setting_type == "int":
+                widget = QSpinBox()
+                widget.setRange(
+                    int(setting.get("min", 0)),
+                    int(setting.get("max", 100)),
+                )
+                widget.setSingleStep(1)
+                widget.setValue(int(setting.get("default", 0)))
                 form_layout.addRow(label, widget)
             else:
                 form_layout.addRow(label, QLabel("Unsupported setting type"))

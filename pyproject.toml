@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
   # "napari",
   "napari-bioio-reader",
+  "cellpose==4.0.8",
 ]
 
 [project.entry-points."napari.manifest"]

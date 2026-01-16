@@ -39,6 +39,14 @@
       "min": -6.0,
       "max": 6.0,
       "default": 0.0
+    },
+    {
+      "key": "n_iterations",
+      "label": "Number of iterations",
+      "type": "int",
+      "min": 0,
+      "max": 9999,
+      "default": 0
     }
   ]
 }
