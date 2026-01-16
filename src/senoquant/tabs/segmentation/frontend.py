@@ -23,10 +23,20 @@ class RefreshingComboBox(QComboBox):
     """Combo box that refreshes its items when opened."""
 
     def __init__(self, refresh_callback=None, parent=None) -> None:
+        """Create a combo box that refreshes on popup.
+
+        Parameters
+        ----------
+        refresh_callback : callable or None
+            Function invoked before showing the popup.
+        parent : QWidget or None
+            Optional parent widget.
+        """
         super().__init__(parent)
         self._refresh_callback = refresh_callback
 
     def showPopup(self) -> None:
+        """Refresh items before showing the popup."""
         if self._refresh_callback is not None:
             self._refresh_callback()
         super().showPopup()
@@ -54,9 +64,20 @@ class SegmentationTab(QWidget):
         backend: SegmentationBackend | None = None,
         napari_viewer=None,
     ) -> None:
+        """Create the segmentation tab UI.
+
+        Parameters
+        ----------
+        backend : SegmentationBackend or None
+            Backend instance used to discover and load models.
+        napari_viewer : object or None
+            Napari viewer used to populate layer choices.
+        """
         super().__init__()
         self._backend = backend or SegmentationBackend()
         self._viewer = napari_viewer
+        self._nuclear_settings_widgets = {}
+        self._cyto_settings_widgets = {}
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_nuclear_section())
@@ -98,6 +119,7 @@ class SegmentationTab(QWidget):
         )
 
         self._nuclear_run_button = QPushButton("Run")
+        self._nuclear_run_button.clicked.connect(self._run_nuclear)
         section_layout.addWidget(self._nuclear_run_button)
         section.setLayout(section_layout)
 
@@ -137,6 +159,7 @@ class SegmentationTab(QWidget):
         )
 
         self._cyto_run_button = QPushButton("Run")
+        self._cyto_run_button.clicked.connect(self._run_cytoplasmic)
         section_layout.addWidget(self._cyto_run_button)
         section.setLayout(section_layout)
         return section
@@ -341,7 +364,13 @@ class SegmentationTab(QWidget):
             return
 
         model = self._backend.get_model(model_name)
-        form_layout = self._build_model_settings(model)
+        settings_map = (
+            self._nuclear_settings_widgets
+            if settings_layout is self._nuclear_model_settings_layout
+            else self._cyto_settings_widgets
+        )
+        settings_map.clear()
+        form_layout = self._build_model_settings(model, settings_map)
         if form_layout is None:
             settings_layout.addWidget(
                 QLabel(f"No settings defined for '{model_name}'.")
@@ -350,7 +379,13 @@ class SegmentationTab(QWidget):
             settings_layout.addLayout(form_layout)
 
     def _clear_layout(self, layout: QVBoxLayout) -> None:
-        """Remove widgets and nested layouts from the provided layout."""
+        """Remove widgets and nested layouts from the provided layout.
+
+        Parameters
+        ----------
+        layout : QVBoxLayout
+            Layout to clear.
+        """
         while layout.count():
             item = layout.takeAt(0)
             child_layout = item.layout()
@@ -361,13 +396,15 @@ class SegmentationTab(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
-    def _build_model_settings(self, model) -> QFormLayout | None:
+    def _build_model_settings(self, model, settings_map: dict) -> QFormLayout | None:
         """Build model settings controls from model metadata.
 
         Parameters
         ----------
         model : SenoQuantSegmentationModel
             Model wrapper providing settings metadata.
+        settings_map : dict
+            Mapping of setting keys to their widgets.
 
         Returns
         -------
@@ -393,6 +430,7 @@ class SegmentationTab(QWidget):
                 )
                 widget.setSingleStep(0.1)
                 widget.setValue(float(setting.get("default", 0.0)))
+                settings_map[setting.get("key", label)] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "int":
                 widget = QSpinBox()
@@ -402,8 +440,77 @@ class SegmentationTab(QWidget):
                 )
                 widget.setSingleStep(1)
                 widget.setValue(int(setting.get("default", 0)))
+                settings_map[setting.get("key", label)] = widget
                 form_layout.addRow(label, widget)
             else:
                 form_layout.addRow(label, QLabel("Unsupported setting type"))
 
         return form_layout
+
+    def _collect_settings(self, settings_map: dict) -> dict:
+        """Collect current values from the settings widgets.
+
+        Parameters
+        ----------
+        settings_map : dict
+            Mapping of setting keys to their widgets.
+
+        Returns
+        -------
+        dict
+            Setting values keyed by setting name.
+        """
+        values = {}
+        for key, widget in settings_map.items():
+            if hasattr(widget, "value"):
+                values[key] = widget.value()
+        return values
+
+    def _run_nuclear(self) -> None:
+        """Run nuclear segmentation for the selected model."""
+        model_name = self._nuclear_model_combo.currentText()
+        if not model_name or model_name == "No models found":
+            return
+        model = self._backend.get_model(model_name)
+        settings = self._collect_settings(self._nuclear_settings_widgets)
+        layer_name = self._nuclear_layer_combo.currentText()
+        layer = self._get_layer_by_name(layer_name)
+        model.run(task="nuclear", layer=layer, settings=settings)
+
+    def _run_cytoplasmic(self) -> None:
+        """Run cytoplasmic segmentation for the selected model."""
+        model_name = self._cyto_model_combo.currentText()
+        if not model_name or model_name == "No models found":
+            return
+        model = self._backend.get_model(model_name)
+        settings = self._collect_settings(self._cyto_settings_widgets)
+        cyto_layer = self._get_layer_by_name(self._cyto_layer_combo.currentText())
+        nuclear_layer = self._get_layer_by_name(
+            self._cyto_nuclear_layer_combo.currentText()
+        )
+        model.run(
+            task="cytoplasmic",
+            cytoplasmic_layer=cyto_layer,
+            nuclear_layer=nuclear_layer,
+            settings=settings,
+        )
+
+    def _get_layer_by_name(self, name: str):
+        """Return a viewer layer with the given name, if it exists.
+
+        Parameters
+        ----------
+        name : str
+            Layer name to locate.
+
+        Returns
+        -------
+        object or None
+            Matching layer object or None if not found.
+        """
+        if self._viewer is None:
+            return None
+        for layer in self._viewer.layers:
+            if layer.name == name:
+                return layer
+        return None
