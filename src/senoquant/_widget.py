@@ -1,6 +1,8 @@
 """Example QtPy widget for napari."""
 
-from qtpy.QtWidgets import QLabel, QTabWidget, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QTabWidget, QVBoxLayout, QWidget
+
+from .tabs import QuantifyTab, SegmentationTab, SettingsTab, SpotsTab
 
 
 class SenoQuantWidget(QWidget):
@@ -11,18 +13,10 @@ class SenoQuantWidget(QWidget):
         layout = QVBoxLayout()
 
         tabs = QTabWidget()
-        tabs.addTab(self._make_tab("Nuclear Segmentation"), "Nuclear Segmentation")
-        tabs.addTab(self._make_tab("Cytoplasmic Segmentation"), "Cytoplasmic Segmentation")
-        tabs.addTab(self._make_tab("Spots"), "Spots")
-        tabs.addTab(self._make_tab("Quantify"), "Quantify")
-        tabs.addTab(self._make_tab("Settings"), "Settings")
+        tabs.addTab(SegmentationTab(), "Segmentation")
+        tabs.addTab(SpotsTab(), "Spots")
+        tabs.addTab(QuantifyTab(), "Quantify")
+        tabs.addTab(SettingsTab(), "Settings")
 
         layout.addWidget(tabs)
         self.setLayout(layout)
-
-    def _make_tab(self, title: str) -> QWidget:
-        widget = QWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"{title} content goes here."))
-        widget.setLayout(layout)
-        return widget

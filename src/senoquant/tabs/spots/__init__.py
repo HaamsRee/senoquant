@@ -1,0 +1,1 @@
+"""Spots tab modules."""
