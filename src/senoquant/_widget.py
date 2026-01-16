@@ -6,6 +6,8 @@ from .tabs import QuantifyTab, SegmentationTab, SettingsTab, SpotsTab
 
 
 class SenoQuantWidget(QWidget):
+    """Main SenoQuant widget with tabbed UI."""
+
     def __init__(self, napari_viewer):
         super().__init__()
         self._viewer = napari_viewer

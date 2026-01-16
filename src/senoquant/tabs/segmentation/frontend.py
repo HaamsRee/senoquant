@@ -13,6 +13,16 @@ from .backend import SegmentationBackend
 
 
 class SegmentationTab(QWidget):
+    """Segmentation tab UI with nuclear and cytoplasmic sections.
+
+    Parameters
+    ----------
+    backend : SegmentationBackend or None
+        Backend instance used to discover and load models.
+    napari_viewer : object or None
+        Napari viewer used to populate layer choices.
+    """
+
     def __init__(
         self,
         backend: SegmentationBackend | None = None,
@@ -29,6 +39,13 @@ class SegmentationTab(QWidget):
         self.setLayout(layout)
 
     def _make_nuclear_section(self) -> QGroupBox:
+        """Build the nuclear segmentation UI section.
+
+        Returns
+        -------
+        QGroupBox
+            Group box containing nuclear segmentation controls.
+        """
         section = QGroupBox("Nuclear Segmentation")
         section_layout = QVBoxLayout()
 
@@ -55,6 +72,18 @@ class SegmentationTab(QWidget):
         return section
 
     def _make_section(self, name: str) -> QGroupBox:
+        """Build a placeholder section for the given segmentation name.
+
+        Parameters
+        ----------
+        name : str
+            Label for the segmentation section.
+
+        Returns
+        -------
+        QGroupBox
+            Group box containing placeholder content.
+        """
         section = QGroupBox(f"{name} Segmentation")
         layout = QVBoxLayout()
         layout.addWidget(QLabel(f"{name} segmentation controls go here."))
@@ -62,6 +91,7 @@ class SegmentationTab(QWidget):
         return section
 
     def _refresh_layer_choices(self) -> None:
+        """Populate the nuclear layer dropdown from the napari viewer."""
         self._nuclear_layer_combo.clear()
         if self._viewer is None:
             self._nuclear_layer_combo.addItem("Select a layer")
@@ -71,6 +101,7 @@ class SegmentationTab(QWidget):
             self._nuclear_layer_combo.addItem(layer.name)
 
     def _refresh_model_choices(self) -> None:
+        """Populate the model dropdown from available model folders."""
         self._model_combo.clear()
         names = self._backend.list_model_names()
         if not names:
@@ -80,6 +111,13 @@ class SegmentationTab(QWidget):
         self._model_combo.addItems(names)
 
     def _update_model_settings(self, model_name: str) -> None:
+        """Rebuild the model settings area for the selected model.
+
+        Parameters
+        ----------
+        model_name : str
+            Selected model name from the dropdown.
+        """
         while self._model_settings_layout.count():
             item = self._model_settings_layout.takeAt(0)
             widget = item.widget()

@@ -8,11 +8,32 @@ from .models import SenoQuantSegmentationModel
 
 
 class SegmentationBackend:
+    """Manage segmentation models and their storage locations.
+
+    Parameters
+    ----------
+    models_root : pathlib.Path or None
+        Optional root folder for model storage. Defaults to the local models
+        directory for this tab.
+    """
+
     def __init__(self, models_root: Path | None = None) -> None:
         self._models_root = models_root or (Path(__file__).parent / "models")
         self._models: dict[str, SenoQuantSegmentationModel] = {}
 
     def get_model(self, name: str) -> SenoQuantSegmentationModel:
+        """Return a model wrapper for the given name.
+
+        Parameters
+        ----------
+        name : str
+            Model name used to locate or create the model folder.
+
+        Returns
+        -------
+        SenoQuantSegmentationModel
+            Model wrapper instance.
+        """
         model = self._models.get(name)
         if model is None:
             model = SenoQuantSegmentationModel(name, self._models_root)
@@ -20,6 +41,13 @@ class SegmentationBackend:
         return model
 
     def list_model_names(self) -> list[str]:
+        """List available model folders under the models root.
+
+        Returns
+        -------
+        list[str]
+            Sorted model folder names.
+        """
         if not self._models_root.exists():
             return []
 
