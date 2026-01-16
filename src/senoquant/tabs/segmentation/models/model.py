@@ -86,3 +86,16 @@ class SenoQuantSegmentationModel:
         if isinstance(modes, list):
             return modes
         return []
+
+    def cytoplasmic_nuclear_optional(self) -> bool:
+        """Return whether the nuclear channel is optional for cytoplasmic mode.
+
+        Returns
+        -------
+        bool
+            True when the nuclear channel is optional.
+        """
+        details = self.load_details()
+        tasks = details.get("tasks", {})
+        task_info = tasks.get("cytoplasmic", {})
+        return bool(task_info.get("nuclear_channel_optional", False))

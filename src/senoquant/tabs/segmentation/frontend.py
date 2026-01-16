@@ -12,6 +12,28 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+try:
+    from napari.layers import Image
+except Exception:  # pragma: no cover - optional import for runtime
+    Image = None
+
+
+class RefreshingComboBox(QComboBox):
+    """Combo box that refreshes its items when opened."""
+
+    def __init__(self, refresh_callback=None, parent=None) -> None:
+        super().__init__(parent)
+        self._refresh_callback = refresh_callback
+
+    def showPopup(self) -> None:
+        if self._refresh_callback is not None:
+            self._refresh_callback()
+        super().showPopup()
+
+
+# Layer dropdowns refresh at click-time so the UI stays in sync with napari.
+# This keeps options limited to Image layers and preserves existing selections.
+
 from .backend import SegmentationBackend
 
 
@@ -58,7 +80,9 @@ class SegmentationTab(QWidget):
         section_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
-        self._nuclear_layer_combo = QComboBox()
+        self._nuclear_layer_combo = RefreshingComboBox(
+            refresh_callback=self._refresh_layer_choices
+        )
         self._nuclear_model_combo = QComboBox()
         self._nuclear_model_combo.currentTextChanged.connect(
             self._update_nuclear_model_settings
@@ -90,15 +114,20 @@ class SegmentationTab(QWidget):
         section_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
-        self._cyto_layer_combo = QComboBox()
-        self._cyto_nuclear_layer_combo = QComboBox()
+        self._cyto_layer_combo = RefreshingComboBox(
+            refresh_callback=self._refresh_layer_choices
+        )
+        self._cyto_nuclear_layer_combo = RefreshingComboBox(
+            refresh_callback=self._refresh_layer_choices
+        )
         self._cyto_model_combo = QComboBox()
         self._cyto_model_combo.currentTextChanged.connect(
             self._update_cytoplasmic_model_settings
         )
 
         form_layout.addRow("Cytoplasmic layer", self._cyto_layer_combo)
-        form_layout.addRow("Nuclear layer", self._cyto_nuclear_layer_combo)
+        self._cyto_nuclear_label = QLabel("Nuclear layer")
+        form_layout.addRow(self._cyto_nuclear_label, self._cyto_nuclear_layer_combo)
         form_layout.addRow("Model", self._cyto_model_combo)
 
         section_layout.addLayout(form_layout)
@@ -185,6 +214,10 @@ class SegmentationTab(QWidget):
 
     def _refresh_layer_choices(self) -> None:
         """Populate layer dropdowns from the napari viewer."""
+        nuclear_current = self._nuclear_layer_combo.currentText()
+        cyto_current = self._cyto_layer_combo.currentText()
+        cyto_nuclear_current = self._cyto_nuclear_layer_combo.currentText()
+
         self._nuclear_layer_combo.clear()
         self._cyto_layer_combo.clear()
         self._cyto_nuclear_layer_combo.clear()
@@ -194,10 +227,17 @@ class SegmentationTab(QWidget):
             self._cyto_nuclear_layer_combo.addItem("Select a layer")
             return
 
-        for layer in self._viewer.layers:
-            self._nuclear_layer_combo.addItem(layer.name)
-            self._cyto_layer_combo.addItem(layer.name)
-            self._cyto_nuclear_layer_combo.addItem(layer.name)
+        names = [layer.name for layer in self._iter_image_layers()]
+        for name in names:
+            self._nuclear_layer_combo.addItem(name)
+            self._cyto_layer_combo.addItem(name)
+            self._cyto_nuclear_layer_combo.addItem(name)
+
+        self._restore_combo_selection(self._nuclear_layer_combo, nuclear_current)
+        self._restore_combo_selection(self._cyto_layer_combo, cyto_current)
+        self._restore_combo_selection(
+            self._cyto_nuclear_layer_combo, cyto_nuclear_current
+        )
 
     def _refresh_model_choices(self) -> None:
         """Populate the model dropdowns from available model folders."""
@@ -242,13 +282,40 @@ class SegmentationTab(QWidget):
 
         if not model_name or model_name == "No models found":
             self._cyto_nuclear_layer_combo.setEnabled(False)
+            self._cyto_nuclear_label.setText("Nuclear layer")
             return
 
         model = self._backend.get_model(model_name)
         modes = model.cytoplasmic_input_modes()
-        self._cyto_nuclear_layer_combo.setEnabled(
-            "nuclear+cytoplasmic" in modes
-        )
+        if "nuclear+cytoplasmic" in modes:
+            optional = model.cytoplasmic_nuclear_optional()
+            suffix = "optional" if optional else "mandatory"
+            self._cyto_nuclear_label.setText(f"Nuclear layer ({suffix})")
+            self._cyto_nuclear_layer_combo.setEnabled(True)
+        else:
+            self._cyto_nuclear_label.setText("Nuclear layer")
+            self._cyto_nuclear_layer_combo.setEnabled(False)
+
+    def _iter_image_layers(self) -> list:
+        if self._viewer is None:
+            return []
+
+        image_layers = []
+        for layer in self._viewer.layers:
+            if Image is not None:
+                if isinstance(layer, Image):
+                    image_layers.append(layer)
+            else:
+                if layer.__class__.__name__ == "Image":
+                    image_layers.append(layer)
+        return image_layers
+
+    def _restore_combo_selection(self, combo: QComboBox, name: str) -> None:
+        if not name:
+            return
+        index = combo.findText(name)
+        if index != -1:
+            combo.setCurrentIndex(index)
 
     def _refresh_model_settings_layout(
         self,

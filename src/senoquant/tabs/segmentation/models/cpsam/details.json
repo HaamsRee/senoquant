@@ -8,7 +8,8 @@
     },
     "cytoplasmic": {
       "supported": true,
-      "input_modes": ["cytoplasmic", "nuclear+cytoplasmic"]
+      "input_modes": ["cytoplasmic", "nuclear+cytoplasmic"],
+      "nuclear_channel_optional": true
     }
   },
   "settings": [
