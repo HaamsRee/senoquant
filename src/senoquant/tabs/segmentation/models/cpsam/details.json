@@ -1,5 +1,43 @@
 {
   "name": "cpsam",
   "description": "Placeholder details for the cpsam segmentation model",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "tasks": {
+    "nuclear": {
+      "supported": true
+    },
+    "cytoplasmic": {
+      "supported": true,
+      "input_modes": ["cytoplasmic", "nuclear+cytoplasmic"]
+    }
+  },
+  "settings": [
+    {
+      "key": "diameter",
+      "label": "Diameter",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.1,
+      "max": 120.0,
+      "default": 30.0
+    },
+    {
+      "key": "flow_threshold",
+      "label": "Flow threshold",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.0,
+      "max": 2.0,
+      "default": 0.4
+    },
+    {
+      "key": "cellprob_threshold",
+      "label": "Cellprob threshold",
+      "type": "float",
+      "decimals": 1,
+      "min": -6.0,
+      "max": 6.0,
+      "default": 0.0
+    }
+  ]
 }

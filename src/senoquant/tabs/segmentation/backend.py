@@ -40,8 +40,13 @@ class SegmentationBackend:
             self._models[name] = model
         return model
 
-    def list_model_names(self) -> list[str]:
+    def list_model_names(self, task: str | None = None) -> list[str]:
         """List available model folders under the models root.
+
+        Parameters
+        ----------
+        task : str or None
+            Optional task filter such as "nuclear" or "cytoplasmic".
 
         Returns
         -------
@@ -54,5 +59,10 @@ class SegmentationBackend:
         names = []
         for path in self._models_root.iterdir():
             if path.is_dir() and not path.name.startswith("__"):
-                names.append(path.name)
+                if task is None:
+                    names.append(path.name)
+                else:
+                    model = self.get_model(path.name)
+                    if model.supports_task(task):
+                        names.append(path.name)
         return sorted(names)
