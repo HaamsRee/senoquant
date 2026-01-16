@@ -331,11 +331,7 @@ class SegmentationTab(QWidget):
         model_name : str
             Selected model name from the dropdown.
         """
-        while settings_layout.count():
-            item = settings_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
+        self._clear_layout(settings_layout)
 
         if not model_name or model_name == "No models found":
             settings_layout.addWidget(
@@ -351,6 +347,18 @@ class SegmentationTab(QWidget):
             )
         else:
             settings_layout.addLayout(form_layout)
+
+    def _clear_layout(self, layout: QVBoxLayout) -> None:
+        """Remove widgets and nested layouts from the provided layout."""
+        while layout.count():
+            item = layout.takeAt(0)
+            child_layout = item.layout()
+            if child_layout is not None:
+                self._clear_layout(child_layout)
+                continue
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
 
     def _build_model_settings(self, model) -> QFormLayout | None:
         """Build model settings controls from model metadata.

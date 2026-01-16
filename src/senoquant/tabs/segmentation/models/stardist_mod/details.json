@@ -1,0 +1,33 @@
+{
+  "name": "stardist_mod",
+  "description": "Placeholder details for the stardist_mod nuclear model",
+  "version": "0.1.0",
+  "tasks": {
+    "nuclear": {
+      "supported": true
+    },
+    "cytoplasmic": {
+      "supported": false
+    }
+  },
+  "settings": [
+    {
+      "key": "prob_thresh",
+      "label": "Probability threshold",
+      "type": "float",
+      "decimals": 2,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5
+    },
+    {
+      "key": "nms_thresh",
+      "label": "NMS threshold",
+      "type": "float",
+      "decimals": 2,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.4
+    }
+  ]
+}
