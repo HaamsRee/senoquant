@@ -13,8 +13,8 @@ class SenoQuantWidget(QWidget):
         tabs = QTabWidget()
         tabs.addTab(self._make_tab("Nuclear Segmentation"), "Nuclear Segmentation")
         tabs.addTab(self._make_tab("Cytoplasmic Segmentation"), "Cytoplasmic Segmentation")
-        tabs.addTab(self._make_tab("Channels"), "Channels")
         tabs.addTab(self._make_tab("Spots"), "Spots")
+        tabs.addTab(self._make_tab("Quantify"), "Quantify")
         tabs.addTab(self._make_tab("Settings"), "Settings")
 
         layout.addWidget(tabs)

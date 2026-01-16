@@ -18,13 +18,14 @@ classifiers = [
 
 dependencies = [
   # "napari",
+  "napari-bioio-reader",
 ]
 
 [project.entry-points."napari.manifest"]
 senoquant = "senoquant:napari.yaml"
 
 [project.optional-dependencies]
-all = ["napari[all]"]
+all = ["napari[all]", "napari-bioio-reader"]
 
 [tool.setuptools.package-data]
 senoquant = ["napari.yaml"]
