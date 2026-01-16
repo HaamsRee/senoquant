@@ -13,7 +13,7 @@ class SenoQuantWidget(QWidget):
         layout = QVBoxLayout()
 
         tabs = QTabWidget()
-        tabs.addTab(SegmentationTab(), "Segmentation")
+        tabs.addTab(SegmentationTab(napari_viewer=napari_viewer), "Segmentation")
         tabs.addTab(SpotsTab(), "Spots")
         tabs.addTab(QuantifyTab(), "Quantify")
         tabs.addTab(SettingsTab(), "Settings")
