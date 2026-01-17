@@ -526,6 +526,8 @@ class SegmentationTab(QWidget):
         settings = self._collect_settings(self._nuclear_settings_widgets)
         layer_name = self._nuclear_layer_combo.currentText()
         layer = self._get_layer_by_name(layer_name)
+        if not self._validate_single_channel_layer(layer, "Nuclear layer"):
+            return
         result = model.run(task="nuclear", layer=layer, settings=settings)
         self._add_labels_layer(layer, result.get("masks"), suffix="_nuclear_labels")
 
@@ -540,6 +542,12 @@ class SegmentationTab(QWidget):
         nuclear_layer = self._get_layer_by_name(
             self._cyto_nuclear_layer_combo.currentText()
         )
+        if not self._validate_single_channel_layer(cyto_layer, "Cytoplasmic layer"):
+            return
+        if nuclear_layer is not None and not self._validate_single_channel_layer(
+            nuclear_layer, "Nuclear layer"
+        ):
+            return
         if self._cyto_requires_nuclear(model) and nuclear_layer is None:
             return
         result = model.run(
@@ -569,6 +577,49 @@ class SegmentationTab(QWidget):
             if layer.name == name:
                 return layer
         return None
+
+    def _validate_single_channel_layer(self, layer, label: str) -> bool:
+        """Validate that a layer is single-channel 2D/3D image data.
+
+        Parameters
+        ----------
+        layer : object or None
+            Napari layer to validate.
+        label : str
+            User-facing label for notifications.
+
+        Returns
+        -------
+        bool
+            True if the layer is valid for single-channel processing.
+        """
+        if layer is None:
+            return False
+        if getattr(layer, "rgb", False):
+            self._notify(f"{label} must be single-channel (not RGB).")
+            return False
+        ndim = getattr(layer, "ndim", None)
+        if ndim is not None and ndim not in (2, 3):
+            self._notify(f"{label} must be 2D or 3D single-channel.")
+            return False
+        return True
+
+    def _notify(self, message: str) -> None:
+        """Send a warning notification to the napari console.
+
+        Parameters
+        ----------
+        message : str
+            Notification message to display.
+        """
+        if (
+            show_console_notification is not None
+            and Notification is not None
+            and NotificationSeverity is not None
+        ):
+            show_console_notification(
+                Notification(message, severity=NotificationSeverity.WARNING)
+            )
 
     def _on_preload_models_changed(self, enabled: bool) -> None:
         """Handle preload setting changes.
