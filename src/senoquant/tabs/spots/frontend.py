@@ -64,6 +64,7 @@ class SpotsTab(QWidget):
         self._backend = backend or SpotsBackend()
         self._viewer = napari_viewer
         self._settings_widgets = {}
+        self._settings_meta = {}
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_detector_section())
@@ -115,9 +116,54 @@ class SpotsTab(QWidget):
         QGroupBox
             Group box containing detector-specific settings.
         """
-        section = QGroupBox("Detector settings")
+        return self._make_titled_section("Detector settings")
+
+    def _make_titled_section(self, title: str) -> QGroupBox:
+        """Create a titled box that mimics a group box ring.
+
+        Parameters
+        ----------
+        title : str
+            Title displayed on the ring.
+
+        Returns
+        -------
+        QGroupBox
+            Group box containing a framed content area.
+        """
+        section = QGroupBox(title)
+        section.setFlat(True)
+        section.setStyleSheet(
+            "QGroupBox {"
+            "  margin-top: 8px;"
+            "}"
+            "QGroupBox::title {"
+            "  subcontrol-origin: margin;"
+            "  subcontrol-position: top left;"
+            "  padding: 0 6px;"
+            "}"
+        )
+
+        frame = QFrame()
+        frame.setFrameShape(QFrame.StyledPanel)
+        frame.setFrameShadow(QFrame.Plain)
+        frame.setObjectName("titled-section-frame")
+        frame.setStyleSheet(
+            "QFrame#titled-section-frame {"
+            "  border: 1px solid palette(mid);"
+            "  border-radius: 4px;"
+            "}"
+        )
+
         self._settings_layout = QVBoxLayout()
-        section.setLayout(self._settings_layout)
+        self._settings_layout.setContentsMargins(10, 12, 10, 10)
+        frame.setLayout(self._settings_layout)
+
+        section_layout = QVBoxLayout()
+        section_layout.setContentsMargins(8, 12, 8, 4)
+        section_layout.addWidget(frame)
+        section.setLayout(section_layout)
+
         return section
 
     def _refresh_layer_choices(self) -> None:
@@ -167,6 +213,7 @@ class SpotsTab(QWidget):
 
         detector = self._backend.get_detector(detector_name)
         self._settings_widgets.clear()
+        self._settings_meta.clear()
         form_layout = self._build_detector_settings(detector)
         if form_layout is None:
             self._settings_layout.addWidget(
@@ -174,6 +221,7 @@ class SpotsTab(QWidget):
             )
         else:
             self._settings_layout.addLayout(form_layout)
+            self._apply_setting_dependencies()
 
     def _build_detector_settings(self, detector) -> QFormLayout | None:
         """Build detector settings controls from metadata.
@@ -196,6 +244,8 @@ class SpotsTab(QWidget):
         for setting in settings:
             setting_type = setting.get("type")
             label = setting.get("label", setting.get("key", "Setting"))
+            key = setting.get("key", label)
+            self._settings_meta[key] = setting
 
             if setting_type == "float":
                 widget = QDoubleSpinBox()
@@ -207,7 +257,7 @@ class SpotsTab(QWidget):
                 )
                 widget.setSingleStep(0.1)
                 widget.setValue(float(setting.get("default", 0.0)))
-                self._settings_widgets[setting.get("key", label)] = widget
+                self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "int":
                 widget = QSpinBox()
@@ -217,12 +267,13 @@ class SpotsTab(QWidget):
                 )
                 widget.setSingleStep(1)
                 widget.setValue(int(setting.get("default", 0)))
-                self._settings_widgets[setting.get("key", label)] = widget
+                self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "bool":
                 widget = QCheckBox()
                 widget.setChecked(bool(setting.get("default", False)))
-                self._settings_widgets[setting.get("key", label)] = widget
+                widget.toggled.connect(self._apply_setting_dependencies)
+                self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
             else:
                 form_layout.addRow(label, QLabel("Unsupported setting type"))
@@ -238,6 +289,25 @@ class SpotsTab(QWidget):
             elif isinstance(widget, QCheckBox):
                 values[key] = widget.isChecked()
         return values
+
+    def _apply_setting_dependencies(self) -> None:
+        """Apply enabled/disabled relationships between settings."""
+        for key, setting in self._settings_meta.items():
+            widget = self._settings_widgets.get(key)
+            if widget is None:
+                continue
+
+            enabled_by = setting.get("enabled_by")
+            disabled_by = setting.get("disabled_by")
+
+            if enabled_by:
+                controller = self._settings_widgets.get(enabled_by)
+                if isinstance(controller, QCheckBox):
+                    widget.setEnabled(controller.isChecked())
+            if disabled_by:
+                controller = self._settings_widgets.get(disabled_by)
+                if isinstance(controller, QCheckBox):
+                    widget.setEnabled(not controller.isChecked())
 
     def _run_detector(self) -> None:
         """Run the selected detector with the current settings."""
