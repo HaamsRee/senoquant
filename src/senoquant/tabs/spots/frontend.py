@@ -1,13 +1,13 @@
 """Frontend widget for the Spots tab."""
-
+from qtpy.QtGui import QPalette
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QLabel,
-    QFrame,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -75,6 +75,7 @@ class SpotsTab(QWidget):
         self._refresh_layer_choices()
         self._refresh_detector_choices()
         self._update_detector_settings(self._detector_combo.currentText())
+
 
     def _make_detector_section(self) -> QGroupBox:
         """Build the detector UI section.
@@ -153,7 +154,6 @@ class SpotsTab(QWidget):
             "QFrame#titled-section-frame {"
             "  border: 1px solid palette(mid);"
             "  border-radius: 4px;"
-            "  background: transparent;"
             "}"
         )
 
@@ -222,7 +222,11 @@ class SpotsTab(QWidget):
                 QLabel(f"No settings defined for '{detector_name}'.")
             )
         else:
-            self._settings_layout.addLayout(form_layout)
+            form_container = QWidget()
+            form_container.setAutoFillBackground(True)
+            form_container.setBackgroundRole(QPalette.Window)
+            form_container.setLayout(form_layout)
+            self._settings_layout.addWidget(form_container)
             self._apply_setting_dependencies()
 
     def _build_detector_settings(self, detector) -> QFormLayout | None:
