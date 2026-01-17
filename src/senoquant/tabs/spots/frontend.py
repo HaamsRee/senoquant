@@ -153,6 +153,7 @@ class SpotsTab(QWidget):
             "QFrame#titled-section-frame {"
             "  border: 1px solid palette(mid);"
             "  border-radius: 4px;"
+            "  background: transparent;"
             "}"
         )
 
