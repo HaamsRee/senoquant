@@ -47,6 +47,24 @@
       "min": 0,
       "max": 9999,
       "default": 0
+    },
+    {
+      "key": "use_3d",
+      "label": "3D",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "use_gpu",
+      "label": "GPU",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "normalize",
+      "label": "Normalize",
+      "type": "bool",
+      "default": true
     }
   ]
 }

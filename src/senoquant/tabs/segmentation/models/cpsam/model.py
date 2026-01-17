@@ -1,6 +1,9 @@
-"""CPSAM segmentation model stub."""
+"""CPSAM segmentation model implementation."""
 
 from __future__ import annotations
+
+from pathlib import Path
+import numpy as np
 
 from ..model import SenoQuantSegmentationModel
 
@@ -9,4 +12,116 @@ class CPSAMModel(SenoQuantSegmentationModel):
     """CPSAM segmentation model implementation."""
 
     def __init__(self, models_root=None) -> None:
+        """Initialize the CPSAM model wrapper."""
+        # TODO: Decide how to store and distribute large model binaries (e.g., git-lfs or downloads).
         super().__init__("cpsam", models_root=models_root)
+
+    def run(self, **kwargs) -> dict:
+        """Run CPSAM using the Cellpose API.
+
+        Parameters
+        ----------
+        **kwargs
+            task : str
+                Segmentation task ("nuclear" or "cytoplasmic").
+            layer : napari.layers.Image or None
+                Nuclear image layer for nuclear task.
+            cytoplasmic_layer : napari.layers.Image or None
+                Cytoplasmic image layer for cytoplasmic task.
+            nuclear_layer : napari.layers.Image or None
+                Nuclear image layer for cytoplasmic task.
+            settings : dict
+                Model settings keyed by the details.json schema.
+
+        Returns
+        -------
+        dict
+            Dictionary containing masks, flows, and styles from Cellpose.
+        """
+        from cellpose.models import CellposeModel
+
+        task = kwargs.get("task")
+        settings = kwargs.get("settings", {})
+
+        use_gpu = bool(settings.get("use_gpu", False))
+        do_3d = bool(settings.get("use_3d", False))
+        normalize = bool(settings.get("normalize", True))
+        diameter = settings.get("diameter")
+        flow_threshold = settings.get("flow_threshold", 0.4)
+        cellprob_threshold = settings.get("cellprob_threshold", 0.0)
+        n_iterations = settings.get("n_iterations", 0)
+
+        model_path = Path(self.model_dir) / "cpsam"
+        model = CellposeModel(gpu=use_gpu, pretrained_model=str(model_path))
+
+        if task == "nuclear":
+            layer = kwargs.get("layer")
+            image = self._extract_layer_data(layer, required=True)
+            input_data = self._prepare_input(image)
+        elif task == "cytoplasmic":
+            cyto_layer = kwargs.get("cytoplasmic_layer")
+            nuclear_layer = kwargs.get("nuclear_layer")
+            cyto_image = self._extract_layer_data(cyto_layer, required=True)
+            nuclear_image = self._extract_layer_data(
+                nuclear_layer, required=False
+            )
+            if nuclear_image is None:
+                input_data = self._prepare_input(cyto_image)
+            else:
+                input_data = self._prepare_input(
+                    nuclear_image,
+                    cyto_image,
+                )
+        else:
+            raise ValueError("Unknown task for CPSAM.")
+
+        masks, flows, styles = model.eval(
+            input_data,
+            normalize=normalize,
+            diameter=diameter,
+            flow_threshold=flow_threshold,
+            cellprob_threshold=cellprob_threshold,
+            do_3D=do_3d,
+            niter=n_iterations,
+        )
+
+        return {"masks": masks, "flows": flows, "styles": styles}
+
+    def _extract_layer_data(self, layer, required: bool) -> np.ndarray | None:
+        """Return numpy data for the given napari layer."""
+        if layer is None:
+            if required:
+                raise ValueError("Layer is required for CPSAM.")
+            return None
+        return np.asarray(layer.data)
+
+    def _prepare_input(
+        self,
+        nuclear: np.ndarray,
+        cytoplasmic: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Prepare CPSAM input as YX, ZYX, CYX, or ZCYX.
+
+        Parameters
+        ----------
+        nuclear : numpy.ndarray
+            Nuclear image data.
+        cytoplasmic : numpy.ndarray or None
+            Cytoplasmic image data, when provided.
+
+        Returns
+        -------
+        numpy.ndarray
+            Input array suitable for Cellpose eval.
+        """
+        if nuclear.ndim not in (2, 3):
+            raise ValueError("Input image must be 2D or 3D.")
+        if cytoplasmic is not None and cytoplasmic.shape != nuclear.shape:
+            raise ValueError("Nuclear and cytoplasmic images must match in shape.")
+
+        if cytoplasmic is None:
+            return nuclear.astype(np.float32)
+
+        axis = 0 if nuclear.ndim == 2 else 1
+        stacked = np.stack([nuclear, cytoplasmic], axis=axis)
+        return stacked.astype(np.float32)

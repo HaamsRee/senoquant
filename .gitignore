@@ -15,6 +15,9 @@ dist/
 *.egg-info/
 .eggs/
 
+# Large model binaries (decide storage strategy)
+src/senoquant/tabs/segmentation/models/cpsam/cpsam
+
 # IDE
 .idea/
 .vscode/

@@ -1,6 +1,7 @@
 """Frontend widget for the Segmentation tab."""
 
 from qtpy.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
@@ -142,6 +143,9 @@ class SegmentationTab(QWidget):
         )
         self._cyto_nuclear_layer_combo = RefreshingComboBox(
             refresh_callback=self._refresh_layer_choices
+        )
+        self._cyto_nuclear_layer_combo.currentTextChanged.connect(
+            self._on_cyto_nuclear_layer_changed
         )
         self._cyto_model_combo = QComboBox()
         self._cyto_model_combo.currentTextChanged.connect(
@@ -320,6 +324,8 @@ class SegmentationTab(QWidget):
             self._cyto_nuclear_label.setText("Nuclear layer")
             self._cyto_nuclear_layer_combo.setEnabled(False)
 
+        self._update_cytoplasmic_run_state(model)
+
     def _iter_image_layers(self) -> list:
         if self._viewer is None:
             return []
@@ -377,6 +383,14 @@ class SegmentationTab(QWidget):
             )
         else:
             settings_layout.addLayout(form_layout)
+
+    def _update_cytoplasmic_run_state(self, model) -> None:
+        """Enable/disable cytoplasmic run button based on required inputs."""
+        if self._cyto_requires_nuclear(model):
+            has_nuclear = bool(self._cyto_nuclear_layer_combo.currentText())
+            self._cyto_run_button.setEnabled(has_nuclear)
+        else:
+            self._cyto_run_button.setEnabled(True)
 
     def _clear_layout(self, layout: QVBoxLayout) -> None:
         """Remove widgets and nested layouts from the provided layout.
@@ -442,6 +456,11 @@ class SegmentationTab(QWidget):
                 widget.setValue(int(setting.get("default", 0)))
                 settings_map[setting.get("key", label)] = widget
                 form_layout.addRow(label, widget)
+            elif setting_type == "bool":
+                widget = QCheckBox()
+                widget.setChecked(bool(setting.get("default", False)))
+                settings_map[setting.get("key", label)] = widget
+                form_layout.addRow(label, widget)
             else:
                 form_layout.addRow(label, QLabel("Unsupported setting type"))
 
@@ -475,7 +494,8 @@ class SegmentationTab(QWidget):
         settings = self._collect_settings(self._nuclear_settings_widgets)
         layer_name = self._nuclear_layer_combo.currentText()
         layer = self._get_layer_by_name(layer_name)
-        model.run(task="nuclear", layer=layer, settings=settings)
+        result = model.run(task="nuclear", layer=layer, settings=settings)
+        self._add_labels_layer(layer, result.get("masks"), suffix="_nuclear_labels")
 
     def _run_cytoplasmic(self) -> None:
         """Run cytoplasmic segmentation for the selected model."""
@@ -488,12 +508,15 @@ class SegmentationTab(QWidget):
         nuclear_layer = self._get_layer_by_name(
             self._cyto_nuclear_layer_combo.currentText()
         )
-        model.run(
+        if self._cyto_requires_nuclear(model) and nuclear_layer is None:
+            return
+        result = model.run(
             task="cytoplasmic",
             cytoplasmic_layer=cyto_layer,
             nuclear_layer=nuclear_layer,
             settings=settings,
         )
+        self._add_labels_layer(cyto_layer, result.get("masks"), suffix="_cyto_labels")
 
     def _get_layer_by_name(self, name: str):
         """Return a viewer layer with the given name, if it exists.
@@ -514,3 +537,27 @@ class SegmentationTab(QWidget):
             if layer.name == name:
                 return layer
         return None
+
+    def _cyto_requires_nuclear(self, model) -> bool:
+        """Return True when cytoplasmic mode requires a nuclear channel."""
+        modes = model.cytoplasmic_input_modes()
+        if "nuclear+cytoplasmic" not in modes:
+            return False
+        return not model.cytoplasmic_nuclear_optional()
+
+    def _on_cyto_nuclear_layer_changed(self) -> None:
+        model_name = self._cyto_model_combo.currentText()
+        if not model_name or model_name == "No models found":
+            self._cyto_run_button.setEnabled(False)
+            return
+        model = self._backend.get_model(model_name)
+        self._update_cytoplasmic_run_state(model)
+
+    def _add_labels_layer(self, source_layer, masks, suffix: str) -> None:
+        if self._viewer is None or source_layer is None or masks is None:
+            return
+        self._viewer.add_labels(
+            masks,
+            name=f"{source_layer.name}{suffix}",
+            contour=2,
+        )
