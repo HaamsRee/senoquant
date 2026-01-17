@@ -1,5 +1,6 @@
 """Frontend widget for the Segmentation tab."""
 
+from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -97,6 +98,7 @@ class SegmentationTab(QWidget):
         self._settings.preload_models_changed.connect(
             self._on_preload_models_changed
         )
+        self._active_workers: list[tuple[QThread, QObject]] = []
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_nuclear_section())
@@ -515,6 +517,8 @@ class SegmentationTab(QWidget):
         for key, widget in settings_map.items():
             if hasattr(widget, "value"):
                 values[key] = widget.value()
+            elif isinstance(widget, QCheckBox):
+                values[key] = widget.isChecked()
         return values
 
     def _run_nuclear(self) -> None:
@@ -528,8 +532,21 @@ class SegmentationTab(QWidget):
         layer = self._get_layer_by_name(layer_name)
         if not self._validate_single_channel_layer(layer, "Nuclear layer"):
             return
-        result = model.run(task="nuclear", layer=layer, settings=settings)
-        self._add_labels_layer(layer, result.get("masks"), suffix="_nuclear_labels")
+        self._start_background_run(
+            run_button=self._nuclear_run_button,
+            run_text="Run",
+            task="nuclear",
+            run_callable=lambda: model.run(
+                task="nuclear",
+                layer=layer,
+                settings=settings,
+            ),
+            on_success=lambda result: self._add_labels_layer(
+                layer,
+                result.get("masks"),
+                suffix="_nuclear_labels",
+            ),
+        )
 
     def _run_cytoplasmic(self) -> None:
         """Run cytoplasmic segmentation for the selected model."""
@@ -550,13 +567,99 @@ class SegmentationTab(QWidget):
             return
         if self._cyto_requires_nuclear(model) and nuclear_layer is None:
             return
-        result = model.run(
+        self._start_background_run(
+            run_button=self._cyto_run_button,
+            run_text="Run",
             task="cytoplasmic",
-            cytoplasmic_layer=cyto_layer,
-            nuclear_layer=nuclear_layer,
-            settings=settings,
+            run_callable=lambda: model.run(
+                task="cytoplasmic",
+                cytoplasmic_layer=cyto_layer,
+                nuclear_layer=nuclear_layer,
+                settings=settings,
+            ),
+            on_success=lambda result: self._add_labels_layer(
+                cyto_layer,
+                result.get("masks"),
+                suffix="_cyto_labels",
+            ),
         )
-        self._add_labels_layer(cyto_layer, result.get("masks"), suffix="_cyto_labels")
+
+    def _start_background_run(
+        self,
+        run_button: QPushButton,
+        run_text: str,
+        task: str,
+        run_callable,
+        on_success,
+    ) -> None:
+        """Run a model in a background thread and manage UI state.
+
+        Parameters
+        ----------
+        run_button : QPushButton
+            Button to disable while the background task runs.
+        run_text : str
+            Label text to restore after completion.
+        task : str
+            Task name used for error messaging.
+        run_callable : callable
+            Callable that executes the model run.
+        on_success : callable
+            Callback invoked with the run result dictionary.
+        """
+        run_button.setEnabled(False)
+        run_button.setText("Running...")
+
+        thread = QThread(self)
+        worker = _RunWorker(run_callable)
+        worker.moveToThread(thread)
+
+        def handle_success(result: dict) -> None:
+            on_success(result)
+            self._finish_background_run(run_button, run_text, thread, worker)
+
+        def handle_error(message: str) -> None:
+            self._notify(f"{task.capitalize()} run failed: {message}")
+            self._finish_background_run(run_button, run_text, thread, worker)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(handle_success)
+        worker.error.connect(handle_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(worker.deleteLater)
+
+        self._active_workers.append((thread, worker))
+        thread.start()
+
+    def _finish_background_run(
+        self,
+        run_button: QPushButton,
+        run_text: str,
+        thread: QThread,
+        worker: QObject,
+    ) -> None:
+        """Restore UI state after a background run completes.
+
+        Parameters
+        ----------
+        run_button : QPushButton
+            Button to restore after completion.
+        run_text : str
+            Label text to restore on the button.
+        thread : QThread
+            Background thread being torn down.
+        worker : QObject
+            Worker object associated with the thread.
+        """
+        run_button.setEnabled(True)
+        run_button.setText(run_text)
+        try:
+            self._active_workers.remove((thread, worker))
+        except ValueError:
+            pass
+
 
     def _get_layer_by_name(self, name: str):
         """Return a viewer layer with the given name, if it exists.
@@ -669,3 +772,30 @@ class SegmentationTab(QWidget):
         # Get the labels layer and set contour = 2
         labels_layer = self._viewer.layers[f"{source_layer.name}{suffix}"]
         labels_layer.contour = 2
+
+
+class _RunWorker(QObject):
+    """Worker that executes a callable in a background thread."""
+
+    finished = Signal(dict)
+    error = Signal(str)
+
+    def __init__(self, run_callable) -> None:
+        """Initialize the worker with a callable.
+
+        Parameters
+        ----------
+        run_callable : callable
+            Callable to execute on the worker thread.
+        """
+        super().__init__()
+        self._run_callable = run_callable
+
+    def run(self) -> None:
+        """Execute the callable and emit results."""
+        try:
+            result = self._run_callable()
+        except Exception as exc:  # pragma: no cover - runtime error path
+            self.error.emit(str(exc))
+            return
+        self.finished.emit(result)

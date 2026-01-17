@@ -20,13 +20,14 @@ dependencies = [
   # "napari",
   "napari-bioio-reader",
   "cellpose==4.0.8",
+  "scikit-image>=0.22",
 ]
 
 [project.entry-points."napari.manifest"]
 senoquant = "senoquant:napari.yaml"
 
 [project.optional-dependencies]
-all = ["napari[all]", "napari-bioio-reader"]
+all = ["napari[all]", "napari-bioio-reader", "scikit-image>=0.22"]
 
 [tool.setuptools.package-data]
 senoquant = ["napari.yaml"]

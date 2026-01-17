@@ -323,7 +323,30 @@ class SpotsTab(QWidget):
         detector = self._backend.get_detector(detector_name)
         layer = self._get_layer_by_name(self._layer_combo.currentText())
         settings = self._collect_settings()
-        detector.run(layer=layer, settings=settings)
+        result = detector.run(layer=layer, settings=settings)
+        if isinstance(result, dict):
+            points = result.get("points")
+            mask = result.get("mask")
+            if points is not None:
+                self._add_points_layer(layer, points, detector_name)
+            if mask is not None:
+                self._add_labels_layer(layer, mask, detector_name)
+
+    def _add_points_layer(self, source_layer, points, detector_name: str) -> None:
+        """Add detected points to the viewer."""
+        if self._viewer is None or source_layer is None:
+            return
+        if points is None or len(points) == 0:
+            return
+        name = f"{source_layer.name}_{detector_name}_spots"
+        self._viewer.add_points(points, name=name)
+
+    def _add_labels_layer(self, source_layer, mask, detector_name: str) -> None:
+        """Add a labels layer for the detector mask."""
+        if self._viewer is None or source_layer is None:
+            return
+        name = f"{source_layer.name}_{detector_name}_labels"
+        self._viewer.add_labels(mask, name=name)
 
     def _get_layer_by_name(self, name: str):
         """Return a viewer layer with the given name, if it exists."""

@@ -81,6 +81,7 @@ class CPSAMModel(SenoQuantSegmentationModel):
             flow_threshold=flow_threshold,
             cellprob_threshold=cellprob_threshold,
             do_3D=do_3d,
+            z_axis=0 if do_3d else None,
             niter=n_iterations,
         )
 

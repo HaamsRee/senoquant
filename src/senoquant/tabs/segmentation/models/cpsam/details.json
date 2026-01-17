@@ -19,7 +19,7 @@
       "type": "float",
       "decimals": 1,
       "min": 0.1,
-      "max": 120.0,
+      "max": 1000.0,
       "default": 30.0
     },
     {
