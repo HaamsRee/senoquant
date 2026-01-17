@@ -55,12 +55,6 @@
       "default": false
     },
     {
-      "key": "use_gpu",
-      "label": "GPU",
-      "type": "bool",
-      "default": true
-    },
-    {
       "key": "normalize",
       "label": "Normalize",
       "type": "bool",

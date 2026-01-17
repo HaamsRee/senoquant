@@ -15,6 +15,11 @@ class CPSAMModel(SenoQuantSegmentationModel):
         """Initialize the CPSAM model wrapper."""
         # TODO: Decide how to store and distribute large model binaries (e.g., git-lfs or downloads).
         super().__init__("cpsam", models_root=models_root)
+        from cellpose.models import CellposeModel
+
+        model_path = Path(self.model_dir) / "cpsam"
+        # Always request GPU; Cellpose will fall back if unavailable.
+        self._model = CellposeModel(gpu=True, pretrained_model=str(model_path))
 
     def run(self, **kwargs) -> dict:
         """Run CPSAM using the Cellpose API.
@@ -38,21 +43,15 @@ class CPSAMModel(SenoQuantSegmentationModel):
         dict
             Dictionary containing masks, flows, and styles from Cellpose.
         """
-        from cellpose.models import CellposeModel
-
         task = kwargs.get("task")
         settings = kwargs.get("settings", {})
 
-        use_gpu = bool(settings.get("use_gpu", False))
         do_3d = bool(settings.get("use_3d", False))
         normalize = bool(settings.get("normalize", True))
         diameter = settings.get("diameter")
         flow_threshold = settings.get("flow_threshold", 0.4)
         cellprob_threshold = settings.get("cellprob_threshold", 0.0)
         n_iterations = settings.get("n_iterations", 0)
-
-        model_path = Path(self.model_dir) / "cpsam"
-        model = CellposeModel(gpu=use_gpu, pretrained_model=str(model_path))
 
         if task == "nuclear":
             layer = kwargs.get("layer")
@@ -75,7 +74,7 @@ class CPSAMModel(SenoQuantSegmentationModel):
         else:
             raise ValueError("Unknown task for CPSAM.")
 
-        masks, flows, styles = model.eval(
+        masks, flows, styles = self._model.eval(
             input_data,
             normalize=normalize,
             diameter=diameter,

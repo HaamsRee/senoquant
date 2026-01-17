@@ -1,6 +1,7 @@
 """Frontend widget for the Segmentation tab."""
 
 from qtpy.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -47,6 +48,7 @@ class RefreshingComboBox(QComboBox):
 # This keeps options limited to Image layers and preserves existing selections.
 
 from .backend import SegmentationBackend
+from ..settings.backend import SettingsBackend
 
 
 class SegmentationTab(QWidget):
@@ -58,12 +60,15 @@ class SegmentationTab(QWidget):
         Backend instance used to discover and load models.
     napari_viewer : object or None
         Napari viewer used to populate layer choices.
+    settings_backend : SettingsBackend or None
+        Settings store used for preload configuration.
     """
 
     def __init__(
         self,
         backend: SegmentationBackend | None = None,
         napari_viewer=None,
+        settings_backend: SettingsBackend | None = None,
     ) -> None:
         """Create the segmentation tab UI.
 
@@ -73,14 +78,23 @@ class SegmentationTab(QWidget):
             Backend instance used to discover and load models.
         napari_viewer : object or None
             Napari viewer used to populate layer choices.
+        settings_backend : SettingsBackend or None
+            Settings store used for preload configuration.
         """
         super().__init__()
         self._backend = backend or SegmentationBackend()
         self._viewer = napari_viewer
         self._nuclear_settings_widgets = {}
         self._cyto_settings_widgets = {}
+        self._settings = settings_backend or SettingsBackend()
+        self._settings.preload_models_changed.connect(
+            self._on_preload_models_changed
+        )
 
         layout = QVBoxLayout()
+        self._loading_label = QLabel("Loading models...")
+        self._loading_label.setVisible(False)
+        layout.addWidget(self._loading_label)
         layout.addWidget(self._make_nuclear_section())
         layout.addWidget(self._make_cytoplasmic_section())
         layout.addStretch(1)
@@ -90,6 +104,9 @@ class SegmentationTab(QWidget):
         self._refresh_model_choices()
         self._update_nuclear_model_settings(self._nuclear_model_combo.currentText())
         self._update_cytoplasmic_model_settings(self._cyto_model_combo.currentText())
+
+        if self._settings.preload_models_enabled():
+            self._preload_models_with_indicator()
 
     def _make_nuclear_section(self) -> QGroupBox:
         """Build the nuclear segmentation UI section.
@@ -490,7 +507,7 @@ class SegmentationTab(QWidget):
         model_name = self._nuclear_model_combo.currentText()
         if not model_name or model_name == "No models found":
             return
-        model = self._backend.get_model(model_name)
+        model = self._backend.get_preloaded_model(model_name)
         settings = self._collect_settings(self._nuclear_settings_widgets)
         layer_name = self._nuclear_layer_combo.currentText()
         layer = self._get_layer_by_name(layer_name)
@@ -502,7 +519,7 @@ class SegmentationTab(QWidget):
         model_name = self._cyto_model_combo.currentText()
         if not model_name or model_name == "No models found":
             return
-        model = self._backend.get_model(model_name)
+        model = self._backend.get_preloaded_model(model_name)
         settings = self._collect_settings(self._cyto_settings_widgets)
         cyto_layer = self._get_layer_by_name(self._cyto_layer_combo.currentText())
         nuclear_layer = self._get_layer_by_name(
@@ -537,6 +554,24 @@ class SegmentationTab(QWidget):
             if layer.name == name:
                 return layer
         return None
+
+    def _preload_models_with_indicator(self) -> None:
+        """Show a loading indicator while preloading models."""
+        self._loading_label.setVisible(True)
+        QApplication.processEvents()
+        self._backend.preload_models()
+        self._loading_label.setVisible(False)
+
+    def _on_preload_models_changed(self, enabled: bool) -> None:
+        """Handle preload setting changes.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether preloading is enabled.
+        """
+        if enabled:
+            self._preload_models_with_indicator()
 
     def _cyto_requires_nuclear(self, model) -> bool:
         """Return True when cytoplasmic mode requires a nuclear channel."""

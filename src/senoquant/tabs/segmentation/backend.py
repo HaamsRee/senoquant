@@ -23,6 +23,7 @@ class SegmentationBackend:
     def __init__(self, models_root: Path | None = None) -> None:
         self._models_root = models_root or (Path(__file__).parent / "models")
         self._models: dict[str, SenoQuantSegmentationModel] = {}
+        self._preloaded = False
 
     def get_model(self, name: str) -> SenoQuantSegmentationModel:
         """Return a model wrapper for the given name.
@@ -112,3 +113,18 @@ class SegmentationBackend:
                     if model.supports_task(task):
                         names.append(path.name)
         return sorted(names)
+
+    def get_preloaded_model(self, name: str) -> SenoQuantSegmentationModel:
+        """Return a preloaded model instance by name."""
+        model = self._models.get(name)
+        if model is None:
+            model = self.get_model(name)
+        return model
+
+    def preload_models(self) -> None:
+        """Instantiate all discovered models once."""
+        if self._preloaded:
+            return
+        for name in self.list_model_names():
+            self.get_model(name)
+        self._preloaded = True
