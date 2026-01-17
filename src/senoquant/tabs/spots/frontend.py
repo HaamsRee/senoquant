@@ -7,6 +7,7 @@ from qtpy.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QLabel,
+    QFrame,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
