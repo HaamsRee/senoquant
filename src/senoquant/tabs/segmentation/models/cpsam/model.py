@@ -88,7 +88,20 @@ class CPSAMModel(SenoQuantSegmentationModel):
         return {"masks": masks, "flows": flows, "styles": styles}
 
     def _extract_layer_data(self, layer, required: bool) -> np.ndarray | None:
-        """Return numpy data for the given napari layer."""
+        """Return numpy data for the given napari layer.
+
+        Parameters
+        ----------
+        layer : object or None
+            Napari layer to convert.
+        required : bool
+            Whether a missing layer should raise an error.
+
+        Returns
+        -------
+        numpy.ndarray or None
+            Layer data or None if not required and missing.
+        """
         if layer is None:
             if required:
                 raise ValueError("Layer is required for CPSAM.")

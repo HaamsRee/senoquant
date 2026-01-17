@@ -559,5 +559,8 @@ class SegmentationTab(QWidget):
         self._viewer.add_labels(
             masks,
             name=f"{source_layer.name}{suffix}",
-            contour=2,
         )
+
+        # Get the labels layer and set contour = 2
+        labels_layer = self._viewer.layers[f"{source_layer.name}{suffix}"]
+        labels_layer.contour = 2
