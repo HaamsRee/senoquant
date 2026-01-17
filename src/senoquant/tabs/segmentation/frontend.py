@@ -1,7 +1,6 @@
 """Frontend widget for the Segmentation tab."""
 
 from qtpy.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -17,8 +16,16 @@ from qtpy.QtWidgets import (
 
 try:
     from napari.layers import Image
+    from napari.utils.notifications import (
+        Notification,
+        NotificationSeverity,
+        show_console_notification,
+    )
 except Exception:  # pragma: no cover - optional import for runtime
     Image = None
+    show_console_notification = None
+    Notification = None
+    NotificationSeverity = None
 
 
 class RefreshingComboBox(QComboBox):
@@ -92,9 +99,6 @@ class SegmentationTab(QWidget):
         )
 
         layout = QVBoxLayout()
-        self._loading_label = QLabel("Loading models...")
-        self._loading_label.setVisible(False)
-        layout.addWidget(self._loading_label)
         layout.addWidget(self._make_nuclear_section())
         layout.addWidget(self._make_cytoplasmic_section())
         layout.addStretch(1)
@@ -106,7 +110,18 @@ class SegmentationTab(QWidget):
         self._update_cytoplasmic_model_settings(self._cyto_model_combo.currentText())
 
         if self._settings.preload_models_enabled():
-            self._preload_models_with_indicator()
+            if (
+                show_console_notification is not None
+                and Notification is not None
+                and NotificationSeverity is not None
+            ):
+                show_console_notification(
+                    Notification(
+                        "Preloading segmentation models...",
+                        severity=NotificationSeverity.INFO,
+                    )
+                )
+            self._backend.preload_models()
 
     def _make_nuclear_section(self) -> QGroupBox:
         """Build the nuclear segmentation UI section.
@@ -555,13 +570,6 @@ class SegmentationTab(QWidget):
                 return layer
         return None
 
-    def _preload_models_with_indicator(self) -> None:
-        """Show a loading indicator while preloading models."""
-        self._loading_label.setVisible(True)
-        QApplication.processEvents()
-        self._backend.preload_models()
-        self._loading_label.setVisible(False)
-
     def _on_preload_models_changed(self, enabled: bool) -> None:
         """Handle preload setting changes.
 
@@ -571,7 +579,18 @@ class SegmentationTab(QWidget):
             Whether preloading is enabled.
         """
         if enabled:
-            self._preload_models_with_indicator()
+            if (
+                show_console_notification is not None
+                and Notification is not None
+                and NotificationSeverity is not None
+            ):
+                show_console_notification(
+                    Notification(
+                        "Preloading segmentation models...",
+                        severity=NotificationSeverity.INFO,
+                    )
+                )
+            self._backend.preload_models()
 
     def _cyto_requires_nuclear(self, model) -> bool:
         """Return True when cytoplasmic mode requires a nuclear channel."""
