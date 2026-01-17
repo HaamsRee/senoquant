@@ -24,7 +24,7 @@ class SenoQuantWidget(QWidget):
             ),
             "Segmentation",
         )
-        tabs.addTab(SpotsTab(), "Spots")
+        tabs.addTab(SpotsTab(napari_viewer=napari_viewer), "Spots")
         tabs.addTab(QuantifyTab(), "Quantify")
         tabs.addTab(SettingsTab(backend=self._settings_backend), "Settings")
 
