@@ -144,8 +144,8 @@ class QuantificationTab(QWidget):
         features_container.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
-        features_container.setMinimumWidth(300)
-        self._features_min_width = 300
+        features_container.setMinimumWidth(200)
+        self._features_min_width = 200
         self._features_layout = QVBoxLayout()
         self._features_layout.setContentsMargins(0, 0, 0, 0)
         self._features_layout.setSpacing(8)
@@ -229,16 +229,58 @@ class QuantificationTab(QWidget):
             total_min = self._features_container.minimumWidth()
         left_hint = 0
         right_hint = 0
-        if hasattr(self, "_left_container"):
-            left_hint = self._left_container.sizeHint().width()
-        if hasattr(self, "_right_container"):
-            right_hint = self._right_container.sizeHint().width()
+        if hasattr(self, "_left_container") and self._left_container is not None:
+            try:
+                left_hint = self._left_container.sizeHint().width()
+            except RuntimeError:
+                self._left_container = None
+        if hasattr(self, "_right_container") and self._right_container is not None:
+            try:
+                right_hint = self._right_container.sizeHint().width()
+            except RuntimeError:
+                self._right_container = None
         left_min = max(int(total_min * 0.6), left_hint)
         right_min = max(int(total_min * 0.4), right_hint)
-        if hasattr(self, "_left_container"):
-            self._left_container.setMinimumWidth(left_min)
-        if hasattr(self, "_right_container"):
-            self._right_container.setMinimumWidth(right_min)
+        if self._left_container is not None:
+            try:
+                self._left_container.setMinimumWidth(left_min)
+            except RuntimeError:
+                self._left_container = None
+        if self._right_container is not None:
+            try:
+                self._right_container.setMinimumWidth(right_min)
+            except RuntimeError:
+                self._right_container = None
+        self._update_features_container_width()
+
+    def _update_features_container_width(self) -> None:
+        """Ensure the features container can scroll to the widest feature."""
+        if not hasattr(self, "_features_container") or not hasattr(
+            self, "_features_layout"
+        ):
+            return
+        max_width = getattr(self, "_features_min_width", 0)
+        self._features_layout.invalidate()
+        layout_width = self._features_layout.sizeHint().width()
+        max_width = max(max_width, layout_width)
+        for index in range(self._features_layout.count()):
+            item = self._features_layout.itemAt(index)
+            widget = item.widget()
+            if widget is None:
+                continue
+            widget.adjustSize()
+            max_width = max(
+                max_width,
+                widget.sizeHint().width(),
+                widget.minimumSizeHint().width(),
+            )
+        max_width = max(
+            max_width,
+            self._features_container.sizeHint().width(),
+            self._features_container.minimumSizeHint().width(),
+        )
+        self._features_container.setMinimumWidth(max_width)
+        self._features_container.updateGeometry()
 
     def _add_feature_row(self) -> None:
         """Add a new feature input row."""
@@ -492,6 +534,11 @@ class QuantificationTab(QWidget):
         else:
             self._clear_rois(config)
         self._features_layout.activate()
+        self._update_feature_columns_width()
+        self._update_features_container_width()
+        if hasattr(self, "_features_scroll_area"):
+            self._features_scroll_area.updateGeometry()
+        QTimer.singleShot(0, self._update_features_scroll_height)
         QTimer.singleShot(0, lambda cfg=config: self._update_roi_scroll_height(cfg))
 
     def _add_roi_row(self, config: dict) -> None:
