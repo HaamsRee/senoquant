@@ -2,7 +2,7 @@
 
 from qtpy.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
-from .tabs import QuantifyTab, SegmentationTab, SettingsTab, SpotsTab
+from .tabs import QuantificationTab, SegmentationTab, SettingsTab, SpotsTab
 from .tabs.settings.backend import SettingsBackend
 
 
@@ -25,7 +25,7 @@ class SenoQuantWidget(QWidget):
             "Segmentation",
         )
         tabs.addTab(SpotsTab(napari_viewer=napari_viewer), "Spots")
-        tabs.addTab(QuantifyTab(), "Quantify")
+        tabs.addTab(QuantificationTab(), "Quantification")
         tabs.addTab(SettingsTab(backend=self._settings_backend), "Settings")
 
         layout.addWidget(tabs)
