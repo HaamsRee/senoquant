@@ -1,5 +1,7 @@
 """Frontend widget for the Quantification tab."""
 
+import numpy as np
+
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
@@ -9,7 +11,9 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QFrame,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
+    QDoubleSpinBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -18,6 +22,14 @@ from qtpy.QtWidgets import (
 )
 
 from .backend import QuantificationBackend
+
+try:
+    from superqt import QDoubleRangeSlider as RangeSlider
+except ImportError:  # pragma: no cover - fallback when superqt is unavailable
+    try:
+        from superqt import QRangeSlider as RangeSlider
+    except ImportError:  # pragma: no cover
+        RangeSlider = None
 
 
 class RefreshingComboBox(QComboBox):
@@ -333,7 +345,6 @@ class QuantificationTab(QWidget):
                 section
             )
         )
-        left_layout.addWidget(delete_button)
 
         left_dynamic_container = QWidget()
         left_dynamic_container.setSizePolicy(
@@ -344,6 +355,7 @@ class QuantificationTab(QWidget):
         left_dynamic_layout.setSpacing(6)
         left_dynamic_container.setLayout(left_dynamic_layout)
         left_layout.addWidget(left_dynamic_container)
+        left_layout.addWidget(delete_button)
 
         left_container = QWidget()
         left_container.setLayout(left_layout)
@@ -382,6 +394,13 @@ class QuantificationTab(QWidget):
             "right_layout": right_layout,
             "left_layout": left_layout,
             "labels_widget": None,
+            "channel_combo": None,
+            "threshold_checkbox": None,
+            "threshold_slider": None,
+            "threshold_container": None,
+            "threshold_min_spin": None,
+            "threshold_max_spin": None,
+            "threshold_updating": False,
         }
         self._feature_configs.append(config)
         name_input.textChanged.connect(self._update_colocalization_options)
@@ -421,6 +440,13 @@ class QuantificationTab(QWidget):
         config["roi_items"] = []
         config["coloc_a_combo"] = None
         config["coloc_b_combo"] = None
+        config["channel_combo"] = None
+        config["threshold_checkbox"] = None
+        config["threshold_slider"] = None
+        config["threshold_container"] = None
+        config["threshold_min_spin"] = None
+        config["threshold_max_spin"] = None
+        config["threshold_updating"] = False
 
         feature_type = config["type_combo"].currentText()
         if feature_type in ("Marker", "Spots"):
@@ -444,6 +470,85 @@ class QuantificationTab(QWidget):
                 left_layout.insertWidget(1, labels_widget)
             config["labels_widget"] = labels_widget
 
+        if feature_type == "Marker":
+            channel_form = QFormLayout()
+            channel_form.setFieldGrowthPolicy(
+                QFormLayout.AllNonFixedFieldsGrow
+            )
+            channel_combo = RefreshingComboBox(
+                refresh_callback=lambda combo_ref=None: self._refresh_image_combo(
+                    channel_combo
+                )
+            )
+            self._configure_combo(channel_combo)
+            channel_combo.currentTextChanged.connect(
+                lambda _text, cfg=config: self._on_channel_changed(cfg)
+            )
+            channel_form.addRow("Channel", channel_combo)
+            left_dynamic_layout.addLayout(channel_form)
+
+            threshold_checkbox = QCheckBox("Set threshold")
+            threshold_checkbox.setEnabled(False)
+            threshold_checkbox.toggled.connect(
+                lambda checked, cfg=config: self._toggle_threshold(cfg, checked)
+            )
+            left_dynamic_layout.addWidget(threshold_checkbox)
+
+            threshold_container = QWidget()
+            threshold_layout = QHBoxLayout()
+            threshold_layout.setContentsMargins(0, 0, 0, 0)
+            threshold_slider = self._make_range_slider()
+            if hasattr(threshold_slider, "valueChanged"):
+                threshold_slider.valueChanged.connect(
+                    lambda values, cfg=config: self._on_threshold_slider_changed(
+                        cfg, values
+                    )
+                )
+            threshold_min_spin = QDoubleSpinBox()
+            threshold_min_spin.setDecimals(2)
+            threshold_min_spin.setMinimumWidth(80)
+            threshold_min_spin.setSizePolicy(
+                QSizePolicy.Fixed, QSizePolicy.Fixed
+            )
+            threshold_min_spin.valueChanged.connect(
+                lambda value, cfg=config: self._on_threshold_spin_changed(
+                    cfg, "min", value
+                )
+            )
+
+            threshold_max_spin = QDoubleSpinBox()
+            threshold_max_spin.setDecimals(2)
+            threshold_max_spin.setMinimumWidth(80)
+            threshold_max_spin.setSizePolicy(
+                QSizePolicy.Fixed, QSizePolicy.Fixed
+            )
+            threshold_max_spin.valueChanged.connect(
+                lambda value, cfg=config: self._on_threshold_spin_changed(
+                    cfg, "max", value
+                )
+            )
+
+            threshold_slider.setEnabled(False)
+            threshold_slider.setVisible(False)
+            threshold_min_spin.setEnabled(False)
+            threshold_max_spin.setEnabled(False)
+            threshold_layout.addWidget(threshold_min_spin)
+            threshold_layout.addWidget(threshold_slider, 1)
+            threshold_layout.addWidget(threshold_max_spin)
+            threshold_container.setLayout(threshold_layout)
+            threshold_container.setVisible(False)
+            left_dynamic_layout.addWidget(threshold_container)
+
+            config["channel_combo"] = channel_combo
+            config["threshold_checkbox"] = threshold_checkbox
+            config["threshold_slider"] = threshold_slider
+            config["threshold_container"] = threshold_container
+            config["threshold_min_spin"] = threshold_min_spin
+            config["threshold_max_spin"] = threshold_max_spin
+            self._on_channel_changed(config)
+        elif feature_type == "Spots":
+            pass
+        if feature_type in ("Marker", "Spots"):
             roi_checkbox = QCheckBox("ROIs")
             roi_checkbox.toggled.connect(
                 lambda checked, cfg=config: self._toggle_roi_section(cfg, checked)
@@ -764,6 +869,36 @@ class QuantificationTab(QWidget):
                 continue
             item.setEnabled(combo.itemText(index) != value)
 
+    def _make_range_slider(self):
+        """Create a horizontal range slider or a placeholder label."""
+        if RangeSlider is None:
+            return QLabel("Range slider unavailable")
+        try:
+            return RangeSlider(Qt.Horizontal)
+        except TypeError:
+            slider = RangeSlider()
+            slider.setOrientation(Qt.Horizontal)
+            return slider
+
+    def _get_slider_values(self, slider):
+        """Return the current min/max values from a range slider."""
+        if hasattr(slider, "value"):
+            return slider.value()
+        if hasattr(slider, "values"):
+            return slider.values()
+        return None
+
+    def _set_slider_values(self, slider, values) -> None:
+        """Set the min/max values on a range slider."""
+        if hasattr(slider, "setValue"):
+            try:
+                slider.setValue(values)
+                return
+            except TypeError:
+                pass
+        if hasattr(slider, "setValues"):
+            slider.setValues(values)
+
     def _configure_combo(self, combo: QComboBox) -> None:
         """Apply sizing defaults to combo boxes.
 
@@ -795,6 +930,163 @@ class QuantificationTab(QWidget):
             child_layout = item.layout()
             if child_layout is not None:
                 self._clear_layout(child_layout)
+
+    def _on_channel_changed(self, config: dict) -> None:
+        """Update threshold controls when the channel selection changes.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
+        combo = config.get("channel_combo")
+        checkbox = config.get("threshold_checkbox")
+        slider = config.get("threshold_slider")
+        min_spin = config.get("threshold_min_spin")
+        max_spin = config.get("threshold_max_spin")
+        if combo is None or checkbox is None or slider is None:
+            return
+        container = config.get("threshold_container")
+        layer = self._get_image_layer_by_name(combo.currentText())
+        if layer is None:
+            checkbox.setChecked(False)
+            checkbox.setEnabled(False)
+            slider.setEnabled(False)
+            slider.setVisible(False)
+            if min_spin is not None:
+                min_spin.setEnabled(False)
+            if max_spin is not None:
+                max_spin.setEnabled(False)
+            if container is not None:
+                container.setVisible(False)
+            return
+        checkbox.setEnabled(True)
+        self._set_threshold_range(slider, layer, config)
+        self._toggle_threshold(config, checkbox.isChecked())
+
+    def _toggle_threshold(self, config: dict, enabled: bool) -> None:
+        """Toggle the threshold range slider visibility.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        enabled : bool
+            Whether threshold controls should be visible.
+        """
+        slider = config.get("threshold_slider")
+        container = config.get("threshold_container")
+        min_spin = config.get("threshold_min_spin")
+        max_spin = config.get("threshold_max_spin")
+        if slider is None or container is None:
+            return
+        slider.setEnabled(enabled)
+        slider.setVisible(enabled)
+        if min_spin is not None:
+            min_spin.setEnabled(enabled)
+        if max_spin is not None:
+            max_spin.setEnabled(enabled)
+        container.setVisible(enabled)
+
+    def _set_threshold_range(self, slider, layer, config: dict | None = None) -> None:
+        """Set slider bounds to match the selected image layer.
+
+        Parameters
+        ----------
+        slider : QWidget
+            Range slider widget.
+        layer : object
+            Napari image layer used to derive min/max values.
+        config : dict or None
+            Feature configuration dictionary used to update spin boxes.
+        """
+        if not hasattr(slider, "setMinimum"):
+            return
+        data = layer.data
+        min_val = float(np.nanmin(data))
+        max_val = float(np.nanmax(data))
+        if min_val == max_val:
+            max_val = min_val + 1.0
+        if hasattr(slider, "setRange"):
+            slider.setRange(min_val, max_val)
+        else:
+            slider.setMinimum(min_val)
+            slider.setMaximum(max_val)
+        self._set_slider_values(slider, (min_val, max_val))
+        if config is not None:
+            min_spin = config.get("threshold_min_spin")
+            max_spin = config.get("threshold_max_spin")
+            if min_spin is not None:
+                min_spin.blockSignals(True)
+                min_spin.setRange(min_val, max_val)
+                min_spin.setValue(min_val)
+                min_spin.blockSignals(False)
+            if max_spin is not None:
+                max_spin.blockSignals(True)
+                max_spin.setRange(min_val, max_val)
+                max_spin.setValue(max_val)
+                max_spin.blockSignals(False)
+
+    def _on_threshold_slider_changed(self, config: dict, values) -> None:
+        """Sync spin boxes when the slider range changes.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        values : tuple
+            Range slider values.
+        """
+        if values is None:
+            return
+        min_spin = config.get("threshold_min_spin")
+        max_spin = config.get("threshold_max_spin")
+        if min_spin is None or max_spin is None:
+            return
+        config["threshold_updating"] = True
+        min_spin.blockSignals(True)
+        max_spin.blockSignals(True)
+        min_spin.setValue(values[0])
+        max_spin.setValue(values[1])
+        min_spin.blockSignals(False)
+        max_spin.blockSignals(False)
+        config["threshold_updating"] = False
+
+    def _on_threshold_spin_changed(self, config: dict, which: str, value: float) -> None:
+        """Sync the range slider when a spin box changes.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        which : str
+            Identifier for the spin box ("min" or "max").
+        value : float
+            New value for the spin box.
+        """
+        if config.get("threshold_updating"):
+            return
+        slider = config.get("threshold_slider")
+        min_spin = config.get("threshold_min_spin")
+        max_spin = config.get("threshold_max_spin")
+        if slider is None or min_spin is None or max_spin is None:
+            return
+        min_val = min_spin.value()
+        max_val = max_spin.value()
+        if min_val > max_val:
+            if which == "min":
+                max_val = min_val
+                max_spin.blockSignals(True)
+                max_spin.setValue(max_val)
+                max_spin.blockSignals(False)
+            else:
+                min_val = max_val
+                min_spin.blockSignals(True)
+                min_spin.setValue(min_val)
+                min_spin.blockSignals(False)
+        config["threshold_updating"] = True
+        self._set_slider_values(slider, (min_val, max_val))
+        config["threshold_updating"] = False
 
     def _feature_index(self, config: dict) -> int:
         """Return the 1-based index for a feature config.
@@ -908,6 +1200,26 @@ class QuantificationTab(QWidget):
             if index != -1:
                 combo.setCurrentIndex(index)
 
+    def _refresh_image_combo(self, combo: QComboBox) -> None:
+        """Populate an image-layer combo.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to populate.
+        """
+        current = combo.currentText()
+        combo.clear()
+        if self._viewer is None:
+            combo.addItem("Select image")
+            return
+        for layer in self._iter_image_layers():
+            combo.addItem(layer.name)
+        if current:
+            index = combo.findText(current)
+            if index != -1:
+                combo.setCurrentIndex(index)
+
     def _iter_label_layers(self) -> list:
         """Return label layers from the viewer."""
         if self._viewer is None:
@@ -929,3 +1241,23 @@ class QuantificationTab(QWidget):
             if layer.__class__.__name__ == "Shapes":
                 shape_layers.append(layer)
         return shape_layers
+
+    def _iter_image_layers(self) -> list:
+        """Return image layers from the viewer."""
+        if self._viewer is None:
+            return []
+
+        image_layers = []
+        for layer in self._viewer.layers:
+            if layer.__class__.__name__ == "Image":
+                image_layers.append(layer)
+        return image_layers
+
+    def _get_image_layer_by_name(self, name: str):
+        """Return an image layer by name."""
+        if self._viewer is None or not name:
+            return None
+        for layer in self._iter_image_layers():
+            if layer.name == name:
+                return layer
+        return None
