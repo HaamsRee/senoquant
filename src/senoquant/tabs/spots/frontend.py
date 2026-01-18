@@ -11,6 +11,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -103,10 +104,13 @@ class SpotsTab(QWidget):
         section_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
+        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         self._layer_combo = RefreshingComboBox(
             refresh_callback=self._refresh_layer_choices
         )
+        self._configure_combo(self._layer_combo)
         self._detector_combo = QComboBox()
+        self._configure_combo(self._detector_combo)
         self._detector_combo.currentTextChanged.connect(
             self._update_detector_settings
         )
@@ -136,12 +140,15 @@ class SpotsTab(QWidget):
         section_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
+        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         self._coloc_a_combo = RefreshingComboBox(
             refresh_callback=self._refresh_label_choices
         )
+        self._configure_combo(self._coloc_a_combo)
         self._coloc_b_combo = RefreshingComboBox(
             refresh_callback=self._refresh_label_choices
         )
+        self._configure_combo(self._coloc_b_combo)
         form_layout.addRow("Labels A", self._coloc_a_combo)
         form_layout.addRow("Labels B", self._coloc_b_combo)
 
@@ -353,6 +360,15 @@ class SpotsTab(QWidget):
                 form_layout.addRow(label, QLabel("Unsupported setting type"))
 
         return form_layout
+
+    def _configure_combo(self, combo: QComboBox) -> None:
+        """Apply sizing defaults to combo boxes."""
+        combo.setSizeAdjustPolicy(
+            QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )
+        combo.setMinimumContentsLength(20)
+        combo.setMinimumWidth(180)
+        combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
     def _collect_settings(self) -> dict:
         """Collect current values from the settings widgets."""

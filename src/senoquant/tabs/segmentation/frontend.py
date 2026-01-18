@@ -10,6 +10,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QFrame,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -137,10 +138,13 @@ class SegmentationTab(QWidget):
         section_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
+        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         self._nuclear_layer_combo = RefreshingComboBox(
             refresh_callback=self._refresh_layer_choices
         )
+        self._configure_combo(self._nuclear_layer_combo)
         self._nuclear_model_combo = QComboBox()
+        self._configure_combo(self._nuclear_model_combo)
         self._nuclear_model_combo.currentTextChanged.connect(
             self._update_nuclear_model_settings
         )
@@ -172,16 +176,20 @@ class SegmentationTab(QWidget):
         section_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
+        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         self._cyto_layer_combo = RefreshingComboBox(
             refresh_callback=self._refresh_layer_choices
         )
+        self._configure_combo(self._cyto_layer_combo)
         self._cyto_nuclear_layer_combo = RefreshingComboBox(
             refresh_callback=self._refresh_layer_choices
         )
+        self._configure_combo(self._cyto_nuclear_layer_combo)
         self._cyto_nuclear_layer_combo.currentTextChanged.connect(
             self._on_cyto_nuclear_layer_changed
         )
         self._cyto_model_combo = QComboBox()
+        self._configure_combo(self._cyto_model_combo)
         self._cyto_model_combo.currentTextChanged.connect(
             self._update_cytoplasmic_model_settings
         )
@@ -520,6 +528,15 @@ class SegmentationTab(QWidget):
             elif isinstance(widget, QCheckBox):
                 values[key] = widget.isChecked()
         return values
+
+    def _configure_combo(self, combo: QComboBox) -> None:
+        """Apply sizing defaults to combo boxes."""
+        combo.setSizeAdjustPolicy(
+            QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )
+        combo.setMinimumContentsLength(20)
+        combo.setMinimumWidth(180)
+        combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
     def _run_nuclear(self) -> None:
         """Run nuclear segmentation for the selected model."""
