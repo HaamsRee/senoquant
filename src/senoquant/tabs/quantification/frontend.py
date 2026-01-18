@@ -144,8 +144,8 @@ class QuantificationTab(QWidget):
         features_container.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
-        features_container.setMinimumWidth(500)
-        self._features_min_width = 500
+        features_container.setMinimumWidth(300)
+        self._features_min_width = 300
         self._features_layout = QVBoxLayout()
         self._features_layout.setContentsMargins(0, 0, 0, 0)
         self._features_layout.setSpacing(8)
@@ -227,8 +227,14 @@ class QuantificationTab(QWidget):
         total_min = getattr(self, "_features_min_width", 0)
         if total_min <= 0:
             total_min = self._features_container.minimumWidth()
-        left_min = int(total_min * 0.6)
-        right_min = int(total_min * 0.4)
+        left_hint = 0
+        right_hint = 0
+        if hasattr(self, "_left_container"):
+            left_hint = self._left_container.sizeHint().width()
+        if hasattr(self, "_right_container"):
+            right_hint = self._right_container.sizeHint().width()
+        left_min = max(int(total_min * 0.6), left_hint)
+        right_min = max(int(total_min * 0.4), right_hint)
         if hasattr(self, "_left_container"):
             self._left_container.setMinimumWidth(left_min)
         if hasattr(self, "_right_container"):
