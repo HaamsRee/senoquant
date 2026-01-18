@@ -1,4 +1,5 @@
 """Frontend widget for the Spots tab."""
+import numpy as np
 from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtGui import QPalette
 from qtpy.QtWidgets import (
@@ -16,7 +17,7 @@ from qtpy.QtWidgets import (
 )
 
 try:
-    from napari.layers import Image
+    from napari.layers import Image, Labels
     from napari.utils.notifications import (
         Notification,
         NotificationSeverity,
@@ -24,6 +25,7 @@ try:
     )
 except Exception:  # pragma: no cover - optional import for runtime
     Image = None
+    Labels = None
     show_console_notification = None
     Notification = None
     NotificationSeverity = None
@@ -79,10 +81,12 @@ class SpotsTab(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_detector_section())
+        layout.addWidget(self._make_colocalization_section())
         layout.addStretch(1)
         self.setLayout(layout)
 
         self._refresh_layer_choices()
+        self._refresh_label_choices()
         self._refresh_detector_choices()
         self._update_detector_settings(self._detector_combo.currentText())
 
@@ -116,6 +120,36 @@ class SpotsTab(QWidget):
         self._run_button = QPushButton("Run")
         self._run_button.clicked.connect(self._run_detector)
         section_layout.addWidget(self._run_button)
+
+        section.setLayout(section_layout)
+        return section
+
+    def _make_colocalization_section(self) -> QGroupBox:
+        """Build the colocalization visualization section.
+
+        Returns
+        -------
+        QGroupBox
+            Group box containing colocalization controls.
+        """
+        section = QGroupBox("Visualize colocalization")
+        section_layout = QVBoxLayout()
+
+        form_layout = QFormLayout()
+        self._coloc_a_combo = RefreshingComboBox(
+            refresh_callback=self._refresh_label_choices
+        )
+        self._coloc_b_combo = RefreshingComboBox(
+            refresh_callback=self._refresh_label_choices
+        )
+        form_layout.addRow("Labels A", self._coloc_a_combo)
+        form_layout.addRow("Labels B", self._coloc_b_combo)
+
+        section_layout.addLayout(form_layout)
+
+        self._coloc_run_button = QPushButton("Visualize")
+        self._coloc_run_button.clicked.connect(self._run_colocalization)
+        section_layout.addWidget(self._coloc_run_button)
 
         section.setLayout(section_layout)
         return section
@@ -193,6 +227,30 @@ class SpotsTab(QWidget):
             index = self._layer_combo.findText(current)
             if index != -1:
                 self._layer_combo.setCurrentIndex(index)
+
+    def _refresh_label_choices(self) -> None:
+        """Populate label layer dropdowns from the napari viewer."""
+        current_a = self._coloc_a_combo.currentText()
+        current_b = self._coloc_b_combo.currentText()
+        self._coloc_a_combo.clear()
+        self._coloc_b_combo.clear()
+        if self._viewer is None:
+            self._coloc_a_combo.addItem("Select labels")
+            self._coloc_b_combo.addItem("Select labels")
+            return
+
+        for layer in self._iter_label_layers():
+            self._coloc_a_combo.addItem(layer.name)
+            self._coloc_b_combo.addItem(layer.name)
+
+        if current_a:
+            index = self._coloc_a_combo.findText(current_a)
+            if index != -1:
+                self._coloc_a_combo.setCurrentIndex(index)
+        if current_b:
+            index = self._coloc_b_combo.findText(current_b)
+            if index != -1:
+                self._coloc_b_combo.setCurrentIndex(index)
 
     def _refresh_detector_choices(self) -> None:
         """Populate the detector dropdown from available detector folders."""
@@ -343,6 +401,68 @@ class SpotsTab(QWidget):
             ),
         )
 
+    def _run_colocalization(self) -> None:
+        """Visualize intersections between two label layers."""
+        layer_a = self._get_layer_by_name(self._coloc_a_combo.currentText())
+        layer_b = self._get_layer_by_name(self._coloc_b_combo.currentText())
+        if not self._validate_label_layer(layer_a, "Labels A"):
+            return
+        if not self._validate_label_layer(layer_b, "Labels B"):
+            return
+
+        data_a = np.asarray(layer_a.data)
+        data_b = np.asarray(layer_b.data)
+        if data_a.shape != data_b.shape:
+            self._notify("Label layers must have matching shapes.")
+            return
+
+        self._start_background_run(
+            run_button=self._coloc_run_button,
+            run_text="Visualize",
+            detector_name="colocalization",
+            run_callable=lambda: self._backend.compute_colocalization(
+                data_a, data_b
+            ),
+            on_success=lambda result: self._apply_colocalization_result(
+                layer_a, layer_b, result
+            ),
+        )
+
+    def _apply_colocalization_result(
+        self,
+        layer_a,
+        layer_b,
+        result: dict,
+    ) -> None:
+        """Apply colocalization results to the viewer."""
+        if not isinstance(result, dict):
+            return
+        points = result.get("points")
+        if points is None or len(points) == 0:
+            self._notify("No overlapping labels found.")
+            return
+        self._add_colocalization_points(layer_a, layer_b, points)
+
+    def _add_colocalization_points(
+        self,
+        layer_a,
+        layer_b,
+        points: np.ndarray,
+    ) -> None:
+        """Add colocalization points as yellow circles."""
+        if self._viewer is None:
+            return
+        name = f"{layer_a.name}_{layer_b.name}_colocalization"
+        if name in self._viewer.layers:
+            self._viewer.layers.remove(name)
+        self._viewer.add_points(
+            points,
+            name=name,
+            face_color="yellow",
+            symbol="ring",
+            size=6,
+        )
+
     def _start_background_run(
         self,
         run_button: QPushButton,
@@ -378,7 +498,7 @@ class SpotsTab(QWidget):
             self._finish_background_run(run_button, run_text, thread, worker)
 
         def handle_error(message: str) -> None:
-            self._notify(f"Spot detection failed for '{detector_name}': {message}")
+            self._notify(f"Run failed for '{detector_name}': {message}")
             self._finish_background_run(run_button, run_text, thread, worker)
 
         thread.started.connect(worker.run)
@@ -433,6 +553,8 @@ class SpotsTab(QWidget):
             return
         name = f"{source_layer.name}_{detector_name}_labels"
         self._viewer.add_labels(mask, name=name)
+        labels_layer = self._viewer.layers[name]
+        labels_layer.contour = 1
 
     def _notify(self, message: str) -> None:
         """Send a warning notification to the napari console.
@@ -460,6 +582,34 @@ class SpotsTab(QWidget):
                 return layer
         return None
 
+    def _validate_label_layer(self, layer, label: str) -> bool:
+        """Validate that a layer is a Labels layer.
+
+        Parameters
+        ----------
+        layer : object or None
+            Napari layer to validate.
+        label : str
+            User-facing label for notifications.
+
+        Returns
+        -------
+        bool
+            True if the layer is a Labels layer.
+        """
+        if layer is None:
+            self._notify(f"{label} is not selected.")
+            return False
+        if Labels is not None:
+            if not isinstance(layer, Labels):
+                self._notify(f"{label} must be a Labels layer.")
+                return False
+        else:
+            if layer.__class__.__name__ != "Labels":
+                self._notify(f"{label} must be a Labels layer.")
+                return False
+        return True
+
     def _iter_image_layers(self) -> list:
         if self._viewer is None:
             return []
@@ -473,6 +623,20 @@ class SpotsTab(QWidget):
                 if layer.__class__.__name__ == "Image":
                     image_layers.append(layer)
         return image_layers
+
+    def _iter_label_layers(self) -> list:
+        if self._viewer is None:
+            return []
+
+        label_layers = []
+        for layer in self._viewer.layers:
+            if Labels is not None:
+                if isinstance(layer, Labels):
+                    label_layers.append(layer)
+            else:
+                if layer.__class__.__name__ == "Labels":
+                    label_layers.append(layer)
+        return label_layers
 
 
 class _RunWorker(QObject):

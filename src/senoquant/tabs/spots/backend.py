@@ -6,6 +6,9 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import numpy as np
+from skimage.measure import label, regionprops
+
 from .models import SenoQuantSpotDetector
 
 
@@ -101,3 +104,32 @@ class SpotsBackend:
         if not candidates:
             return None
         return candidates[0]
+
+    def compute_colocalization(
+        self, data_a: np.ndarray, data_b: np.ndarray
+    ) -> dict:
+        """Compute colocalization centroids from two label arrays.
+
+        Parameters
+        ----------
+        data_a : numpy.ndarray
+            First label layer data.
+        data_b : numpy.ndarray
+            Second label layer data.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the ``points`` array.
+        """
+        intersection = (data_a > 0) & (data_b > 0)
+        if not np.any(intersection):
+            return {"points": np.empty((0, intersection.ndim), dtype=np.float32)}
+
+        labeled = label(intersection)
+        if labeled.max() == 0:
+            return {"points": np.empty((0, intersection.ndim), dtype=np.float32)}
+
+        points = [region.centroid for region in regionprops(labeled)]
+        coords = np.asarray(points, dtype=np.float32)
+        return {"points": coords}
