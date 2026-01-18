@@ -1,4 +1,5 @@
 """Frontend widget for the Spots tab."""
+from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtGui import QPalette
 from qtpy.QtWidgets import (
     QCheckBox,
@@ -16,8 +17,16 @@ from qtpy.QtWidgets import (
 
 try:
     from napari.layers import Image
+    from napari.utils.notifications import (
+        Notification,
+        NotificationSeverity,
+        show_console_notification,
+    )
 except Exception:  # pragma: no cover - optional import for runtime
     Image = None
+    show_console_notification = None
+    Notification = None
+    NotificationSeverity = None
 
 from .backend import SpotsBackend
 
@@ -66,6 +75,7 @@ class SpotsTab(QWidget):
         self._viewer = napari_viewer
         self._settings_widgets = {}
         self._settings_meta = {}
+        self._active_workers: list[tuple[QThread, QObject]] = []
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_detector_section())
@@ -323,23 +333,99 @@ class SpotsTab(QWidget):
         detector = self._backend.get_detector(detector_name)
         layer = self._get_layer_by_name(self._layer_combo.currentText())
         settings = self._collect_settings()
-        result = detector.run(layer=layer, settings=settings)
-        if isinstance(result, dict):
-            points = result.get("points")
-            mask = result.get("mask")
-            if points is not None:
-                self._add_points_layer(layer, points, detector_name)
-            if mask is not None:
-                self._add_labels_layer(layer, mask, detector_name)
+        self._start_background_run(
+            run_button=self._run_button,
+            run_text="Run",
+            detector_name=detector_name,
+            run_callable=lambda: detector.run(layer=layer, settings=settings),
+            on_success=lambda result: self._handle_run_result(
+                layer, detector_name, result
+            ),
+        )
 
-    def _add_points_layer(self, source_layer, points, detector_name: str) -> None:
-        """Add detected points to the viewer."""
-        if self._viewer is None or source_layer is None:
+    def _start_background_run(
+        self,
+        run_button: QPushButton,
+        run_text: str,
+        detector_name: str,
+        run_callable,
+        on_success,
+    ) -> None:
+        """Run a detector in a background thread and manage UI state.
+
+        Parameters
+        ----------
+        run_button : QPushButton
+            Button to disable while the background task runs.
+        run_text : str
+            Label text to restore after completion.
+        detector_name : str
+            Detector name used for error messaging.
+        run_callable : callable
+            Callable that executes the detector run.
+        on_success : callable
+            Callback invoked with the run result dictionary.
+        """
+        run_button.setEnabled(False)
+        run_button.setText("Running...")
+
+        thread = QThread(self)
+        worker = _RunWorker(run_callable)
+        worker.moveToThread(thread)
+
+        def handle_success(result: dict) -> None:
+            on_success(result)
+            self._finish_background_run(run_button, run_text, thread, worker)
+
+        def handle_error(message: str) -> None:
+            self._notify(f"Spot detection failed for '{detector_name}': {message}")
+            self._finish_background_run(run_button, run_text, thread, worker)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(handle_success)
+        worker.error.connect(handle_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(worker.deleteLater)
+
+        self._active_workers.append((thread, worker))
+        thread.start()
+
+    def _finish_background_run(
+        self,
+        run_button: QPushButton,
+        run_text: str,
+        thread: QThread,
+        worker: QObject,
+    ) -> None:
+        """Restore UI state after a background run completes.
+
+        Parameters
+        ----------
+        run_button : QPushButton
+            Button to restore after completion.
+        run_text : str
+            Label text to restore on the button.
+        thread : QThread
+            Background thread being torn down.
+        worker : QObject
+            Worker object associated with the thread.
+        """
+        run_button.setEnabled(True)
+        run_button.setText(run_text)
+        try:
+            self._active_workers.remove((thread, worker))
+        except ValueError:
+            pass
+
+    def _handle_run_result(self, layer, detector_name: str, result: dict) -> None:
+        """Handle detector output and update the viewer."""
+        if not isinstance(result, dict):
             return
-        if points is None or len(points) == 0:
-            return
-        name = f"{source_layer.name}_{detector_name}_spots"
-        self._viewer.add_points(points, name=name)
+        mask = result.get("mask")
+        if mask is not None:
+            self._add_labels_layer(layer, mask, detector_name)
 
     def _add_labels_layer(self, source_layer, mask, detector_name: str) -> None:
         """Add a labels layer for the detector mask."""
@@ -347,6 +433,23 @@ class SpotsTab(QWidget):
             return
         name = f"{source_layer.name}_{detector_name}_labels"
         self._viewer.add_labels(mask, name=name)
+
+    def _notify(self, message: str) -> None:
+        """Send a warning notification to the napari console.
+
+        Parameters
+        ----------
+        message : str
+            Notification message to display.
+        """
+        if (
+            show_console_notification is not None
+            and Notification is not None
+            and NotificationSeverity is not None
+        ):
+            show_console_notification(
+                Notification(message, severity=NotificationSeverity.WARNING)
+            )
 
     def _get_layer_by_name(self, name: str):
         """Return a viewer layer with the given name, if it exists."""
@@ -370,3 +473,30 @@ class SpotsTab(QWidget):
                 if layer.__class__.__name__ == "Image":
                     image_layers.append(layer)
         return image_layers
+
+
+class _RunWorker(QObject):
+    """Worker that executes a callable in a background thread."""
+
+    finished = Signal(dict)
+    error = Signal(str)
+
+    def __init__(self, run_callable) -> None:
+        """Initialize the worker with a callable.
+
+        Parameters
+        ----------
+        run_callable : callable
+            Callable to execute on the worker thread.
+        """
+        super().__init__()
+        self._run_callable = run_callable
+
+    def run(self) -> None:
+        """Execute the callable and emit results."""
+        try:
+            result = self._run_callable()
+        except Exception as exc:  # pragma: no cover - runtime error path
+            self.error.emit(str(exc))
+            return
+        self.finished.emit(result)
