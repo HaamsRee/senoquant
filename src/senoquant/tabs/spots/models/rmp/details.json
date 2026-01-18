@@ -7,7 +7,7 @@
       "key": "denoising_kernel_length",
       "label": "Denoising kernel length",
       "type": "int",
-      "min": 1,
+      "min": 2,
       "max": 9999,
       "default": 2,
       "enabled_by": "enable_denoising"

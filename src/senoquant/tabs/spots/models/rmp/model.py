@@ -7,9 +7,12 @@ from dataclasses import dataclass
 from typing import Iterable
 
 import numpy as np
+from scipy import ndimage as ndi
 from skimage.filters import threshold_otsu
 from skimage.measure import label
 from skimage.morphology import opening, rectangle
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
 from skimage.transform import rotate
 from skimage.util import img_as_ubyte
 
@@ -113,30 +116,18 @@ def _rmp_top_hat(
     return input_image - opened_image
 
 
-def _rmp(
-    input_image: Array2D,
-    denoising_se_length: int,
-    extraction_se_length: int,
-    angle_spacing: int,
-    auto_threshold: bool,
-    manual_threshold: float,
-    enable_denoising: bool,
-) -> Array2D:
-    """Run the full RMP pipeline and return a binary mask."""
-    denoising_se = rectangle(1, denoising_se_length)
-    extraction_se = rectangle(1, extraction_se_length)
-    rotation_angles = tuple(range(0, 180, angle_spacing))
+def _compute_top_hat(input_image: Array2D, config: "RMPSettings") -> Array2D:
+    """Compute the RMP top-hat response for a 2D image."""
+    denoising_se = rectangle(1, config.denoising_se_length)
+    extraction_se = rectangle(1, config.extraction_se_length)
+    rotation_angles = tuple(range(0, 180, config.angle_spacing))
 
-    working_image = (
+    working = (
         _rmp_opening(input_image, denoising_se, rotation_angles)
-        if enable_denoising
+        if config.enable_denoising
         else input_image
     )
-    top_hat_image = _rmp_top_hat(working_image, extraction_se, rotation_angles)
-
-    threshold = threshold_otsu(top_hat_image) if auto_threshold else manual_threshold
-    binary_image = img_as_ubyte(top_hat_image > threshold)
-    return binary_image
+    return _rmp_top_hat(working, extraction_se, rotation_angles)
 
 
 def _binary_to_instances(mask: np.ndarray, start_label: int = 1) -> tuple[np.ndarray, int]:
@@ -161,6 +152,40 @@ def _binary_to_instances(mask: np.ndarray, start_label: int = 1) -> tuple[np.nda
         labeled = labeled + (start_label - 1)
     next_label = int(labeled.max()) + 1
     return labeled.astype(np.int32, copy=False), next_label
+
+
+def _watershed_instances(
+    image: np.ndarray,
+    binary: np.ndarray,
+    min_distance: int,
+) -> np.ndarray:
+    """Split touching spots using watershed segmentation."""
+    if not np.any(binary):
+        return np.zeros_like(binary, dtype=np.int32)
+    if not np.any(~binary):
+        labeled, _ = _binary_to_instances(binary)
+        return labeled
+
+    distance = ndi.distance_transform_edt(binary)
+    coordinates = peak_local_max(
+        distance,
+        labels=binary.astype(np.uint8),
+        min_distance=max(1, int(min_distance)),
+        exclude_border=False,
+    )
+    if coordinates.size == 0:
+        labeled, _ = _binary_to_instances(binary)
+        return labeled
+
+    peaks = np.zeros(binary.shape, dtype=bool)
+    peaks[tuple(coordinates.T)] = True
+    markers = label(peaks).astype(np.int32, copy=False)
+    if markers.max() == 0:
+        labeled, _ = _binary_to_instances(binary)
+        return labeled
+
+    labels = watershed(-distance, markers, mask=binary)
+    return labels.astype(np.int32, copy=False)
 
 
 def _ensure_dask_available() -> None:
@@ -420,23 +445,20 @@ class RMPDetector(SenoQuantSpotDetector):
                     use_gpu=use_gpu,
                     distributed=use_distributed,
                 )
-                threshold = (
-                    threshold_otsu(top_hat)
-                    if config.auto_threshold
-                    else config.manual_threshold
-                )
-                binary = img_as_ubyte(top_hat > threshold)
             else:
-                binary = _rmp(
-                    image_2d,
-                    config.denoising_se_length,
-                    config.extraction_se_length,
-                    config.angle_spacing,
-                    config.auto_threshold,
-                    config.manual_threshold,
-                    config.enable_denoising,
-                )
-            labels, _ = _binary_to_instances(binary)
+                top_hat = _compute_top_hat(image_2d, config)
+
+            threshold = (
+                threshold_otsu(top_hat)
+                if config.auto_threshold
+                else config.manual_threshold
+            )
+            binary = img_as_ubyte(top_hat > threshold)
+            labels = _watershed_instances(
+                top_hat,
+                binary > 0,
+                min_distance=max(1, config.extraction_se_length // 2),
+            )
             return {"mask": labels}
 
         top_hat_stack = np.zeros_like(normalized, dtype=np.float32)
@@ -459,18 +481,8 @@ class RMPDetector(SenoQuantSpotDetector):
                     distributed=False,
                 )
         else:
-            denoising_se = rectangle(1, config.denoising_se_length)
-            extraction_se = rectangle(1, config.extraction_se_length)
-            rotation_angles = tuple(range(0, 180, config.angle_spacing))
             for z in range(normalized.shape[0]):
-                working = (
-                    _rmp_opening(normalized[z], denoising_se, rotation_angles)
-                    if config.enable_denoising
-                    else normalized[z]
-                )
-                top_hat_stack[z] = _rmp_top_hat(
-                    working, extraction_se, rotation_angles
-                )
+                top_hat_stack[z] = _compute_top_hat(normalized[z], config)
 
         threshold = (
             threshold_otsu(top_hat_stack)
@@ -478,5 +490,9 @@ class RMPDetector(SenoQuantSpotDetector):
             else config.manual_threshold
         )
         binary_stack = img_as_ubyte(top_hat_stack > threshold)
-        labels, _ = _binary_to_instances(binary_stack)
+        labels = _watershed_instances(
+            top_hat_stack,
+            binary_stack > 0,
+            min_distance=max(1, config.extraction_se_length // 2),
+        )
         return {"mask": labels}

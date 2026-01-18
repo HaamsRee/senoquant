@@ -21,6 +21,7 @@ dependencies = [
   "napari-bioio-reader",
   "cellpose==4.0.8",
   "scikit-image>=0.22,<0.25",
+  "scipy>=1.8",
 ]
 
 [project.entry-points."napari.manifest"]
@@ -33,6 +34,7 @@ all = [
   "napari[all]",
   "napari-bioio-reader",
   "scikit-image>=0.22,<0.25",
+  "scipy>=1.8",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
   "cupy-cuda12x>=12.0",
