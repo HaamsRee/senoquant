@@ -44,6 +44,15 @@ class RefreshingComboBox(QComboBox):
 
 
 class QuantificationTab(QWidget):
+    """Quantification tab UI for configuring feature extraction.
+
+    Parameters
+    ----------
+    backend : QuantificationBackend or None
+        Backend instance for quantification workflows.
+    napari_viewer : object or None
+        Napari viewer used to populate layer dropdowns.
+    """
     def __init__(
         self,
         backend: QuantificationBackend | None = None,
@@ -126,7 +135,7 @@ class QuantificationTab(QWidget):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._features_scroll_area = scroll_area
 
@@ -135,8 +144,11 @@ class QuantificationTab(QWidget):
         features_container.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
+        features_container.setMinimumWidth(500)
+        self._features_min_width = 500
         self._features_layout = QVBoxLayout()
         self._features_layout.setContentsMargins(0, 0, 0, 0)
+        self._features_layout.setSpacing(8)
         self._features_layout.setSizeConstraint(QVBoxLayout.SetMinAndMaxSize)
         features_container.setLayout(self._features_layout)
         scroll_area.setWidget(features_container)
@@ -165,12 +177,23 @@ class QuantificationTab(QWidget):
         self._update_features_scroll_height()
 
     def resizeEvent(self, event) -> None:
-        """Resize handler to keep the features list at half the window height."""
+        """Resize handler to keep the features list at a capped height.
+
+        Parameters
+        ----------
+        event : QResizeEvent
+            Qt resize event passed by the widget.
+        """
         super().resizeEvent(event)
         self._update_features_scroll_height()
 
     def _update_features_scroll_height(self) -> None:
-        """Update the features scroll area height based on the window size."""
+        """Update the features scroll area height based on the screen size.
+
+        The features list grows with its contents until it reaches a maximum
+        height (25% of the screen height), at which point vertical scrolling
+        is enabled.
+        """
         if not hasattr(self, "_features_scroll_area"):
             return
         screen = self.window().screen() if self.window() is not None else None
@@ -195,6 +218,21 @@ class QuantificationTab(QWidget):
             )
         self._features_scroll_area.setFixedHeight(height)
         self._features_scroll_area.setUpdatesEnabled(True)
+        self._update_feature_columns_width()
+
+    def _update_feature_columns_width(self) -> None:
+        """Update column minimum widths from the features container width."""
+        if not hasattr(self, "_features_container"):
+            return
+        total_min = getattr(self, "_features_min_width", 0)
+        if total_min <= 0:
+            total_min = self._features_container.minimumWidth()
+        left_min = int(total_min * 0.6)
+        right_min = int(total_min * 0.4)
+        if hasattr(self, "_left_container"):
+            self._left_container.setMinimumWidth(left_min)
+        if hasattr(self, "_right_container"):
+            self._right_container.setMinimumWidth(right_min)
 
     def _add_feature_row(self) -> None:
         """Add a new feature input row."""
@@ -215,8 +253,15 @@ class QuantificationTab(QWidget):
         section_layout = QVBoxLayout()
 
         content_layout = QHBoxLayout()
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(12)
+        content_layout.setAlignment(Qt.AlignTop)
         left_layout = QVBoxLayout()
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(6)
         right_layout = QVBoxLayout()
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(6)
 
         form_layout = QFormLayout()
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -234,23 +279,39 @@ class QuantificationTab(QWidget):
         form_layout.addRow("Type", type_combo)
         left_layout.addLayout(form_layout)
 
-        dynamic_container = QWidget()
-        dynamic_layout = QVBoxLayout()
-        dynamic_layout.setContentsMargins(0, 0, 0, 0)
-        dynamic_container.setLayout(dynamic_layout)
-        left_layout.addWidget(dynamic_container)
-
-        content_layout.addLayout(left_layout, 2)
-        content_layout.addLayout(right_layout, 1)
-        section_layout.addLayout(content_layout)
-
         delete_button = QPushButton("Delete")
         delete_button.clicked.connect(
             lambda _checked=False, section=feature_section: self._remove_feature(
                 section
             )
         )
-        section_layout.addWidget(delete_button)
+        left_layout.addWidget(delete_button)
+
+        left_dynamic_container = QWidget()
+        left_dynamic_container.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Fixed
+        )
+        left_dynamic_layout = QVBoxLayout()
+        left_dynamic_layout.setContentsMargins(0, 0, 0, 0)
+        left_dynamic_layout.setSpacing(6)
+        left_dynamic_container.setLayout(left_dynamic_layout)
+        left_layout.addWidget(left_dynamic_container)
+
+        left_container = QWidget()
+        left_container.setLayout(left_layout)
+        left_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        right_container = QWidget()
+        right_container.setLayout(right_layout)
+        right_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self._left_container = left_container
+        self._right_container = right_container
+
+        content_layout.addWidget(left_container, 3)
+        content_layout.addWidget(right_container, 2)
+        section_layout.addLayout(content_layout)
+        self._update_feature_columns_width()
         feature_section.setLayout(section_layout)
         feature_section.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
@@ -261,7 +322,7 @@ class QuantificationTab(QWidget):
             "section": feature_section,
             "name_input": name_input,
             "type_combo": type_combo,
-            "dynamic_layout": dynamic_layout,
+            "left_dynamic_layout": left_dynamic_layout,
             "roi_checkbox": None,
             "roi_container": None,
             "roi_layout": None,
@@ -271,6 +332,8 @@ class QuantificationTab(QWidget):
             "coloc_a_combo": None,
             "coloc_b_combo": None,
             "right_layout": right_layout,
+            "left_layout": left_layout,
+            "labels_widget": None,
         }
         self._feature_configs.append(config)
         name_input.textChanged.connect(self._update_colocalization_options)
@@ -283,12 +346,25 @@ class QuantificationTab(QWidget):
         QTimer.singleShot(0, self._update_features_scroll_height)
 
     def _on_feature_type_changed(self, config: dict) -> None:
-        """Update a feature section when its type changes."""
-        dynamic_layout = config["dynamic_layout"]
-        self._clear_layout(dynamic_layout)
+        """Update a feature section when its type changes.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
+        left_dynamic_layout = config["left_dynamic_layout"]
+        self._clear_layout(left_dynamic_layout)
         right_layout = config.get("right_layout")
         if right_layout is not None:
             self._clear_layout(right_layout)
+        labels_widget = config.get("labels_widget")
+        if labels_widget is not None:
+            left_layout = config.get("left_layout")
+            if left_layout is not None:
+                left_layout.removeWidget(labels_widget)
+            labels_widget.deleteLater()
+            config["labels_widget"] = None
         config["roi_checkbox"] = None
         config["roi_container"] = None
         config["roi_layout"] = None
@@ -301,8 +377,8 @@ class QuantificationTab(QWidget):
         feature_type = config["type_combo"].currentText()
         if feature_type in ("Marker", "Spots"):
             label_text = "Segmentation labels" if feature_type == "Marker" else "Spots"
-            form_layout = QFormLayout()
-            form_layout.setFieldGrowthPolicy(
+            labels_form = QFormLayout()
+            labels_form.setFieldGrowthPolicy(
                 QFormLayout.AllNonFixedFieldsGrow
             )
 
@@ -312,17 +388,22 @@ class QuantificationTab(QWidget):
                 )
             )
             self._configure_combo(labels_combo)
-            form_layout.addRow(label_text, labels_combo)
-            dynamic_layout.addLayout(form_layout)
+            labels_form.addRow(label_text, labels_combo)
+            labels_widget = QWidget()
+            labels_widget.setLayout(labels_form)
+            left_layout = config.get("left_layout")
+            if left_layout is not None:
+                left_layout.insertWidget(1, labels_widget)
+            config["labels_widget"] = labels_widget
 
             roi_checkbox = QCheckBox("ROIs")
             roi_checkbox.toggled.connect(
                 lambda checked, cfg=config: self._toggle_roi_section(cfg, checked)
             )
-            dynamic_layout.addWidget(roi_checkbox)
 
             roi_container = QWidget()
             roi_container.setVisible(False)
+            roi_container.setMinimumWidth(240)
             roi_container_layout = QVBoxLayout()
             roi_container_layout.setContentsMargins(0, 0, 0, 0)
             roi_container.setLayout(roi_container_layout)
@@ -333,6 +414,7 @@ class QuantificationTab(QWidget):
             roi_scroll_area.setSizePolicy(
                 QSizePolicy.Expanding, QSizePolicy.Fixed
             )
+            roi_scroll_area.setMinimumWidth(240)
 
             roi_items_container = QWidget()
             roi_items_container.setSizePolicy(
@@ -353,6 +435,7 @@ class QuantificationTab(QWidget):
             roi_container_layout.addWidget(add_roi_button)
 
             if right_layout is not None:
+                right_layout.addWidget(roi_checkbox)
                 right_layout.addWidget(roi_container)
 
             config["roi_checkbox"] = roi_checkbox
@@ -370,15 +453,29 @@ class QuantificationTab(QWidget):
             coloc_b = QComboBox()
             self._configure_combo(coloc_a)
             self._configure_combo(coloc_b)
+            coloc_a.currentTextChanged.connect(
+                lambda _text, cfg=config: self._sync_coloc_choices(cfg)
+            )
+            coloc_b.currentTextChanged.connect(
+                lambda _text, cfg=config: self._sync_coloc_choices(cfg)
+            )
             form_layout.addRow("Labels A", coloc_a)
             form_layout.addRow("Labels B", coloc_b)
-            dynamic_layout.addLayout(form_layout)
+            left_dynamic_layout.addLayout(form_layout)
             config["coloc_a_combo"] = coloc_a
             config["coloc_b_combo"] = coloc_b
             self._update_colocalization_options()
 
     def _toggle_roi_section(self, config: dict, enabled: bool) -> None:
-        """Toggle the ROI section for a feature."""
+        """Toggle the ROI section for a feature.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        enabled : bool
+            Whether ROI controls should be visible.
+        """
         roi_container = config.get("roi_container")
         if roi_container is None:
             return
@@ -392,7 +489,13 @@ class QuantificationTab(QWidget):
         QTimer.singleShot(0, lambda cfg=config: self._update_roi_scroll_height(cfg))
 
     def _add_roi_row(self, config: dict) -> None:
-        """Add a new ROI row to a feature."""
+        """Add a new ROI row to a feature.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
         roi_layout = config.get("roi_layout")
         if roi_layout is None:
             return
@@ -417,7 +520,7 @@ class QuantificationTab(QWidget):
 
         roi_name = QLineEdit()
         roi_name.setPlaceholderText("ROI name")
-        roi_name.setMinimumWidth(180)
+        roi_name.setMinimumWidth(120)
         roi_name.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         shapes_combo = RefreshingComboBox(
@@ -426,10 +529,12 @@ class QuantificationTab(QWidget):
             )
         )
         self._configure_combo(shapes_combo)
+        shapes_combo.setMinimumWidth(120)
 
         roi_type = QComboBox()
         roi_type.addItems(["Include", "Exclude"])
         self._configure_combo(roi_type)
+        roi_type.setMinimumWidth(120)
 
         form_layout.addRow("Name", roi_name)
         form_layout.addRow("Layer", shapes_combo)
@@ -456,7 +561,15 @@ class QuantificationTab(QWidget):
         QTimer.singleShot(0, lambda cfg=config: self._update_roi_scroll_height(cfg))
 
     def _remove_roi(self, config: dict, roi_section: QGroupBox) -> None:
-        """Remove an ROI row and disable ROI selection if empty."""
+        """Remove an ROI row and disable ROI selection if empty.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        roi_section : QGroupBox
+            ROI section widget to remove.
+        """
         roi_layout = config.get("roi_layout")
         if roi_layout is None or roi_section not in config.get("roi_items", []):
             return
@@ -477,7 +590,13 @@ class QuantificationTab(QWidget):
         QTimer.singleShot(0, self._update_features_scroll_height)
 
     def _remove_feature(self, feature_section: QGroupBox) -> None:
-        """Remove a feature section and renumber remaining entries."""
+        """Remove a feature section and renumber remaining entries.
+
+        Parameters
+        ----------
+        feature_section : QGroupBox
+            Feature section widget to remove.
+        """
         config = next(
             (cfg for cfg in self._feature_configs if cfg["section"] is feature_section),
             None,
@@ -528,11 +647,21 @@ class QuantificationTab(QWidget):
         config: dict,
         choices: list[str],
     ) -> None:
-        """Update colocalization feature dropdown options."""
+        """Update colocalization feature dropdown options.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        choices : list[str]
+            Available spot feature choices.
+        """
+        combos = []
         for key in ("coloc_a_combo", "coloc_b_combo"):
             combo = config.get(key)
             if combo is None:
                 continue
+            combos.append(combo)
             current = combo.currentText()
             combo.clear()
             if choices:
@@ -543,9 +672,53 @@ class QuantificationTab(QWidget):
                 index = combo.findText(current)
                 if index != -1:
                     combo.setCurrentIndex(index)
+        if len(choices) >= 2 and len(combos) == 2:
+            a_combo, b_combo = combos
+            if a_combo.currentText() == b_combo.currentText():
+                a_combo.setCurrentIndex(0)
+                b_combo.setCurrentIndex(1)
+        self._sync_coloc_choices(config)
+
+    def _sync_coloc_choices(self, config: dict) -> None:
+        """Disable selecting the same feature for A/B colocalization.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
+        coloc_a = config.get("coloc_a_combo")
+        coloc_b = config.get("coloc_b_combo")
+        if coloc_a is None or coloc_b is None:
+            return
+        self._disable_combo_choice(coloc_a, coloc_b.currentText())
+        self._disable_combo_choice(coloc_b, coloc_a.currentText())
+
+    def _disable_combo_choice(self, combo: QComboBox, value: str) -> None:
+        """Disable a matching option in a combo box.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to update.
+        value : str
+            Value to disable in the combo.
+        """
+        model = combo.model()
+        for index in range(combo.count()):
+            item = model.item(index)
+            if item is None:
+                continue
+            item.setEnabled(combo.itemText(index) != value)
 
     def _configure_combo(self, combo: QComboBox) -> None:
-        """Apply sizing defaults to combo boxes."""
+        """Apply sizing defaults to combo boxes.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to configure.
+        """
         combo.setSizeAdjustPolicy(
             QComboBox.AdjustToMinimumContentsLengthWithIcon
         )
@@ -554,7 +727,13 @@ class QuantificationTab(QWidget):
         combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
     def _clear_layout(self, layout: QVBoxLayout) -> None:
-        """Remove all widgets and layouts from a layout."""
+        """Remove all widgets and layouts from a layout.
+
+        Parameters
+        ----------
+        layout : QVBoxLayout
+            Layout to clear.
+        """
         while layout.count():
             item = layout.takeAt(0)
             widget = item.widget()
@@ -565,17 +744,40 @@ class QuantificationTab(QWidget):
                 self._clear_layout(child_layout)
 
     def _feature_index(self, config: dict) -> int:
-        """Return the 1-based index for a feature config."""
+        """Return the 1-based index for a feature config.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+
+        Returns
+        -------
+        int
+            1-based index of the feature.
+        """
         return self._feature_configs.index(config) + 1
 
     def _update_roi_titles(self, config: dict) -> None:
-        """Update ROI titles with the current feature index."""
+        """Update ROI titles with the current feature index.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
         feature_index = self._feature_index(config)
         for roi_index, section in enumerate(config.get("roi_items", []), start=1):
             section.setTitle(f"Feature {feature_index}: ROI {roi_index}")
 
     def _clear_rois(self, config: dict) -> None:
-        """Remove all ROI rows from a feature config."""
+        """Remove all ROI rows from a feature config.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
         roi_layout = config.get("roi_layout")
         if roi_layout is None:
             return
@@ -587,7 +789,13 @@ class QuantificationTab(QWidget):
         QTimer.singleShot(0, self._update_features_scroll_height)
 
     def _update_roi_scroll_height(self, config: dict) -> None:
-        """Update ROI scroll area height based on content."""
+        """Update ROI scroll area height based on content.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
         scroll_area = config.get("roi_scroll_area")
         container = config.get("roi_items_container")
         if scroll_area is None or container is None:
@@ -608,7 +816,13 @@ class QuantificationTab(QWidget):
             scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     def _refresh_labels_combo(self, combo: QComboBox) -> None:
-        """Populate a labels-layer combo."""
+        """Populate a labels-layer combo.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to populate.
+        """
         current = combo.currentText()
         combo.clear()
         if self._viewer is None:
@@ -622,7 +836,13 @@ class QuantificationTab(QWidget):
                 combo.setCurrentIndex(index)
 
     def _refresh_shapes_combo(self, combo: QComboBox) -> None:
-        """Populate a shapes-layer combo."""
+        """Populate a shapes-layer combo.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to populate.
+        """
         current = combo.currentText()
         combo.clear()
         if self._viewer is None:
@@ -636,6 +856,7 @@ class QuantificationTab(QWidget):
                 combo.setCurrentIndex(index)
 
     def _iter_label_layers(self) -> list:
+        """Return label layers from the viewer."""
         if self._viewer is None:
             return []
 
@@ -646,6 +867,7 @@ class QuantificationTab(QWidget):
         return label_layers
 
     def _iter_shapes_layers(self) -> list:
+        """Return shapes layers from the viewer."""
         if self._viewer is None:
             return []
 
