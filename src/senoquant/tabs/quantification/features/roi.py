@@ -24,8 +24,18 @@ class ROISection:
     """Reusable ROI controls for marker and spots features."""
 
     def __init__(self, tab, config: dict) -> None:
+        """Initialize the ROI helper for a feature.
+
+        Parameters
+        ----------
+        tab : QuantificationTab
+            Parent quantification tab instance.
+        config : dict
+            Feature configuration dictionary.
+        """
         self._tab = tab
         self._config = config
+        self._data = config.setdefault("feature_data", {})
         self._checkbox: QCheckBox | None = None
         self._container: QWidget | None = None
         self._layout: QVBoxLayout | None = None
@@ -79,15 +89,22 @@ class ROISection:
         self._items_container = items_container
         self._items = []
 
-        self._config["roi_checkbox"] = checkbox
-        self._config["roi_container"] = container
-        self._config["roi_layout"] = layout
-        self._config["roi_scroll_area"] = scroll_area
-        self._config["roi_items_container"] = items_container
-        self._config["roi_items"] = self._items
-        self._config["roi_section"] = self
+        self._data["roi_checkbox"] = checkbox
+        self._data["roi_container"] = container
+        self._data["roi_layout"] = layout
+        self._data["roi_scroll_area"] = scroll_area
+        self._data["roi_items_container"] = items_container
+        self._data["roi_items"] = self._items
+        self._data["roi_section"] = self
 
     def _toggle(self, enabled: bool) -> None:
+        """Show or hide ROI controls when toggled.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether ROI controls should be visible.
+        """
         if self._container is None:
             return
         self._container.setVisible(enabled)
@@ -105,6 +122,7 @@ class ROISection:
         QTimer.singleShot(0, self._update_scroll_height)
 
     def _add_row(self) -> None:
+        """Add a new ROI configuration row."""
         if self._layout is None:
             return
         roi_index = len(self._items) + 1
@@ -161,13 +179,20 @@ class ROISection:
 
         self._layout.addWidget(roi_section)
         self._items.append(roi_section)
-        self._config["roi_items"] = self._items
+        self._data["roi_items"] = self._items
         self.update_titles()
         self._tab._features_layout.activate()
         QTimer.singleShot(0, self._tab._update_features_scroll_height)
         QTimer.singleShot(0, self._update_scroll_height)
 
     def _remove_row(self, roi_section: QGroupBox) -> None:
+        """Remove an ROI row and update titles.
+
+        Parameters
+        ----------
+        roi_section : QGroupBox
+            ROI section widget to remove.
+        """
         if self._layout is None or roi_section not in self._items:
             return
         self._items.remove(roi_section)
@@ -181,23 +206,25 @@ class ROISection:
         QTimer.singleShot(0, self._tab._update_features_scroll_height)
 
     def update_titles(self) -> None:
+        """Refresh ROI section titles based on current feature order."""
         feature_index = self._tab._feature_index(self._config)
         for roi_index, section in enumerate(self._items, start=1):
             section.setTitle(f"Feature {feature_index}: ROI {roi_index}")
 
     def clear(self) -> None:
-        """Remove all ROI rows."""
+        """Remove all ROI rows and reset layout state."""
         if self._layout is None:
             return
         for roi_section in list(self._items):
             self._layout.removeWidget(roi_section)
             roi_section.deleteLater()
         self._items.clear()
-        self._config["roi_items"] = self._items
+        self._data["roi_items"] = self._items
         self.update_titles()
         self._update_scroll_height()
 
     def _update_scroll_height(self) -> None:
+        """Resize the ROI scroll area based on content height."""
         scroll_area = self._scroll_area
         container = self._items_container
         if scroll_area is None or container is None:
@@ -218,6 +245,13 @@ class ROISection:
             scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     def _refresh_shapes_combo(self, combo: QComboBox) -> None:
+        """Populate the shapes combo with available ROI layers.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to populate.
+        """
         current = combo.currentText()
         combo.clear()
         viewer = self._tab._viewer

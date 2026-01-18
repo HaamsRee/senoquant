@@ -36,15 +36,22 @@ class MarkerFeature(SenoQuantFeature):
         self._build_channel_section()
         roi_section = ROISection(self._tab, self._config)
         roi_section.build()
-        self._config["roi_section"] = roi_section
+        self._data["roi_section"] = roi_section
 
     def on_features_changed(self, configs: list[dict]) -> None:
-        """Update ROI titles when feature ordering changes."""
-        roi_section = self._config.get("roi_section")
+        """Update ROI titles when feature ordering changes.
+
+        Parameters
+        ----------
+        configs : list of dict
+            Current feature configuration list.
+        """
+        roi_section = self._data.get("roi_section")
         if roi_section is not None:
             roi_section.update_titles()
 
     def _build_channel_section(self) -> None:
+        """Build the channel and threshold controls."""
         left_dynamic_layout = self._config.get("left_dynamic_layout")
         if left_dynamic_layout is None:
             return
@@ -101,15 +108,22 @@ class MarkerFeature(SenoQuantFeature):
         threshold_container.setVisible(False)
         left_dynamic_layout.addWidget(threshold_container)
 
-        self._config["channel_combo"] = channel_combo
-        self._config["threshold_checkbox"] = threshold_checkbox
-        self._config["threshold_slider"] = threshold_slider
-        self._config["threshold_container"] = threshold_container
-        self._config["threshold_min_spin"] = threshold_min_spin
-        self._config["threshold_max_spin"] = threshold_max_spin
+        self._data["channel_combo"] = channel_combo
+        self._data["threshold_checkbox"] = threshold_checkbox
+        self._data["threshold_slider"] = threshold_slider
+        self._data["threshold_container"] = threshold_container
+        self._data["threshold_min_spin"] = threshold_min_spin
+        self._data["threshold_max_spin"] = threshold_max_spin
         self._on_channel_changed()
 
     def _refresh_image_combo(self, combo) -> None:
+        """Populate the image-layer combo box.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to populate.
+        """
         current = combo.currentText()
         combo.clear()
         viewer = self._tab._viewer
@@ -125,6 +139,18 @@ class MarkerFeature(SenoQuantFeature):
                 combo.setCurrentIndex(index)
 
     def _get_image_layer_by_name(self, name: str):
+        """Return the image layer with the provided name.
+
+        Parameters
+        ----------
+        name : str
+            Image layer name.
+
+        Returns
+        -------
+        object or None
+            Matching image layer or None if not found.
+        """
         viewer = self._tab._viewer
         if viewer is None or not name:
             return None
@@ -134,14 +160,15 @@ class MarkerFeature(SenoQuantFeature):
         return None
 
     def _on_channel_changed(self) -> None:
-        combo = self._config.get("channel_combo")
-        checkbox = self._config.get("threshold_checkbox")
-        slider = self._config.get("threshold_slider")
-        min_spin = self._config.get("threshold_min_spin")
-        max_spin = self._config.get("threshold_max_spin")
+        """Update threshold controls when the channel selection changes."""
+        combo = self._data.get("channel_combo")
+        checkbox = self._data.get("threshold_checkbox")
+        slider = self._data.get("threshold_slider")
+        min_spin = self._data.get("threshold_min_spin")
+        max_spin = self._data.get("threshold_max_spin")
         if combo is None or checkbox is None or slider is None:
             return
-        container = self._config.get("threshold_container")
+        container = self._data.get("threshold_container")
         layer = self._get_image_layer_by_name(combo.currentText())
         if layer is None:
             checkbox.setChecked(False)
@@ -160,10 +187,17 @@ class MarkerFeature(SenoQuantFeature):
         self._toggle_threshold(checkbox.isChecked())
 
     def _toggle_threshold(self, enabled: bool) -> None:
-        slider = self._config.get("threshold_slider")
-        container = self._config.get("threshold_container")
-        min_spin = self._config.get("threshold_min_spin")
-        max_spin = self._config.get("threshold_max_spin")
+        """Show or hide the threshold controls.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether to enable the threshold controls.
+        """
+        slider = self._data.get("threshold_slider")
+        container = self._data.get("threshold_container")
+        min_spin = self._data.get("threshold_min_spin")
+        max_spin = self._data.get("threshold_max_spin")
         if slider is None or container is None:
             return
         slider.setEnabled(enabled)
@@ -175,6 +209,13 @@ class MarkerFeature(SenoQuantFeature):
         container.setVisible(enabled)
 
     def _make_range_slider(self):
+        """Create a horizontal range slider if available.
+
+        Returns
+        -------
+        QWidget
+            Range slider widget or placeholder.
+        """
         if RangeSlider is None:
             return QWidget()
         try:
@@ -185,6 +226,18 @@ class MarkerFeature(SenoQuantFeature):
             return slider
 
     def _get_slider_values(self, slider):
+        """Return the current range values from a slider.
+
+        Parameters
+        ----------
+        slider : QWidget
+            Range slider widget.
+
+        Returns
+        -------
+        tuple or None
+            Current range values or None if unavailable.
+        """
         if hasattr(slider, "value"):
             return slider.value()
         if hasattr(slider, "values"):
@@ -192,6 +245,15 @@ class MarkerFeature(SenoQuantFeature):
         return None
 
     def _set_slider_values(self, slider, values) -> None:
+        """Set the range values on a slider.
+
+        Parameters
+        ----------
+        slider : QWidget
+            Range slider widget.
+        values : tuple
+            (min, max) values for the slider.
+        """
         if hasattr(slider, "setValue"):
             try:
                 slider.setValue(values)
@@ -202,6 +264,15 @@ class MarkerFeature(SenoQuantFeature):
             slider.setValues(values)
 
     def _set_threshold_range(self, slider, layer) -> None:
+        """Set slider bounds using the selected image layer.
+
+        Parameters
+        ----------
+        slider : QWidget
+            Range slider widget.
+        layer : object
+            Napari image layer providing intensity bounds.
+        """
         if not hasattr(slider, "setMinimum"):
             return
         data = layer.data
@@ -215,8 +286,8 @@ class MarkerFeature(SenoQuantFeature):
             slider.setMinimum(min_val)
             slider.setMaximum(max_val)
         self._set_slider_values(slider, (min_val, max_val))
-        min_spin = self._config.get("threshold_min_spin")
-        max_spin = self._config.get("threshold_max_spin")
+        min_spin = self._data.get("threshold_min_spin")
+        max_spin = self._data.get("threshold_max_spin")
         if min_spin is not None:
             min_spin.blockSignals(True)
             min_spin.setRange(min_val, max_val)
@@ -229,27 +300,43 @@ class MarkerFeature(SenoQuantFeature):
             max_spin.blockSignals(False)
 
     def _on_threshold_slider_changed(self, values) -> None:
+        """Sync spin boxes when the slider range changes.
+
+        Parameters
+        ----------
+        values : tuple
+            Updated (min, max) slider values.
+        """
         if values is None:
             return
-        min_spin = self._config.get("threshold_min_spin")
-        max_spin = self._config.get("threshold_max_spin")
+        min_spin = self._data.get("threshold_min_spin")
+        max_spin = self._data.get("threshold_max_spin")
         if min_spin is None or max_spin is None:
             return
-        self._config["threshold_updating"] = True
+        self._data["threshold_updating"] = True
         min_spin.blockSignals(True)
         max_spin.blockSignals(True)
         min_spin.setValue(values[0])
         max_spin.setValue(values[1])
         min_spin.blockSignals(False)
         max_spin.blockSignals(False)
-        self._config["threshold_updating"] = False
+        self._data["threshold_updating"] = False
 
     def _on_threshold_spin_changed(self, which: str, value: float) -> None:
-        if self._config.get("threshold_updating"):
+        """Sync the slider when a spin box value changes.
+
+        Parameters
+        ----------
+        which : str
+            Identifier for the spin box ("min" or "max").
+        value : float
+            New spin box value.
+        """
+        if self._data.get("threshold_updating"):
             return
-        slider = self._config.get("threshold_slider")
-        min_spin = self._config.get("threshold_min_spin")
-        max_spin = self._config.get("threshold_max_spin")
+        slider = self._data.get("threshold_slider")
+        min_spin = self._data.get("threshold_min_spin")
+        max_spin = self._data.get("threshold_max_spin")
         if slider is None or min_spin is None or max_spin is None:
             return
         min_val = min_spin.value()
@@ -265,6 +352,6 @@ class MarkerFeature(SenoQuantFeature):
                 min_spin.blockSignals(True)
                 min_spin.setValue(min_val)
                 min_spin.blockSignals(False)
-        self._config["threshold_updating"] = True
+        self._data["threshold_updating"] = True
         self._set_slider_values(slider, (min_val, max_val))
-        self._config["threshold_updating"] = False
+        self._data["threshold_updating"] = False

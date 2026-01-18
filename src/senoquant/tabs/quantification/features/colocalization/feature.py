@@ -32,18 +32,32 @@ class ColocalizationFeature(SenoQuantFeature):
         form_layout.addRow("Labels A", coloc_a)
         form_layout.addRow("Labels B", coloc_b)
         left_dynamic_layout.addLayout(form_layout)
-        self._config["coloc_a_combo"] = coloc_a
-        self._config["coloc_b_combo"] = coloc_b
+        self._data["coloc_a_combo"] = coloc_a
+        self._data["coloc_b_combo"] = coloc_b
         self.on_features_changed(self._tab._feature_configs)
 
     def on_features_changed(self, configs: list[dict]) -> None:
-        """Refresh colocalization options when feature list changes."""
+        """Refresh colocalization options when feature list changes.
+
+        Parameters
+        ----------
+        configs : list of dict
+            Current feature configuration list.
+        """
         choices = self._spot_feature_choices(configs)
         self._update_choices(choices)
 
     @classmethod
     def update_type_options(cls, tab, configs: list[dict]) -> None:
-        """Enable/disable colocalization based on spot feature count."""
+        """Enable/disable colocalization based on spot feature count.
+
+        Parameters
+        ----------
+        tab : QuantificationTab
+            Parent quantification tab instance.
+        configs : list of dict
+            Current feature configuration list.
+        """
         choices = cls._spot_feature_choices(configs)
         allow_coloc = len(choices) >= 2
         for config in configs:
@@ -56,6 +70,18 @@ class ColocalizationFeature(SenoQuantFeature):
 
     @classmethod
     def _spot_feature_choices(cls, configs: list[dict]) -> list[str]:
+        """Return labels for spot features available for colocalization.
+
+        Parameters
+        ----------
+        configs : list of dict
+            Current feature configuration list.
+
+        Returns
+        -------
+        list of str
+            Display labels for spot features.
+        """
         choices = []
         for index, config in enumerate(configs, start=1):
             if config["type_combo"].currentText() == cls.spot_feature_type:
@@ -65,9 +91,16 @@ class ColocalizationFeature(SenoQuantFeature):
         return choices
 
     def _update_choices(self, choices: list[str]) -> None:
+        """Populate colocalization combo boxes with new choices.
+
+        Parameters
+        ----------
+        choices : list of str
+            Spot feature labels to present.
+        """
         combos = []
         for key in ("coloc_a_combo", "coloc_b_combo"):
-            combo = self._config.get(key)
+            combo = self._data.get(key)
             if combo is None:
                 continue
             combos.append(combo)
@@ -89,14 +122,24 @@ class ColocalizationFeature(SenoQuantFeature):
         self._sync_choices()
 
     def _sync_choices(self) -> None:
-        coloc_a = self._config.get("coloc_a_combo")
-        coloc_b = self._config.get("coloc_b_combo")
+        """Ensure colocalization combos cannot select the same feature."""
+        coloc_a = self._data.get("coloc_a_combo")
+        coloc_b = self._data.get("coloc_b_combo")
         if coloc_a is None or coloc_b is None:
             return
         self._disable_combo_choice(coloc_a, coloc_b.currentText())
         self._disable_combo_choice(coloc_b, coloc_a.currentText())
 
     def _disable_combo_choice(self, combo: QComboBox, value: str) -> None:
+        """Disable a combo-box option that matches the provided value.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Combo box to update.
+        value : str
+            Option to disable.
+        """
         model = combo.model()
         for index in range(combo.count()):
             item = model.item(index)

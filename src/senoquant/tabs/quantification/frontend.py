@@ -349,25 +349,9 @@ class QuantificationTab(QWidget):
             "name_input": name_input,
             "type_combo": type_combo,
             "left_dynamic_layout": left_dynamic_layout,
-            "roi_checkbox": None,
-            "roi_container": None,
-            "roi_layout": None,
-            "roi_scroll_area": None,
-            "roi_items_container": None,
-            "roi_items": [],
-            "roi_section": None,
-            "coloc_a_combo": None,
-            "coloc_b_combo": None,
+            "feature_data": {},
             "right_layout": right_layout,
             "left_layout": left_layout,
-            "labels_widget": None,
-            "channel_combo": None,
-            "threshold_checkbox": None,
-            "threshold_slider": None,
-            "threshold_container": None,
-            "threshold_min_spin": None,
-            "threshold_max_spin": None,
-            "threshold_updating": False,
             "feature_handler": None,
         }
         self._feature_configs.append(config)
@@ -393,30 +377,11 @@ class QuantificationTab(QWidget):
         right_layout = config.get("right_layout")
         if right_layout is not None:
             self._clear_layout(right_layout)
-        labels_widget = config.get("labels_widget")
-        if labels_widget is not None:
-            left_layout = config.get("left_layout")
-            if left_layout is not None:
-                left_layout.removeWidget(labels_widget)
-            labels_widget.deleteLater()
-            config["labels_widget"] = None
-        config["roi_checkbox"] = None
-        config["roi_container"] = None
-        config["roi_layout"] = None
-        config["roi_scroll_area"] = None
-        config["roi_items_container"] = None
-        config["roi_items"] = []
-        config["coloc_a_combo"] = None
-        config["coloc_b_combo"] = None
-        config["channel_combo"] = None
-        config["threshold_checkbox"] = None
-        config["threshold_slider"] = None
-        config["threshold_container"] = None
-        config["threshold_min_spin"] = None
-        config["threshold_max_spin"] = None
-        config["threshold_updating"] = False
+        previous_handler = config.get("feature_handler")
+        if previous_handler is not None:
+            previous_handler.teardown()
+        config["feature_data"] = {}
         config["feature_handler"] = None
-        config["roi_section"] = None
 
         feature_type = config["type_combo"].currentText()
         feature_handler = self._feature_handler_for_type(feature_type, config)
