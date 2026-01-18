@@ -1,5 +1,5 @@
 """Spot detector definitions and storage."""
 
-from .model import SenoQuantSpotDetector
+from .base import SenoQuantSpotDetector
 
 __all__ = ["SenoQuantSpotDetector"]

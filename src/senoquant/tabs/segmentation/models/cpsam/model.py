@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import numpy as np
 
-from ..model import SenoQuantSegmentationModel
+from ..base import SenoQuantSegmentationModel
 
 
 class CPSAMModel(SenoQuantSegmentationModel):

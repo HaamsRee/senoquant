@@ -16,7 +16,7 @@ from skimage.feature import peak_local_max
 from skimage.transform import rotate
 from skimage.util import img_as_ubyte
 
-from ..model import SenoQuantSpotDetector
+from ..base import SenoQuantSpotDetector
 
 try:
     import dask.array as da

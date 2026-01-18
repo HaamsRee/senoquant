@@ -22,6 +22,7 @@ from qtpy.QtWidgets import (
 )
 
 from .backend import QuantificationBackend
+from .features import ColocalizationFeature, MarkerFeature, SpotsFeature
 
 try:
     from superqt import QDoubleRangeSlider as RangeSlider
@@ -401,6 +402,7 @@ class QuantificationTab(QWidget):
             "threshold_min_spin": None,
             "threshold_max_spin": None,
             "threshold_updating": False,
+            "feature_handler": None,
         }
         self._feature_configs.append(config)
         name_input.textChanged.connect(self._update_colocalization_options)
@@ -447,176 +449,14 @@ class QuantificationTab(QWidget):
         config["threshold_min_spin"] = None
         config["threshold_max_spin"] = None
         config["threshold_updating"] = False
+        config["feature_handler"] = None
 
         feature_type = config["type_combo"].currentText()
-        if feature_type in ("Marker", "Spots"):
-            label_text = "Segmentation labels" if feature_type == "Marker" else "Spots"
-            labels_form = QFormLayout()
-            labels_form.setFieldGrowthPolicy(
-                QFormLayout.AllNonFixedFieldsGrow
-            )
-
-            labels_combo = RefreshingComboBox(
-                refresh_callback=lambda combo_ref=None: self._refresh_labels_combo(
-                    labels_combo
-                )
-            )
-            self._configure_combo(labels_combo)
-            labels_form.addRow(label_text, labels_combo)
-            labels_widget = QWidget()
-            labels_widget.setLayout(labels_form)
-            left_layout = config.get("left_layout")
-            if left_layout is not None:
-                left_layout.insertWidget(1, labels_widget)
-            config["labels_widget"] = labels_widget
-
-        if feature_type == "Marker":
-            channel_form = QFormLayout()
-            channel_form.setFieldGrowthPolicy(
-                QFormLayout.AllNonFixedFieldsGrow
-            )
-            channel_combo = RefreshingComboBox(
-                refresh_callback=lambda combo_ref=None: self._refresh_image_combo(
-                    channel_combo
-                )
-            )
-            self._configure_combo(channel_combo)
-            channel_combo.currentTextChanged.connect(
-                lambda _text, cfg=config: self._on_channel_changed(cfg)
-            )
-            channel_form.addRow("Channel", channel_combo)
-            left_dynamic_layout.addLayout(channel_form)
-
-            threshold_checkbox = QCheckBox("Set threshold")
-            threshold_checkbox.setEnabled(False)
-            threshold_checkbox.toggled.connect(
-                lambda checked, cfg=config: self._toggle_threshold(cfg, checked)
-            )
-            left_dynamic_layout.addWidget(threshold_checkbox)
-
-            threshold_container = QWidget()
-            threshold_layout = QHBoxLayout()
-            threshold_layout.setContentsMargins(0, 0, 0, 0)
-            threshold_slider = self._make_range_slider()
-            if hasattr(threshold_slider, "valueChanged"):
-                threshold_slider.valueChanged.connect(
-                    lambda values, cfg=config: self._on_threshold_slider_changed(
-                        cfg, values
-                    )
-                )
-            threshold_min_spin = QDoubleSpinBox()
-            threshold_min_spin.setDecimals(2)
-            threshold_min_spin.setMinimumWidth(80)
-            threshold_min_spin.setSizePolicy(
-                QSizePolicy.Fixed, QSizePolicy.Fixed
-            )
-            threshold_min_spin.valueChanged.connect(
-                lambda value, cfg=config: self._on_threshold_spin_changed(
-                    cfg, "min", value
-                )
-            )
-
-            threshold_max_spin = QDoubleSpinBox()
-            threshold_max_spin.setDecimals(2)
-            threshold_max_spin.setMinimumWidth(80)
-            threshold_max_spin.setSizePolicy(
-                QSizePolicy.Fixed, QSizePolicy.Fixed
-            )
-            threshold_max_spin.valueChanged.connect(
-                lambda value, cfg=config: self._on_threshold_spin_changed(
-                    cfg, "max", value
-                )
-            )
-
-            threshold_slider.setEnabled(False)
-            threshold_slider.setVisible(False)
-            threshold_min_spin.setEnabled(False)
-            threshold_max_spin.setEnabled(False)
-            threshold_layout.addWidget(threshold_min_spin)
-            threshold_layout.addWidget(threshold_slider, 1)
-            threshold_layout.addWidget(threshold_max_spin)
-            threshold_container.setLayout(threshold_layout)
-            threshold_container.setVisible(False)
-            left_dynamic_layout.addWidget(threshold_container)
-
-            config["channel_combo"] = channel_combo
-            config["threshold_checkbox"] = threshold_checkbox
-            config["threshold_slider"] = threshold_slider
-            config["threshold_container"] = threshold_container
-            config["threshold_min_spin"] = threshold_min_spin
-            config["threshold_max_spin"] = threshold_max_spin
-            self._on_channel_changed(config)
-        elif feature_type == "Spots":
-            pass
-        if feature_type in ("Marker", "Spots"):
-            roi_checkbox = QCheckBox("ROIs")
-            roi_checkbox.toggled.connect(
-                lambda checked, cfg=config: self._toggle_roi_section(cfg, checked)
-            )
-
-            roi_container = QWidget()
-            roi_container.setVisible(False)
-            roi_container.setMinimumWidth(240)
-            roi_container_layout = QVBoxLayout()
-            roi_container_layout.setContentsMargins(0, 0, 0, 0)
-            roi_container.setLayout(roi_container_layout)
-
-            roi_scroll_area = QScrollArea()
-            roi_scroll_area.setWidgetResizable(True)
-            roi_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-            roi_scroll_area.setSizePolicy(
-                QSizePolicy.Expanding, QSizePolicy.Fixed
-            )
-            roi_scroll_area.setMinimumWidth(240)
-
-            roi_items_container = QWidget()
-            roi_items_container.setSizePolicy(
-                QSizePolicy.Expanding, QSizePolicy.Fixed
-            )
-            roi_layout = QVBoxLayout()
-            roi_layout.setContentsMargins(0, 0, 0, 0)
-            roi_layout.setSizeConstraint(QVBoxLayout.SetMinAndMaxSize)
-            roi_items_container.setLayout(roi_layout)
-            roi_scroll_area.setWidget(roi_items_container)
-
-            add_roi_button = QPushButton("Add ROI")
-            add_roi_button.clicked.connect(
-                lambda _checked=False, cfg=config: self._add_roi_row(cfg)
-            )
-
-            roi_container_layout.addWidget(roi_scroll_area)
-            roi_container_layout.addWidget(add_roi_button)
-
-            if right_layout is not None:
-                right_layout.addWidget(roi_checkbox)
-                right_layout.addWidget(roi_container)
-
-            config["roi_checkbox"] = roi_checkbox
-            config["roi_container"] = roi_container
-            config["roi_layout"] = roi_layout
-            config["roi_scroll_area"] = roi_scroll_area
-            config["roi_items_container"] = roi_items_container
-            config["roi_items"] = []
-        elif feature_type == "Colocalization":
-            form_layout = QFormLayout()
-            form_layout.setFieldGrowthPolicy(
-                QFormLayout.AllNonFixedFieldsGrow
-            )
-            coloc_a = QComboBox()
-            coloc_b = QComboBox()
-            self._configure_combo(coloc_a)
-            self._configure_combo(coloc_b)
-            coloc_a.currentTextChanged.connect(
-                lambda _text, cfg=config: self._sync_coloc_choices(cfg)
-            )
-            coloc_b.currentTextChanged.connect(
-                lambda _text, cfg=config: self._sync_coloc_choices(cfg)
-            )
-            form_layout.addRow("Labels A", coloc_a)
-            form_layout.addRow("Labels B", coloc_b)
-            left_dynamic_layout.addLayout(form_layout)
-            config["coloc_a_combo"] = coloc_a
-            config["coloc_b_combo"] = coloc_b
+        feature_handler = self._feature_handler_for_type(feature_type, config)
+        config["feature_handler"] = feature_handler
+        if feature_handler is not None:
+            feature_handler.build()
+        if feature_type == "Colocalization":
             self._update_colocalization_options()
 
     def _toggle_roi_section(self, config: dict, enabled: bool) -> None:
@@ -869,6 +709,222 @@ class QuantificationTab(QWidget):
                 continue
             item.setEnabled(combo.itemText(index) != value)
 
+    def _feature_handler_for_type(self, feature_type: str, config: dict):
+        """Return the feature handler for a given feature type.
+
+        Parameters
+        ----------
+        feature_type : str
+            Selected feature type.
+        config : dict
+            Feature configuration dictionary.
+
+        Returns
+        -------
+        SenoQuantFeature or None
+            Feature handler instance for the selected type.
+        """
+        handlers = {
+            "Marker": MarkerFeature,
+            "Spots": SpotsFeature,
+            "Colocalization": ColocalizationFeature,
+        }
+        feature_cls = handlers.get(feature_type)
+        if feature_cls is None:
+            return None
+        return feature_cls(self, config)
+
+    def _build_labels_widget(self, config: dict, label_text: str) -> None:
+        """Build and attach a labels selection widget.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        label_text : str
+            Label shown for the combo box.
+        """
+        labels_form = QFormLayout()
+        labels_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        labels_combo = RefreshingComboBox(
+            refresh_callback=lambda combo_ref=None: self._refresh_labels_combo(
+                labels_combo
+            )
+        )
+        self._configure_combo(labels_combo)
+        labels_form.addRow(label_text, labels_combo)
+        labels_widget = QWidget()
+        labels_widget.setLayout(labels_form)
+        left_layout = config.get("left_layout")
+        if left_layout is not None:
+            left_layout.insertWidget(1, labels_widget)
+        config["labels_widget"] = labels_widget
+
+    def _build_marker_channel_section(self, config: dict) -> None:
+        """Build channel and threshold controls for marker features.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
+        left_dynamic_layout = config.get("left_dynamic_layout")
+        if left_dynamic_layout is None:
+            return
+
+        channel_form = QFormLayout()
+        channel_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        channel_combo = RefreshingComboBox(
+            refresh_callback=lambda combo_ref=None: self._refresh_image_combo(
+                channel_combo
+            )
+        )
+        self._configure_combo(channel_combo)
+        channel_combo.currentTextChanged.connect(
+            lambda _text, cfg=config: self._on_channel_changed(cfg)
+        )
+        channel_form.addRow("Channel", channel_combo)
+        left_dynamic_layout.addLayout(channel_form)
+
+        threshold_checkbox = QCheckBox("Set threshold")
+        threshold_checkbox.setEnabled(False)
+        threshold_checkbox.toggled.connect(
+            lambda checked, cfg=config: self._toggle_threshold(cfg, checked)
+        )
+        left_dynamic_layout.addWidget(threshold_checkbox)
+
+        threshold_container = QWidget()
+        threshold_layout = QHBoxLayout()
+        threshold_layout.setContentsMargins(0, 0, 0, 0)
+        threshold_slider = self._make_range_slider()
+        if hasattr(threshold_slider, "valueChanged"):
+            threshold_slider.valueChanged.connect(
+                lambda values, cfg=config: self._on_threshold_slider_changed(
+                    cfg, values
+                )
+            )
+        threshold_min_spin = QDoubleSpinBox()
+        threshold_min_spin.setDecimals(2)
+        threshold_min_spin.setMinimumWidth(80)
+        threshold_min_spin.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        threshold_min_spin.valueChanged.connect(
+            lambda value, cfg=config: self._on_threshold_spin_changed(
+                cfg, "min", value
+            )
+        )
+
+        threshold_max_spin = QDoubleSpinBox()
+        threshold_max_spin.setDecimals(2)
+        threshold_max_spin.setMinimumWidth(80)
+        threshold_max_spin.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        threshold_max_spin.valueChanged.connect(
+            lambda value, cfg=config: self._on_threshold_spin_changed(
+                cfg, "max", value
+            )
+        )
+
+        threshold_slider.setEnabled(False)
+        threshold_slider.setVisible(False)
+        threshold_min_spin.setEnabled(False)
+        threshold_max_spin.setEnabled(False)
+        threshold_layout.addWidget(threshold_min_spin)
+        threshold_layout.addWidget(threshold_slider, 1)
+        threshold_layout.addWidget(threshold_max_spin)
+        threshold_container.setLayout(threshold_layout)
+        threshold_container.setVisible(False)
+        left_dynamic_layout.addWidget(threshold_container)
+
+        config["channel_combo"] = channel_combo
+        config["threshold_checkbox"] = threshold_checkbox
+        config["threshold_slider"] = threshold_slider
+        config["threshold_container"] = threshold_container
+        config["threshold_min_spin"] = threshold_min_spin
+        config["threshold_max_spin"] = threshold_max_spin
+        self._on_channel_changed(config)
+
+    def _build_roi_section(self, config: dict) -> None:
+        """Build ROI selection controls for marker and spots features.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
+        right_layout = config.get("right_layout")
+        if right_layout is None:
+            return
+
+        roi_checkbox = QCheckBox("ROIs")
+        roi_checkbox.toggled.connect(
+            lambda checked, cfg=config: self._toggle_roi_section(cfg, checked)
+        )
+
+        roi_container = QWidget()
+        roi_container.setVisible(False)
+        roi_container.setMinimumWidth(240)
+        roi_container_layout = QVBoxLayout()
+        roi_container_layout.setContentsMargins(0, 0, 0, 0)
+        roi_container.setLayout(roi_container_layout)
+
+        roi_scroll_area = QScrollArea()
+        roi_scroll_area.setWidgetResizable(True)
+        roi_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        roi_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        roi_scroll_area.setMinimumWidth(240)
+
+        roi_items_container = QWidget()
+        roi_items_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        roi_layout = QVBoxLayout()
+        roi_layout.setContentsMargins(0, 0, 0, 0)
+        roi_layout.setSizeConstraint(QVBoxLayout.SetMinAndMaxSize)
+        roi_items_container.setLayout(roi_layout)
+        roi_scroll_area.setWidget(roi_items_container)
+
+        add_roi_button = QPushButton("Add ROI")
+        add_roi_button.clicked.connect(
+            lambda _checked=False, cfg=config: self._add_roi_row(cfg)
+        )
+
+        roi_container_layout.addWidget(roi_scroll_area)
+        roi_container_layout.addWidget(add_roi_button)
+        right_layout.addWidget(roi_checkbox)
+        right_layout.addWidget(roi_container)
+
+        config["roi_checkbox"] = roi_checkbox
+        config["roi_container"] = roi_container
+        config["roi_layout"] = roi_layout
+        config["roi_scroll_area"] = roi_scroll_area
+        config["roi_items_container"] = roi_items_container
+        config["roi_items"] = []
+
+    def _build_colocalization_section(self, config: dict) -> None:
+        """Build colocalization controls for a feature.
+
+        Parameters
+        ----------
+        config : dict
+            Feature configuration dictionary.
+        """
+        left_dynamic_layout = config.get("left_dynamic_layout")
+        if left_dynamic_layout is None:
+            return
+        form_layout = QFormLayout()
+        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        coloc_a = QComboBox()
+        coloc_b = QComboBox()
+        self._configure_combo(coloc_a)
+        self._configure_combo(coloc_b)
+        coloc_a.currentTextChanged.connect(
+            lambda _text, cfg=config: self._sync_coloc_choices(cfg)
+        )
+        coloc_b.currentTextChanged.connect(
+            lambda _text, cfg=config: self._sync_coloc_choices(cfg)
+        )
+        form_layout.addRow("Labels A", coloc_a)
+        form_layout.addRow("Labels B", coloc_b)
+        left_dynamic_layout.addLayout(form_layout)
+        config["coloc_a_combo"] = coloc_a
+        config["coloc_b_combo"] = coloc_b
     def _make_range_slider(self):
         """Create a horizontal range slider or a placeholder label."""
         if RangeSlider is None:

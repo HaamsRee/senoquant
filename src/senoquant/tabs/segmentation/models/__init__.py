@@ -1,5 +1,5 @@
 """Segmentation model definitions and storage."""
 
-from .model import SenoQuantSegmentationModel
+from .base import SenoQuantSegmentationModel
 
 __all__ = ["SenoQuantSegmentationModel"]

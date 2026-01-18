@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..model import SenoQuantSegmentationModel
+from ..base import SenoQuantSegmentationModel
 
 
 class StarDistModModel(SenoQuantSegmentationModel):
