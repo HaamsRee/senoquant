@@ -2,15 +2,18 @@
 
 import numpy as np
 
-from qtpy.QtCore import Qt, QTimer
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QDialog,
     QFormLayout,
     QHBoxLayout,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -27,61 +30,231 @@ except ImportError:  # pragma: no cover - fallback when superqt is unavailable
         RangeSlider = None
 
 
-class MarkerFeature(SenoQuantFeature):
-    """Marker feature controls."""
+class MarkerChannelsDialog(QDialog):
+    """Dialog for configuring multiple marker channels."""
 
-    feature_type = "Marker"
-    order = 10
-
-    def build(self) -> None:
-        """Build the marker feature UI."""
-        self.build_labels_widget("Segmentation labels")
-        self._build_channel_section()
-        roi_section = ROISection(self._tab, self._config)
-        roi_section.build()
-        self._data["roi_section"] = roi_section
-
-    def on_features_changed(self, configs: list[dict]) -> None:
-        """Update ROI titles when feature ordering changes.
+    def __init__(self, feature: "MarkerFeature") -> None:
+        """Initialize the marker channels dialog.
 
         Parameters
         ----------
-        configs : list of dict
-            Current feature configuration list.
+        feature : MarkerFeature
+            Marker feature instance owning the dialog.
         """
-        roi_section = self._data.get("roi_section")
-        if roi_section is not None:
-            roi_section.update_titles()
+        super().__init__(feature._tab)
+        self._feature = feature
+        self._tab = feature._tab
+        self._data = feature._data
+        self._channels = self._data.setdefault("channels", [])
+        self._rows: list[MarkerChannelRow] = []
 
-    def _build_channel_section(self) -> None:
-        """Build the channel and threshold controls."""
-        left_dynamic_layout = self._config.get("left_dynamic_layout")
-        if left_dynamic_layout is None:
+        self.setWindowTitle("Marker channels")
+        layout = QVBoxLayout()
+
+        labels_form = QFormLayout()
+        labels_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        labels_combo = RefreshingComboBox(
+            refresh_callback=lambda combo_ref=None: self._refresh_labels_combo(
+                labels_combo
+            )
+        )
+        self._tab._configure_combo(labels_combo)
+        labels_combo.currentTextChanged.connect(self._on_labels_changed)
+        labels_form.addRow("Segmentation labels", labels_combo)
+        labels_widget = QWidget()
+        labels_widget.setLayout(labels_form)
+        layout.addWidget(labels_widget)
+
+        self._labels_combo = labels_combo
+        stored_labels = self._data.get("labels_name")
+        if stored_labels:
+            labels_combo.setCurrentText(stored_labels)
+
+        self._channels_container = QWidget()
+        self._channels_layout = QVBoxLayout()
+        self._channels_layout.setContentsMargins(0, 0, 0, 0)
+        self._channels_layout.setSpacing(8)
+        self._channels_container.setLayout(self._channels_layout)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        scroll_area.setWidget(self._channels_container)
+        layout.addWidget(scroll_area, 1)
+
+        add_button = QPushButton("Add channel")
+        add_button.clicked.connect(self._add_channel)
+        layout.addWidget(add_button)
+
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(self.accept)
+        layout.addWidget(close_button)
+
+        self.setLayout(layout)
+        self._load_channels()
+
+    def _refresh_labels_combo(self, combo: QComboBox) -> None:
+        """Refresh labels layer options for the dialog.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Labels combo box to refresh.
+        """
+        current = combo.currentText()
+        combo.clear()
+        viewer = self._tab._viewer
+        if viewer is None:
+            combo.addItem("Select labels")
             return
+        for layer in viewer.layers:
+            if layer.__class__.__name__ == "Labels":
+                combo.addItem(layer.name)
+        if current:
+            index = combo.findText(current)
+            if index != -1:
+                combo.setCurrentIndex(index)
+
+    def _refresh_image_combo(self, combo: QComboBox) -> None:
+        """Refresh image layer options for the dialog.
+
+        Parameters
+        ----------
+        combo : QComboBox
+            Image combo box to refresh.
+        """
+        current = combo.currentText()
+        combo.clear()
+        viewer = self._tab._viewer
+        if viewer is None:
+            combo.addItem("Select image")
+            return
+        for layer in viewer.layers:
+            if layer.__class__.__name__ == "Image":
+                combo.addItem(layer.name)
+        if current:
+            index = combo.findText(current)
+            if index != -1:
+                combo.setCurrentIndex(index)
+
+    def _on_labels_changed(self, text: str) -> None:
+        """Store the selected segmentation labels name.
+
+        Parameters
+        ----------
+        text : str
+            Selected labels layer name.
+        """
+        self._data["labels_name"] = text
+
+    def _load_channels(self) -> None:
+        """Build channel rows from stored data."""
+        if not self._channels:
+            return
+        for channel_data in self._channels:
+            self._add_channel(channel_data)
+
+    def _add_channel(self, channel_data: dict | None = None) -> None:
+        """Add a channel row to the dialog.
+
+        Parameters
+        ----------
+        channel_data : dict or None
+            Channel configuration dictionary.
+        """
+        if channel_data is None:
+            channel_data = {
+                "channel": "",
+                "threshold_enabled": False,
+                "threshold_method": "Otsu",
+                "threshold_min": None,
+                "threshold_max": None,
+            }
+            self._channels.append(channel_data)
+        row = MarkerChannelRow(self, channel_data)
+        self._rows.append(row)
+        self._channels_layout.addWidget(row)
+        self._renumber_rows()
+
+    def _remove_channel(self, row: "MarkerChannelRow") -> None:
+        """Remove a channel row and its stored data.
+
+        Parameters
+        ----------
+        row : MarkerChannelRow
+            Row instance to remove.
+        """
+        if row not in self._rows:
+            return
+        self._rows.remove(row)
+        if row.data in self._channels:
+            self._channels.remove(row.data)
+        self._channels_layout.removeWidget(row)
+        row.deleteLater()
+        self._renumber_rows()
+
+    def _renumber_rows(self) -> None:
+        """Update channel row titles after changes."""
+        for index, row in enumerate(self._rows, start=1):
+            row.update_title(index)
+
+
+class MarkerChannelRow(QGroupBox):
+    """Channel row widget for marker feature channels."""
+
+    def __init__(self, dialog: MarkerChannelsDialog, data: dict) -> None:
+        """Initialize a channel row widget.
+
+        Parameters
+        ----------
+        dialog : MarkerChannelsDialog
+            Parent dialog instance.
+        data : dict
+            Channel configuration dictionary.
+        """
+        super().__init__()
+        self._dialog = dialog
+        self._feature = dialog._feature
+        self._tab = dialog._tab
+        self.data = data
+
+        self.setFlat(True)
+        self.setStyleSheet(
+            "QGroupBox {"
+            "  margin-top: 6px;"
+            "}"
+            "QGroupBox::title {"
+            "  subcontrol-origin: margin;"
+            "  subcontrol-position: top left;"
+            "  padding: 0 6px;"
+            "}"
+        )
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
 
         channel_form = QFormLayout()
         channel_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         channel_combo = RefreshingComboBox(
-            refresh_callback=lambda combo_ref=None: self._refresh_image_combo(
+            refresh_callback=lambda combo_ref=None: self._dialog._refresh_image_combo(
                 channel_combo
             )
         )
         self._tab._configure_combo(channel_combo)
-        channel_combo.currentTextChanged.connect(
-            lambda _text: self._on_channel_changed()
-        )
+        channel_combo.currentTextChanged.connect(self._on_channel_changed)
         channel_form.addRow("Channel", channel_combo)
-        left_dynamic_layout.addLayout(channel_form)
+        layout.addLayout(channel_form)
 
         threshold_checkbox = QCheckBox("Set threshold")
         threshold_checkbox.setEnabled(False)
         threshold_checkbox.toggled.connect(self._toggle_threshold)
-        left_dynamic_layout.addWidget(threshold_checkbox)
+        layout.addWidget(threshold_checkbox)
 
         threshold_container = QWidget()
         threshold_layout = QHBoxLayout()
         threshold_layout.setContentsMargins(0, 0, 0, 0)
-        threshold_slider = self._make_range_slider()
+        threshold_slider = self._feature._make_range_slider()
         if hasattr(threshold_slider, "valueChanged"):
             threshold_slider.valueChanged.connect(self._on_threshold_slider_changed)
         threshold_min_spin = QDoubleSpinBox()
@@ -109,7 +282,7 @@ class MarkerFeature(SenoQuantFeature):
         threshold_layout.addWidget(threshold_max_spin)
         threshold_container.setLayout(threshold_layout)
         threshold_container.setVisible(False)
-        left_dynamic_layout.addWidget(threshold_container)
+        layout.addWidget(threshold_container)
 
         auto_threshold_container = QWidget()
         auto_threshold_layout = QHBoxLayout()
@@ -117,46 +290,256 @@ class MarkerFeature(SenoQuantFeature):
         auto_threshold_combo = QComboBox()
         auto_threshold_combo.addItems(list(THRESHOLD_METHODS.keys()))
         self._tab._configure_combo(auto_threshold_combo)
+        auto_threshold_combo.currentTextChanged.connect(
+            lambda text: self._set_data("threshold_method", text)
+        )
         auto_threshold_button = QPushButton("Auto threshold")
         auto_threshold_button.clicked.connect(self._run_auto_threshold)
         auto_threshold_layout.addWidget(auto_threshold_combo, 1)
         auto_threshold_layout.addWidget(auto_threshold_button)
         auto_threshold_container.setLayout(auto_threshold_layout)
         auto_threshold_container.setVisible(False)
-        left_dynamic_layout.addWidget(auto_threshold_container)
+        layout.addWidget(auto_threshold_container)
 
-        self._data["channel_combo"] = channel_combo
-        self._data["threshold_checkbox"] = threshold_checkbox
-        self._data["threshold_slider"] = threshold_slider
-        self._data["threshold_container"] = threshold_container
-        self._data["threshold_min_spin"] = threshold_min_spin
-        self._data["threshold_max_spin"] = threshold_max_spin
-        self._data["auto_threshold_container"] = auto_threshold_container
-        self._data["auto_threshold_combo"] = auto_threshold_combo
-        self._data["auto_threshold_button"] = auto_threshold_button
-        self._on_channel_changed()
+        delete_button = QPushButton("Remove channel")
+        delete_button.clicked.connect(lambda: self._dialog._remove_channel(self))
+        layout.addWidget(delete_button)
 
-    def _refresh_image_combo(self, combo) -> None:
-        """Populate the image-layer combo box.
+        self.setLayout(layout)
+
+        self._channel_combo = channel_combo
+        self._threshold_checkbox = threshold_checkbox
+        self._threshold_slider = threshold_slider
+        self._threshold_container = threshold_container
+        self._threshold_min_spin = threshold_min_spin
+        self._threshold_max_spin = threshold_max_spin
+        self._auto_threshold_container = auto_threshold_container
+        self._auto_threshold_combo = auto_threshold_combo
+        self._auto_threshold_button = auto_threshold_button
+
+        self._restore_state()
+
+    def update_title(self, index: int) -> None:
+        """Update the title label for the channel row.
 
         Parameters
         ----------
-        combo : QComboBox
-            Combo box to populate.
+        index : int
+            1-based index used in the title.
         """
-        current = combo.currentText()
-        combo.clear()
-        viewer = self._tab._viewer
-        if viewer is None:
-            combo.addItem("Select image")
+        self.setTitle(f"Channel {index}")
+
+    def _set_data(self, key: str, value) -> None:
+        """Update the channel data dictionary.
+
+        Parameters
+        ----------
+        key : str
+            Data key to update.
+        value : object
+            New value to store.
+        """
+        self.data[key] = value
+
+    def _restore_state(self) -> None:
+        """Restore UI state from stored channel data."""
+        channel_name = self.data.get("channel", "")
+        if channel_name:
+            self._channel_combo.setCurrentText(channel_name)
+        method = self.data.get("threshold_method") or "Otsu"
+        self._auto_threshold_combo.setCurrentText(method)
+        enabled = bool(self.data.get("threshold_enabled", False))
+        self._threshold_checkbox.setChecked(enabled)
+        self._on_channel_changed()
+
+    def _on_channel_changed(self, text: str) -> None:
+        """Update threshold controls when channel selection changes.
+
+        Parameters
+        ----------
+        text : str
+            Newly selected channel name.
+        """
+        self._set_data("channel", text)
+        layer = self._feature._get_image_layer_by_name(text)
+        if layer is None:
+            self._threshold_checkbox.setChecked(False)
+            self._threshold_checkbox.setEnabled(False)
+            self._set_threshold_controls(False)
             return
-        for layer in viewer.layers:
-            if layer.__class__.__name__ == "Image":
-                combo.addItem(layer.name)
-        if current:
-            index = combo.findText(current)
-            if index != -1:
-                combo.setCurrentIndex(index)
+        self._threshold_checkbox.setEnabled(True)
+        self._feature._set_threshold_range(
+            self._threshold_slider,
+            layer,
+            self._threshold_min_spin,
+            self._threshold_max_spin,
+        )
+        self._set_threshold_controls(self._threshold_checkbox.isChecked())
+
+    def _toggle_threshold(self, enabled: bool) -> None:
+        """Toggle threshold controls for this channel.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether threshold controls should be enabled.
+        """
+        self._set_data("threshold_enabled", enabled)
+        self._set_threshold_controls(enabled)
+
+    def _set_threshold_controls(self, enabled: bool) -> None:
+        """Show or hide threshold controls.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether to show threshold controls.
+        """
+        self._threshold_slider.setEnabled(enabled)
+        self._threshold_slider.setVisible(enabled)
+        self._threshold_min_spin.setEnabled(enabled)
+        self._threshold_max_spin.setEnabled(enabled)
+        self._threshold_container.setVisible(enabled)
+        self._auto_threshold_container.setVisible(enabled)
+        self._auto_threshold_combo.setEnabled(enabled)
+        self._auto_threshold_button.setEnabled(enabled)
+
+    def _on_threshold_slider_changed(self, values) -> None:
+        """Sync spin boxes when the slider range changes.
+
+        Parameters
+        ----------
+        values : tuple
+            Updated (min, max) slider values.
+        """
+        if values is None:
+            return
+        self._feature._data["threshold_updating"] = True
+        self._threshold_min_spin.blockSignals(True)
+        self._threshold_max_spin.blockSignals(True)
+        self._threshold_min_spin.setValue(values[0])
+        self._threshold_max_spin.setValue(values[1])
+        self._threshold_min_spin.blockSignals(False)
+        self._threshold_max_spin.blockSignals(False)
+        self._feature._data["threshold_updating"] = False
+        self._set_data("threshold_min", values[0])
+        self._set_data("threshold_max", values[1])
+
+    def _on_threshold_spin_changed(self, which: str, value: float) -> None:
+        """Sync the slider when a spin box value changes.
+
+        Parameters
+        ----------
+        which : str
+            Identifier for the spin box ("min" or "max").
+        value : float
+            New spin box value.
+        """
+        if self._feature._data.get("threshold_updating"):
+            return
+        min_val = self._threshold_min_spin.value()
+        max_val = self._threshold_max_spin.value()
+        if min_val > max_val:
+            if which == "min":
+                max_val = min_val
+                self._threshold_max_spin.blockSignals(True)
+                self._threshold_max_spin.setValue(max_val)
+                self._threshold_max_spin.blockSignals(False)
+            else:
+                min_val = max_val
+                self._threshold_min_spin.blockSignals(True)
+                self._threshold_min_spin.setValue(min_val)
+                self._threshold_min_spin.blockSignals(False)
+        self._feature._data["threshold_updating"] = True
+        self._feature._set_slider_values(
+            self._threshold_slider, (min_val, max_val)
+        )
+        self._feature._data["threshold_updating"] = False
+        self._set_data("threshold_min", min_val)
+        self._set_data("threshold_max", max_val)
+
+    def _run_auto_threshold(self) -> None:
+        """Compute an automatic threshold and update the range controls."""
+        layer = self._feature._get_image_layer_by_name(
+            self._channel_combo.currentText()
+        )
+        if layer is None:
+            return
+        method = self._auto_threshold_combo.currentText() or "Otsu"
+        try:
+            threshold = compute_threshold(layer.data, method)
+        except Exception:
+            return
+        min_val = float(np.nanmin(layer.data))
+        max_val = float(np.nanmax(layer.data))
+        if min_val == max_val:
+            max_val = min_val + 1.0
+        threshold = min(max(threshold, min_val), max_val)
+        self._feature._set_threshold_range(
+            self._threshold_slider,
+            layer,
+            self._threshold_min_spin,
+            self._threshold_max_spin,
+        )
+        self._feature._data["threshold_updating"] = True
+        self._feature._set_slider_values(
+            self._threshold_slider, (threshold, max_val)
+        )
+        self._threshold_min_spin.blockSignals(True)
+        self._threshold_min_spin.setValue(threshold)
+        self._threshold_min_spin.blockSignals(False)
+        self._threshold_max_spin.blockSignals(True)
+        self._threshold_max_spin.setValue(max_val)
+        self._threshold_max_spin.blockSignals(False)
+        self._feature._data["threshold_updating"] = False
+        self._set_data("threshold_min", threshold)
+        self._set_data("threshold_max", max_val)
+
+
+class MarkerFeature(SenoQuantFeature):
+    """Marker feature controls."""
+
+    feature_type = "Marker"
+    order = 10
+
+    def build(self) -> None:
+        """Build the marker feature UI."""
+        self._build_channels_section()
+        roi_section = ROISection(self._tab, self._config)
+        roi_section.build()
+        self._data["roi_section"] = roi_section
+
+    def on_features_changed(self, configs: list[dict]) -> None:
+        """Update ROI titles when feature ordering changes.
+
+        Parameters
+        ----------
+        configs : list of dict
+            Current feature configuration list.
+        """
+        roi_section = self._data.get("roi_section")
+        if roi_section is not None:
+            roi_section.update_titles()
+
+    def _build_channels_section(self) -> None:
+        """Build the channels button that opens the popup dialog."""
+        left_dynamic_layout = self._config.get("left_dynamic_layout")
+        if left_dynamic_layout is None:
+            return
+        button = QPushButton("Add channels")
+        button.clicked.connect(self._open_channels_dialog)
+        left_dynamic_layout.addWidget(button)
+        self._data["channels_button"] = button
+
+    def _open_channels_dialog(self) -> None:
+        """Open the channels configuration dialog."""
+        dialog = self._data.get("channels_dialog")
+        if dialog is None or not isinstance(dialog, QDialog):
+            dialog = MarkerChannelsDialog(self)
+            self._data["channels_dialog"] = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     def _get_image_layer_by_name(self, name: str):
         """Return the image layer with the provided name.
@@ -179,76 +562,6 @@ class MarkerFeature(SenoQuantFeature):
                 return layer
         return None
 
-    def _on_channel_changed(self) -> None:
-        """Update threshold controls when the channel selection changes."""
-        combo = self._data.get("channel_combo")
-        checkbox = self._data.get("threshold_checkbox")
-        slider = self._data.get("threshold_slider")
-        min_spin = self._data.get("threshold_min_spin")
-        max_spin = self._data.get("threshold_max_spin")
-        auto_container = self._data.get("auto_threshold_container")
-        auto_combo = self._data.get("auto_threshold_combo")
-        auto_button = self._data.get("auto_threshold_button")
-        if combo is None or checkbox is None or slider is None:
-            return
-        container = self._data.get("threshold_container")
-        layer = self._get_image_layer_by_name(combo.currentText())
-        if layer is None:
-            checkbox.setChecked(False)
-            checkbox.setEnabled(False)
-            slider.setEnabled(False)
-            slider.setVisible(False)
-            if min_spin is not None:
-                min_spin.setEnabled(False)
-            if max_spin is not None:
-                max_spin.setEnabled(False)
-            if container is not None:
-                container.setVisible(False)
-            if auto_container is not None:
-                auto_container.setVisible(False)
-            if auto_combo is not None:
-                auto_combo.setEnabled(False)
-            if auto_button is not None:
-                auto_button.setEnabled(False)
-            return
-        checkbox.setEnabled(True)
-        self._set_threshold_range(slider, layer)
-        self._toggle_threshold(checkbox.isChecked())
-
-    def _toggle_threshold(self, enabled: bool) -> None:
-        """Show or hide the threshold controls.
-
-        Parameters
-        ----------
-        enabled : bool
-            Whether to enable the threshold controls.
-        """
-        slider = self._data.get("threshold_slider")
-        container = self._data.get("threshold_container")
-        min_spin = self._data.get("threshold_min_spin")
-        max_spin = self._data.get("threshold_max_spin")
-        auto_container = self._data.get("auto_threshold_container")
-        auto_combo = self._data.get("auto_threshold_combo")
-        auto_button = self._data.get("auto_threshold_button")
-        if slider is None or container is None:
-            return
-        slider.setEnabled(enabled)
-        slider.setVisible(enabled)
-        if min_spin is not None:
-            min_spin.setEnabled(enabled)
-        if max_spin is not None:
-            max_spin.setEnabled(enabled)
-        container.setVisible(enabled)
-        if auto_container is not None:
-            auto_container.setVisible(enabled)
-        if auto_combo is not None:
-            auto_combo.setEnabled(enabled)
-        if auto_button is not None:
-            auto_button.setEnabled(enabled)
-        self._tab._features_layout.activate()
-        self._tab._apply_features_layout()
-        QTimer.singleShot(0, self._tab._apply_features_layout)
-
     def _make_range_slider(self):
         """Create a horizontal range slider if available.
 
@@ -265,25 +578,6 @@ class MarkerFeature(SenoQuantFeature):
             slider = RangeSlider()
             slider.setOrientation(Qt.Horizontal)
             return slider
-
-    def _get_slider_values(self, slider):
-        """Return the current range values from a slider.
-
-        Parameters
-        ----------
-        slider : QWidget
-            Range slider widget instance.
-
-        Returns
-        -------
-        tuple or None
-            Current range values or None if unavailable.
-        """
-        if hasattr(slider, "value"):
-            return slider.value()
-        if hasattr(slider, "values"):
-            return slider.values()
-        return None
 
     def _set_slider_values(self, slider, values) -> None:
         """Set the range values on a slider.
@@ -304,7 +598,10 @@ class MarkerFeature(SenoQuantFeature):
         if hasattr(slider, "setValues"):
             slider.setValues(values)
 
-    def _set_threshold_range(self, slider, layer) -> None:
+    def _set_threshold_range(
+        self, slider, layer, min_spin: QDoubleSpinBox | None,
+        max_spin: QDoubleSpinBox | None
+    ) -> None:
         """Set slider bounds using the selected image layer.
 
         Parameters
@@ -313,6 +610,10 @@ class MarkerFeature(SenoQuantFeature):
             Range slider widget.
         layer : object
             Napari image layer providing intensity bounds.
+        min_spin : QDoubleSpinBox or None
+            Spin box that displays the minimum threshold value.
+        max_spin : QDoubleSpinBox or None
+            Spin box that displays the maximum threshold value.
         """
         if not hasattr(slider, "setMinimum"):
             return
@@ -327,8 +628,6 @@ class MarkerFeature(SenoQuantFeature):
             slider.setMinimum(min_val)
             slider.setMaximum(max_val)
         self._set_slider_values(slider, (min_val, max_val))
-        min_spin = self._data.get("threshold_min_spin")
-        max_spin = self._data.get("threshold_max_spin")
         if min_spin is not None:
             min_spin.blockSignals(True)
             min_spin.setRange(min_val, max_val)
@@ -339,99 +638,3 @@ class MarkerFeature(SenoQuantFeature):
             max_spin.setRange(min_val, max_val)
             max_spin.setValue(max_val)
             max_spin.blockSignals(False)
-
-    def _on_threshold_slider_changed(self, values) -> None:
-        """Sync spin boxes when the slider range changes.
-
-        Parameters
-        ----------
-        values : tuple
-            Updated (min, max) slider values.
-        """
-        if values is None:
-            return
-        min_spin = self._data.get("threshold_min_spin")
-        max_spin = self._data.get("threshold_max_spin")
-        if min_spin is None or max_spin is None:
-            return
-        self._data["threshold_updating"] = True
-        min_spin.blockSignals(True)
-        max_spin.blockSignals(True)
-        min_spin.setValue(values[0])
-        max_spin.setValue(values[1])
-        min_spin.blockSignals(False)
-        max_spin.blockSignals(False)
-        self._data["threshold_updating"] = False
-
-    def _on_threshold_spin_changed(self, which: str, value: float) -> None:
-        """Sync the slider when a spin box value changes.
-
-        Parameters
-        ----------
-        which : str
-            Identifier for the spin box ("min" or "max").
-        value : float
-            New spin box value.
-        """
-        if self._data.get("threshold_updating"):
-            return
-        slider = self._data.get("threshold_slider")
-        min_spin = self._data.get("threshold_min_spin")
-        max_spin = self._data.get("threshold_max_spin")
-        if slider is None or min_spin is None or max_spin is None:
-            return
-        min_val = min_spin.value()
-        max_val = max_spin.value()
-        if min_val > max_val:
-            if which == "min":
-                max_val = min_val
-                max_spin.blockSignals(True)
-                max_spin.setValue(max_val)
-                max_spin.blockSignals(False)
-            else:
-                min_val = max_val
-                min_spin.blockSignals(True)
-                min_spin.setValue(min_val)
-                min_spin.blockSignals(False)
-        self._data["threshold_updating"] = True
-        self._set_slider_values(slider, (min_val, max_val))
-        self._data["threshold_updating"] = False
-
-    def _run_auto_threshold(self) -> None:
-        """Compute an automatic threshold and update the range controls.
-
-        The slider minimum is set to the computed threshold, while the maximum
-        remains at the image maximum for the selected channel.
-        """
-        combo = self._data.get("channel_combo")
-        method_combo = self._data.get("auto_threshold_combo")
-        slider = self._data.get("threshold_slider")
-        min_spin = self._data.get("threshold_min_spin")
-        max_spin = self._data.get("threshold_max_spin")
-        if combo is None or method_combo is None or slider is None:
-            return
-        layer = self._get_image_layer_by_name(combo.currentText())
-        if layer is None:
-            return
-        method = method_combo.currentText() or "Otsu"
-        try:
-            threshold = compute_threshold(layer.data, method)
-        except Exception:
-            return
-        min_val = float(np.nanmin(layer.data))
-        max_val = float(np.nanmax(layer.data))
-        if min_val == max_val:
-            max_val = min_val + 1.0
-        threshold = min(max(threshold, min_val), max_val)
-        self._set_threshold_range(slider, layer)
-        self._data["threshold_updating"] = True
-        self._set_slider_values(slider, (threshold, max_val))
-        if min_spin is not None:
-            min_spin.blockSignals(True)
-            min_spin.setValue(threshold)
-            min_spin.blockSignals(False)
-        if max_spin is not None:
-            max_spin.blockSignals(True)
-            max_spin.setValue(max_val)
-            max_spin.blockSignals(False)
-        self._data["threshold_updating"] = False
