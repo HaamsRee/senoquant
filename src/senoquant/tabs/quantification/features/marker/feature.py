@@ -2,14 +2,16 @@
 
 import numpy as np
 
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, QTimer
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -20,6 +22,11 @@ from qtpy.QtWidgets import (
 from ..base import RefreshingComboBox, SenoQuantFeature
 from ..roi import ROISection
 from .thresholding import THRESHOLD_METHODS, compute_threshold
+from ...config import (
+    MarkerChannelConfig,
+    MarkerFeatureData,
+    MarkerSegmentationConfig,
+)
 
 try:
     from superqt import QDoubleRangeSlider as RangeSlider
@@ -44,31 +51,24 @@ class MarkerChannelsDialog(QDialog):
         super().__init__(feature._tab)
         self._feature = feature
         self._tab = feature._tab
-        self._data = feature._data
-        self._channels = self._data.setdefault("channels", [])
+        data = feature._state.data
+        if not isinstance(data, MarkerFeatureData):
+            data = MarkerFeatureData()
+            feature._state.data = data
+        self._data = data
+        self._segmentations = data.segmentations
+        self._channels = data.channels
         self._rows: list[MarkerChannelRow] = []
+        self._segmentation_rows: list[MarkerSegmentationRow] = []
+        self._layout_watch_timer: QTimer | None = None
+        self._layout_last_sizes: dict[str, tuple[int, int]] = {}
 
         self.setWindowTitle("Marker channels")
+        self.setMinimumSize(720, 640)
         layout = QVBoxLayout()
 
-        labels_form = QFormLayout()
-        labels_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        labels_combo = RefreshingComboBox(
-            refresh_callback=lambda combo_ref=None: self._refresh_labels_combo(
-                labels_combo
-            )
-        )
-        self._tab._configure_combo(labels_combo)
-        labels_combo.currentTextChanged.connect(self._on_labels_changed)
-        labels_form.addRow("Segmentation labels", labels_combo)
-        labels_widget = QWidget()
-        labels_widget.setLayout(labels_form)
-        layout.addWidget(labels_widget)
-
-        self._labels_combo = labels_combo
-        stored_labels = self._data.get("labels_name")
-        if stored_labels:
-            labels_combo.setCurrentText(stored_labels)
+        segmentations_section = self._build_segmentations_section()
+        layout.addWidget(segmentations_section)
 
         self._channels_container = QWidget()
         self._channels_layout = QVBoxLayout()
@@ -76,11 +76,31 @@ class MarkerChannelsDialog(QDialog):
         self._channels_layout.setSpacing(8)
         self._channels_container.setLayout(self._channels_layout)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        scroll_area.setWidget(self._channels_container)
-        layout.addWidget(scroll_area, 1)
+        frame = QGroupBox("Channels")
+        frame.setFlat(True)
+        frame.setStyleSheet(
+            "QGroupBox {"
+            "  margin-top: 8px;"
+            "}"
+            "QGroupBox::title {"
+            "  subcontrol-origin: margin;"
+            "  subcontrol-position: top left;"
+            "  padding: 0 6px;"
+            "}"
+        )
+
+        self._channels_scroll_area = QScrollArea()
+        self._channels_scroll_area.setWidgetResizable(True)
+        self._channels_scroll_area.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self._channels_scroll_area.setWidget(self._channels_container)
+
+        frame_layout = QVBoxLayout()
+        frame_layout.setContentsMargins(10, 12, 10, 10)
+        frame_layout.addWidget(self._channels_scroll_area)
+        frame.setLayout(frame_layout)
+        layout.addWidget(frame, 1)
 
         add_button = QPushButton("Add channel")
         add_button.clicked.connect(self._add_channel)
@@ -91,7 +111,50 @@ class MarkerChannelsDialog(QDialog):
         layout.addWidget(close_button)
 
         self.setLayout(layout)
+        self._load_segmentations()
         self._load_channels()
+        self._start_layout_watch()
+
+    def _build_segmentations_section(self) -> QGroupBox:
+        """Create the segmentations section with add/remove controls."""
+        section = QGroupBox("Segmentations")
+        section.setFlat(True)
+        section.setStyleSheet(
+            "QGroupBox {"
+            "  margin-top: 8px;"
+            "}"
+            "QGroupBox::title {"
+            "  subcontrol-origin: margin;"
+            "  subcontrol-position: top left;"
+            "  padding: 0 6px;"
+            "}"
+        )
+
+        self._segmentations_container = QWidget()
+        self._segmentations_layout = QVBoxLayout()
+        self._segmentations_layout.setContentsMargins(0, 0, 0, 0)
+        self._segmentations_layout.setSpacing(8)
+        self._segmentations_container.setLayout(self._segmentations_layout)
+
+        self._segmentations_scroll_area = QScrollArea()
+        self._segmentations_scroll_area.setWidgetResizable(True)
+        self._segmentations_scroll_area.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self._segmentations_scroll_area.setWidget(
+            self._segmentations_container
+        )
+
+        add_button = QPushButton("Add segmentation")
+        add_button.clicked.connect(self._add_segmentation)
+
+        section_layout = QVBoxLayout()
+        section_layout.setContentsMargins(10, 12, 10, 10)
+        section_layout.addWidget(self._segmentations_scroll_area)
+        section_layout.addWidget(add_button)
+        section.setLayout(section_layout)
+
+        return section
 
     def _refresh_labels_combo(self, combo: QComboBox) -> None:
         """Refresh labels layer options for the dialog.
@@ -137,44 +200,42 @@ class MarkerChannelsDialog(QDialog):
             if index != -1:
                 combo.setCurrentIndex(index)
 
-    def _on_labels_changed(self, text: str) -> None:
-        """Store the selected segmentation labels name.
-
-        Parameters
-        ----------
-        text : str
-            Selected labels layer name.
-        """
-        self._data["labels_name"] = text
+    def _load_segmentations(self) -> None:
+        """Build segmentation rows from stored data."""
+        if not self._segmentations:
+            return
+        for segmentation_data in self._segmentations:
+            if not isinstance(segmentation_data, MarkerSegmentationConfig):
+                continue
+            self._add_segmentation(segmentation_data)
 
     def _load_channels(self) -> None:
         """Build channel rows from stored data."""
         if not self._channels:
             return
         for channel_data in self._channels:
+            if not isinstance(channel_data, MarkerChannelConfig):
+                continue
             self._add_channel(channel_data)
 
-    def _add_channel(self, channel_data: dict | None = None) -> None:
+    def _add_channel(self, channel_data: MarkerChannelConfig | None = None) -> None:
         """Add a channel row to the dialog.
 
         Parameters
         ----------
-        channel_data : dict or None
-            Channel configuration dictionary.
+        channel_data : MarkerChannelConfig or None
+            Channel configuration data.
         """
-        if channel_data is None:
-            channel_data = {
-                "channel": "",
-                "threshold_enabled": False,
-                "threshold_method": "Otsu",
-                "threshold_min": None,
-                "threshold_max": None,
-            }
+        if isinstance(channel_data, bool):
+            channel_data = None
+        if not isinstance(channel_data, MarkerChannelConfig):
+            channel_data = MarkerChannelConfig()
             self._channels.append(channel_data)
         row = MarkerChannelRow(self, channel_data)
         self._rows.append(row)
         self._channels_layout.addWidget(row)
         self._renumber_rows()
+        self._schedule_layout_update()
 
     def _remove_channel(self, row: "MarkerChannelRow") -> None:
         """Remove a channel row and its stored data.
@@ -192,29 +253,183 @@ class MarkerChannelsDialog(QDialog):
         self._channels_layout.removeWidget(row)
         row.deleteLater()
         self._renumber_rows()
+        self._schedule_layout_update()
 
     def _renumber_rows(self) -> None:
         """Update channel row titles after changes."""
         for index, row in enumerate(self._rows, start=1):
             row.update_title(index)
 
+    def _add_segmentation(
+        self, segmentation_data: MarkerSegmentationConfig | None = None
+    ) -> None:
+        """Add a segmentation row to the dialog.
 
-class MarkerChannelRow(QGroupBox):
-    """Channel row widget for marker feature channels."""
+        Parameters
+        ----------
+        segmentation_data : MarkerSegmentationConfig or None
+            Segmentation configuration data.
+        """
+        if isinstance(segmentation_data, bool):
+            segmentation_data = None
+        if not isinstance(segmentation_data, MarkerSegmentationConfig):
+            segmentation_data = MarkerSegmentationConfig()
+            self._segmentations.append(segmentation_data)
+        row = MarkerSegmentationRow(self, segmentation_data)
+        self._segmentation_rows.append(row)
+        self._segmentations_layout.addWidget(row)
+        self._renumber_segmentations()
+        self._schedule_layout_update()
 
-    def __init__(self, dialog: MarkerChannelsDialog, data: dict) -> None:
-        """Initialize a channel row widget.
+    def _remove_segmentation(self, row: "MarkerSegmentationRow") -> None:
+        """Remove a segmentation row and its stored data.
+
+        Parameters
+        ----------
+        row : MarkerSegmentationRow
+            Row instance to remove.
+        """
+        if row not in self._segmentation_rows:
+            return
+        self._segmentation_rows.remove(row)
+        if row.data in self._segmentations:
+            self._segmentations.remove(row.data)
+        self._segmentations_layout.removeWidget(row)
+        row.deleteLater()
+        self._renumber_segmentations()
+        self._schedule_layout_update()
+
+    def _renumber_segmentations(self) -> None:
+        """Update segmentation row titles after changes."""
+        for index, row in enumerate(self._segmentation_rows, start=1):
+            row.update_title(index)
+
+    def _start_layout_watch(self) -> None:
+        """Start a timer to monitor layout changes in the dialog."""
+        if self._layout_watch_timer is not None:
+            return
+        self._layout_watch_timer = QTimer(self)
+        self._layout_watch_timer.setInterval(150)
+        self._layout_watch_timer.timeout.connect(self._poll_layout)
+        self._layout_watch_timer.start()
+
+    def _schedule_layout_update(self) -> None:
+        """Schedule a layout update on the next timer tick."""
+        self._layout_last_sizes.clear()
+
+    def _poll_layout(self) -> None:
+        """Recompute layout sizing when content changes."""
+        self._apply_scroll_area_layout(
+            "segmentations",
+            self._segmentations_scroll_area,
+            self._segmentations_layout,
+            max_ratio=0.25,
+        )
+        self._apply_scroll_area_layout(
+            "channels",
+            self._channels_scroll_area,
+            self._channels_layout,
+            max_ratio=0.45,
+        )
+
+    def _apply_scroll_area_layout(
+        self,
+        key: str,
+        scroll_area: QScrollArea,
+        layout: QVBoxLayout,
+        max_ratio: float,
+    ) -> None:
+        """Apply sizing rules for a scroll area section.
+
+        Parameters
+        ----------
+        key : str
+            Cache key for the section size.
+        scroll_area : QScrollArea
+            Scroll area to resize.
+        layout : QVBoxLayout
+            Layout containing section rows.
+        max_ratio : float
+            Maximum height ratio relative to the screen.
+        """
+        size = self._layout_content_size(layout)
+        if self._layout_last_sizes.get(key) == size:
+            return
+        self._layout_last_sizes[key] = size
+        content_width, content_height = size
+        screen = self.window().screen() if self.window() is not None else None
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        screen_height = screen.availableGeometry().height() if screen else 720
+        target_height = max(180, int(screen_height * max_ratio))
+        frame = scroll_area.frameWidth() * 2
+        height = max(0, min(target_height, content_height + frame))
+        scroll_area.setUpdatesEnabled(False)
+        scroll_area.setFixedHeight(height)
+        scroll_area.setUpdatesEnabled(True)
+        scroll_area.updateGeometry()
+        bar = scroll_area.verticalScrollBar()
+        if bar.maximum() > 0:
+            scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        else:
+            scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            bar.setRange(0, 0)
+            bar.setValue(0)
+
+    def _layout_content_size(self, layout: QVBoxLayout) -> tuple[int, int]:
+        """Return content size for a vertical layout.
+
+        Parameters
+        ----------
+        layout : QVBoxLayout
+            Layout to measure.
+
+        Returns
+        -------
+        tuple of int
+            (width, height) of the layout contents.
+        """
+        layout.activate()
+        margins = layout.contentsMargins()
+        spacing = layout.spacing()
+        count = layout.count()
+        total_height = margins.top() + margins.bottom()
+        max_width = 0
+        for index in range(count):
+            item = layout.itemAt(index)
+            widget = item.widget()
+            if widget is None:
+                item_size = item.sizeHint()
+            else:
+                widget.adjustSize()
+                item_size = widget.sizeHint().expandedTo(
+                    widget.minimumSizeHint()
+                )
+            max_width = max(max_width, item_size.width())
+            total_height += item_size.height()
+        if count > 1:
+            total_height += spacing * (count - 1)
+        total_width = margins.left() + margins.right() + max_width
+        return (total_width, total_height)
+
+
+class MarkerSegmentationRow(QGroupBox):
+    """Segmentation row widget for marker segmentations."""
+
+    def __init__(
+        self, dialog: MarkerChannelsDialog, data: MarkerSegmentationConfig
+    ) -> None:
+        """Initialize a segmentation row widget.
 
         Parameters
         ----------
         dialog : MarkerChannelsDialog
             Parent dialog instance.
-        data : dict
-            Channel configuration dictionary.
+        data : MarkerSegmentationConfig
+            Segmentation configuration data.
         """
         super().__init__()
         self._dialog = dialog
-        self._feature = dialog._feature
         self._tab = dialog._tab
         self.data = data
 
@@ -234,8 +449,98 @@ class MarkerChannelRow(QGroupBox):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
 
+        form_layout = QFormLayout()
+        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        labels_combo = RefreshingComboBox(
+            refresh_callback=lambda combo_ref=None: self._dialog._refresh_labels_combo(
+                labels_combo
+            )
+        )
+        self._tab._configure_combo(labels_combo)
+        labels_combo.currentTextChanged.connect(
+            lambda text: self._set_data("label", text)
+        )
+        form_layout.addRow("Labels", labels_combo)
+        layout.addLayout(form_layout)
+
+        delete_button = QPushButton("Delete")
+        delete_button.clicked.connect(
+            lambda: self._dialog._remove_segmentation(self)
+        )
+        layout.addWidget(delete_button)
+
+        self._labels_combo = labels_combo
+        self.setLayout(layout)
+        self._restore_state()
+
+    def update_title(self, index: int) -> None:
+        """Update the title label for the segmentation row.
+
+        Parameters
+        ----------
+        index : int
+            1-based index used in the title.
+        """
+        self.setTitle(f"Segmentation {index}")
+
+    def _set_data(self, key: str, value) -> None:
+        """Update the segmentation data model."""
+        setattr(self.data, key, value)
+
+    def _restore_state(self) -> None:
+        """Restore UI state from stored segmentation data."""
+        label_name = self.data.label
+        if label_name:
+            self._labels_combo.setCurrentText(label_name)
+
+
+class MarkerChannelRow(QGroupBox):
+    """Channel row widget for marker feature channels."""
+
+    def __init__(
+        self, dialog: MarkerChannelsDialog, data: MarkerChannelConfig
+    ) -> None:
+        """Initialize a channel row widget.
+
+        Parameters
+        ----------
+        dialog : MarkerChannelsDialog
+            Parent dialog instance.
+        data : MarkerChannelConfig
+            Channel configuration data.
+        """
+        super().__init__()
+        self._dialog = dialog
+        self._feature = dialog._feature
+        self._tab = dialog._tab
+        self.data = data
+        self._threshold_updating = False
+
+        self.setFlat(True)
+        self.setStyleSheet(
+            "QGroupBox {"
+            "  margin-top: 6px;"
+            "}"
+            "QGroupBox::title {"
+            "  subcontrol-origin: margin;"
+            "  subcontrol-position: top left;"
+            "  padding: 0 6px;"
+            "}"
+        )
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
+
         channel_form = QFormLayout()
         channel_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        name_input = QLineEdit()
+        name_input.setPlaceholderText("Channel name")
+        name_input.setMinimumWidth(160)
+        name_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        name_input.textChanged.connect(
+            lambda text: self._set_data("name", text)
+        )
         channel_combo = RefreshingComboBox(
             refresh_callback=lambda combo_ref=None: self._dialog._refresh_image_combo(
                 channel_combo
@@ -243,6 +548,7 @@ class MarkerChannelRow(QGroupBox):
         )
         self._tab._configure_combo(channel_combo)
         channel_combo.currentTextChanged.connect(self._on_channel_changed)
+        channel_form.addRow("Name", name_input)
         channel_form.addRow("Channel", channel_combo)
         layout.addLayout(channel_form)
 
@@ -301,13 +607,14 @@ class MarkerChannelRow(QGroupBox):
         auto_threshold_container.setVisible(False)
         layout.addWidget(auto_threshold_container)
 
-        delete_button = QPushButton("Remove channel")
+        delete_button = QPushButton("Delete")
         delete_button.clicked.connect(lambda: self._dialog._remove_channel(self))
         layout.addWidget(delete_button)
 
         self.setLayout(layout)
 
         self._channel_combo = channel_combo
+        self._name_input = name_input
         self._threshold_checkbox = threshold_checkbox
         self._threshold_slider = threshold_slider
         self._threshold_container = threshold_container
@@ -330,7 +637,7 @@ class MarkerChannelRow(QGroupBox):
         self.setTitle(f"Channel {index}")
 
     def _set_data(self, key: str, value) -> None:
-        """Update the channel data dictionary.
+        """Update the channel data model.
 
         Parameters
         ----------
@@ -339,20 +646,23 @@ class MarkerChannelRow(QGroupBox):
         value : object
             New value to store.
         """
-        self.data[key] = value
+        setattr(self.data, key, value)
 
     def _restore_state(self) -> None:
         """Restore UI state from stored channel data."""
-        channel_name = self.data.get("channel", "")
+        channel_label = self.data.name
+        if channel_label:
+            self._name_input.setText(channel_label)
+        channel_name = self.data.channel
         if channel_name:
             self._channel_combo.setCurrentText(channel_name)
-        method = self.data.get("threshold_method") or "Otsu"
+        method = self.data.threshold_method or "Otsu"
         self._auto_threshold_combo.setCurrentText(method)
-        enabled = bool(self.data.get("threshold_enabled", False))
+        enabled = bool(self.data.threshold_enabled)
         self._threshold_checkbox.setChecked(enabled)
-        self._on_channel_changed()
+        self._on_channel_changed(self._channel_combo.currentText())
 
-    def _on_channel_changed(self, text: str) -> None:
+    def _on_channel_changed(self, text: str | None = None) -> None:
         """Update threshold controls when channel selection changes.
 
         Parameters
@@ -360,6 +670,8 @@ class MarkerChannelRow(QGroupBox):
         text : str
             Newly selected channel name.
         """
+        if text is None:
+            text = self._channel_combo.currentText()
         self._set_data("channel", text)
         layer = self._feature._get_image_layer_by_name(text)
         if layer is None:
@@ -414,16 +726,16 @@ class MarkerChannelRow(QGroupBox):
         """
         if values is None:
             return
-        self._feature._data["threshold_updating"] = True
+        self._threshold_updating = True
         self._threshold_min_spin.blockSignals(True)
         self._threshold_max_spin.blockSignals(True)
         self._threshold_min_spin.setValue(values[0])
         self._threshold_max_spin.setValue(values[1])
         self._threshold_min_spin.blockSignals(False)
         self._threshold_max_spin.blockSignals(False)
-        self._feature._data["threshold_updating"] = False
-        self._set_data("threshold_min", values[0])
-        self._set_data("threshold_max", values[1])
+        self._threshold_updating = False
+        self._set_data("threshold_min", float(values[0]))
+        self._set_data("threshold_max", float(values[1]))
 
     def _on_threshold_spin_changed(self, which: str, value: float) -> None:
         """Sync the slider when a spin box value changes.
@@ -435,7 +747,7 @@ class MarkerChannelRow(QGroupBox):
         value : float
             New spin box value.
         """
-        if self._feature._data.get("threshold_updating"):
+        if self._threshold_updating:
             return
         min_val = self._threshold_min_spin.value()
         max_val = self._threshold_max_spin.value()
@@ -450,13 +762,13 @@ class MarkerChannelRow(QGroupBox):
                 self._threshold_min_spin.blockSignals(True)
                 self._threshold_min_spin.setValue(min_val)
                 self._threshold_min_spin.blockSignals(False)
-        self._feature._data["threshold_updating"] = True
+        self._threshold_updating = True
         self._feature._set_slider_values(
             self._threshold_slider, (min_val, max_val)
         )
-        self._feature._data["threshold_updating"] = False
-        self._set_data("threshold_min", min_val)
-        self._set_data("threshold_max", max_val)
+        self._threshold_updating = False
+        self._set_data("threshold_min", float(min_val))
+        self._set_data("threshold_max", float(max_val))
 
     def _run_auto_threshold(self) -> None:
         """Compute an automatic threshold and update the range controls."""
@@ -481,7 +793,7 @@ class MarkerChannelRow(QGroupBox):
             self._threshold_min_spin,
             self._threshold_max_spin,
         )
-        self._feature._data["threshold_updating"] = True
+        self._threshold_updating = True
         self._feature._set_slider_values(
             self._threshold_slider, (threshold, max_val)
         )
@@ -491,9 +803,9 @@ class MarkerChannelRow(QGroupBox):
         self._threshold_max_spin.blockSignals(True)
         self._threshold_max_spin.setValue(max_val)
         self._threshold_max_spin.blockSignals(False)
-        self._feature._data["threshold_updating"] = False
-        self._set_data("threshold_min", threshold)
-        self._set_data("threshold_max", max_val)
+        self._threshold_updating = False
+        self._set_data("threshold_min", float(threshold))
+        self._set_data("threshold_max", float(max_val))
 
 
 class MarkerFeature(SenoQuantFeature):
@@ -505,38 +817,40 @@ class MarkerFeature(SenoQuantFeature):
     def build(self) -> None:
         """Build the marker feature UI."""
         self._build_channels_section()
-        roi_section = ROISection(self._tab, self._config)
+        data = self._state.data
+        if isinstance(data, MarkerFeatureData):
+            roi_section = ROISection(self._tab, self._context, data.rois)
+        else:
+            roi_section = ROISection(self._tab, self._context, [])
         roi_section.build()
-        self._data["roi_section"] = roi_section
+        self._ui["roi_section"] = roi_section
 
-    def on_features_changed(self, configs: list[dict]) -> None:
+    def on_features_changed(self, configs: list) -> None:
         """Update ROI titles when feature ordering changes.
 
         Parameters
         ----------
-        configs : list of dict
-            Current feature configuration list.
+        configs : list of FeatureUIContext
+            Current feature contexts.
         """
-        roi_section = self._data.get("roi_section")
+        roi_section = self._ui.get("roi_section")
         if roi_section is not None:
             roi_section.update_titles()
 
     def _build_channels_section(self) -> None:
         """Build the channels button that opens the popup dialog."""
-        left_dynamic_layout = self._config.get("left_dynamic_layout")
-        if left_dynamic_layout is None:
-            return
+        left_dynamic_layout = self._context.left_dynamic_layout
         button = QPushButton("Add channels")
         button.clicked.connect(self._open_channels_dialog)
         left_dynamic_layout.addWidget(button)
-        self._data["channels_button"] = button
+        self._ui["channels_button"] = button
 
     def _open_channels_dialog(self) -> None:
         """Open the channels configuration dialog."""
-        dialog = self._data.get("channels_dialog")
+        dialog = self._ui.get("channels_dialog")
         if dialog is None or not isinstance(dialog, QDialog):
             dialog = MarkerChannelsDialog(self)
-            self._data["channels_dialog"] = dialog
+            self._ui["channels_dialog"] = dialog
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()

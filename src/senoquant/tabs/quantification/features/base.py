@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 from qtpy.QtWidgets import QComboBox, QFormLayout, QWidget
 
 if TYPE_CHECKING:
     from ..frontend import QuantificationTab
+    from ..frontend import FeatureUIContext
 
 
 class SenoQuantFeature:
@@ -16,54 +17,66 @@ class SenoQuantFeature:
     feature_type: str = ""
     order: int = 0
 
-    def __init__(self, tab: "QuantificationTab", config: dict) -> None:
+    def __init__(self, tab: "QuantificationTab", context: "FeatureUIContext") -> None:
         """Initialize a feature with shared tab context.
 
         Parameters
         ----------
         tab : QuantificationTab
             Parent quantification tab instance.
-        config : dict
-            Feature configuration dictionary.
+        context : FeatureUIContext
+            Feature UI context with configuration state.
         """
         self._tab = tab
-        self._config = config
-        self._data = config.setdefault("feature_data", {})
+        self._context = context
+        self._state = context.state
+        self._ui: dict[str, object] = {}
 
     def build(self) -> None:
         """Build the UI for this feature."""
         raise NotImplementedError
 
-    def on_features_changed(self, configs: list[dict]) -> None:
+    def on_features_changed(self, configs: list["FeatureUIContext"]) -> None:
         """Handle updates when the feature list changes.
 
         Parameters
         ----------
-        configs : list of dict
-            Current feature configuration list.
+        configs : list of FeatureUIContext
+            Current feature contexts.
         """
         return
 
     @classmethod
-    def update_type_options(cls, tab: "QuantificationTab", configs: list[dict]) -> None:
+    def update_type_options(
+        cls, tab: "QuantificationTab", configs: list["FeatureUIContext"]
+    ) -> None:
         """Update type availability in feature selectors.
 
         Parameters
         ----------
         tab : QuantificationTab
             Parent quantification tab instance.
-        configs : list of dict
-            Current feature configuration list.
+        configs : list of FeatureUIContext
+            Current feature contexts.
         """
         return
 
-    def build_labels_widget(self, label_text: str) -> None:
+    def build_labels_widget(
+        self,
+        label_text: str,
+        get_value: Optional[Callable[[], str]] = None,
+        set_value: Optional[Callable[[str], None]] = None,
+    ) -> None:
         """Build and attach a labels selection widget.
 
         Parameters
         ----------
         label_text : str
             Label shown for the combo box.
+        get_value : callable, optional
+            Getter returning the currently selected label name.
+        set_value : callable, optional
+            Setter called when the selection changes.
         """
         labels_form = QFormLayout()
         labels_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -73,23 +86,25 @@ class SenoQuantFeature:
             )
         )
         self._tab._configure_combo(labels_combo)
+        if set_value is not None:
+            labels_combo.currentTextChanged.connect(set_value)
         labels_form.addRow(label_text, labels_combo)
         labels_widget = QWidget()
         labels_widget.setLayout(labels_form)
-        left_layout = self._config.get("left_layout")
-        if left_layout is not None:
-            left_layout.insertWidget(1, labels_widget)
-        self._data["labels_widget"] = labels_widget
+        self._context.left_layout.insertWidget(1, labels_widget)
+        self._ui["labels_widget"] = labels_widget
+        if get_value is not None:
+            current = get_value()
+            if current:
+                labels_combo.setCurrentText(current)
 
     def teardown(self) -> None:
         """Remove feature-specific widgets before rebuilding."""
-        widget = self._data.get("labels_widget")
+        widget = self._ui.get("labels_widget")
         if widget is not None:
-            left_layout = self._config.get("left_layout")
-            if left_layout is not None:
-                left_layout.removeWidget(widget)
+            self._context.left_layout.removeWidget(widget)
             widget.deleteLater()
-        self._data.clear()
+        self._ui.clear()
 
     def _refresh_labels_combo(self, combo: QComboBox) -> None:
         """Refresh the labels combo with available layers.

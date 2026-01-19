@@ -1,5 +1,6 @@
 """Frontend widget for the Quantification tab."""
 
+from dataclasses import dataclass
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
@@ -17,7 +18,22 @@ from qtpy.QtWidgets import (
 )
 
 from .backend import QuantificationBackend
+from .config import FeatureConfig, build_feature_data
 from .features import get_feature_registry
+
+
+@dataclass
+class FeatureUIContext:
+    """UI context for a single feature row."""
+
+    state: FeatureConfig
+    section: QGroupBox
+    name_input: QLineEdit
+    type_combo: QComboBox
+    left_dynamic_layout: QVBoxLayout
+    left_layout: QVBoxLayout
+    right_layout: QVBoxLayout
+    feature_handler: object | None = None
 
 
 class QuantificationTab(QWidget):
@@ -47,7 +63,7 @@ class QuantificationTab(QWidget):
         super().__init__()
         self._backend = backend or QuantificationBackend()
         self._viewer = napari_viewer
-        self._feature_configs: list[dict] = []
+        self._feature_configs: list[FeatureUIContext] = []
         self._feature_registry = get_feature_registry()
         self._features_watch_timer: QTimer | None = None
         self._features_last_size: tuple[int, int] | None = None
@@ -267,48 +283,52 @@ class QuantificationTab(QWidget):
         )
 
         self._features_layout.addWidget(feature_section)
-        config = {
-            "section": feature_section,
-            "name_input": name_input,
-            "type_combo": type_combo,
-            "left_dynamic_layout": left_dynamic_layout,
-            "feature_data": {},
-            "right_layout": right_layout,
-            "left_layout": left_layout,
-            "feature_handler": None,
-        }
-        self._feature_configs.append(config)
-        name_input.textChanged.connect(self._notify_features_changed)
-        type_combo.currentTextChanged.connect(
-            lambda _text, cfg=config: self._on_feature_type_changed(cfg)
+        feature_type = type_combo.currentText()
+        state = FeatureConfig(
+            name="",
+            type_name=feature_type,
+            data=build_feature_data(feature_type),
         )
-        self._on_feature_type_changed(config)
+        context = FeatureUIContext(
+            state=state,
+            section=feature_section,
+            name_input=name_input,
+            type_combo=type_combo,
+            left_dynamic_layout=left_dynamic_layout,
+            left_layout=left_layout,
+            right_layout=right_layout,
+        )
+        self._feature_configs.append(context)
+        name_input.textChanged.connect(
+            lambda text, ctx=context: self._on_feature_name_changed(ctx, text)
+        )
+        type_combo.currentTextChanged.connect(
+            lambda _text, ctx=context: self._on_feature_type_changed(ctx)
+        )
+        self._on_feature_type_changed(context)
         self._notify_features_changed()
         self._features_layout.activate()
         QTimer.singleShot(0, self._apply_features_layout)
 
-    def _on_feature_type_changed(self, config: dict) -> None:
+    def _on_feature_type_changed(self, context: FeatureUIContext) -> None:
         """Update a feature section when its type changes.
 
         Parameters
         ----------
-        config : dict
-            Feature configuration dictionary.
+        context : FeatureUIContext
+            Feature UI context and data.
         """
-        left_dynamic_layout = config["left_dynamic_layout"]
+        left_dynamic_layout = context.left_dynamic_layout
         self._clear_layout(left_dynamic_layout)
-        right_layout = config.get("right_layout")
-        if right_layout is not None:
-            self._clear_layout(right_layout)
-        previous_handler = config.get("feature_handler")
-        if previous_handler is not None:
-            previous_handler.teardown()
-        config["feature_data"] = {}
-        config["feature_handler"] = None
+        self._clear_layout(context.right_layout)
+        if context.feature_handler is not None:
+            context.feature_handler.teardown()
+        feature_type = context.type_combo.currentText()
+        context.state.type_name = feature_type
+        context.state.data = build_feature_data(feature_type)
 
-        feature_type = config["type_combo"].currentText()
-        feature_handler = self._feature_handler_for_type(feature_type, config)
-        config["feature_handler"] = feature_handler
+        feature_handler = self._feature_handler_for_type(feature_type, context)
+        context.feature_handler = feature_handler
         if feature_handler is not None:
             feature_handler.build()
         self._notify_features_changed()
@@ -322,13 +342,13 @@ class QuantificationTab(QWidget):
         feature_section : QGroupBox
             Feature section widget to remove.
         """
-        config = next(
-            (cfg for cfg in self._feature_configs if cfg["section"] is feature_section),
+        context = next(
+            (cfg for cfg in self._feature_configs if cfg.section is feature_section),
             None,
         )
-        if config is None:
+        if context is None:
             return
-        self._feature_configs.remove(config)
+        self._feature_configs.remove(context)
         self._features_layout.removeWidget(feature_section)
         feature_section.deleteLater()
         self._renumber_features()
@@ -340,15 +360,15 @@ class QuantificationTab(QWidget):
 
     def _renumber_features(self) -> None:
         """Renumber feature sections after insertions/removals."""
-        for index, config in enumerate(self._feature_configs, start=1):
-            config["section"].setTitle(f"Feature {index}")
+        for index, context in enumerate(self._feature_configs, start=1):
+            context.section.setTitle(f"Feature {index}")
 
     def _notify_features_changed(self) -> None:
         """Notify feature handlers that the feature list has changed."""
         for feature_cls in self._feature_registry.values():
             feature_cls.update_type_options(self, self._feature_configs)
-        for config in self._feature_configs:
-            handler = config.get("feature_handler")
+        for context in self._feature_configs:
+            handler = context.feature_handler
             if handler is not None:
                 handler.on_features_changed(self._feature_configs)
 
@@ -357,7 +377,9 @@ class QuantificationTab(QWidget):
         """Return the available feature type names."""
         return list(self._feature_registry.keys())
 
-    def _feature_handler_for_type(self, feature_type: str, config: dict):
+    def _feature_handler_for_type(
+        self, feature_type: str, context: FeatureUIContext
+    ):
         """Return the feature handler for a given feature type.
 
         Parameters
@@ -375,7 +397,7 @@ class QuantificationTab(QWidget):
         feature_cls = self._feature_registry.get(feature_type)
         if feature_cls is None:
             return None
-        return feature_cls(self, config)
+        return feature_cls(self, context)
 
     def _configure_combo(self, combo: QComboBox) -> None:
         """Apply sizing defaults to combo boxes.
@@ -409,20 +431,35 @@ class QuantificationTab(QWidget):
             if child_layout is not None:
                 self._clear_layout(child_layout)
 
-    def _feature_index(self, config: dict) -> int:
+    def _feature_index(self, context: FeatureUIContext) -> int:
         """Return the 1-based index for a feature config.
 
         Parameters
         ----------
-        config : dict
-            Feature configuration dictionary.
+        context : FeatureUIContext
+            Feature UI context.
 
         Returns
         -------
         int
             1-based index of the feature.
         """
-        return self._feature_configs.index(config) + 1
+        return self._feature_configs.index(context) + 1
+
+    def _on_feature_name_changed(
+        self, context: FeatureUIContext, text: str
+    ) -> None:
+        """Store feature name updates and refresh dependent combos.
+
+        Parameters
+        ----------
+        context : FeatureUIContext
+            Feature UI context.
+        text : str
+            Updated name string.
+        """
+        context.state.name = text
+        self._notify_features_changed()
 
     def _start_features_watch(self) -> None:
         """Start a timer to monitor feature sizing changes.
