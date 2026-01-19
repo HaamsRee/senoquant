@@ -35,11 +35,22 @@ class QuantificationTab(QWidget):
         backend: QuantificationBackend | None = None,
         napari_viewer=None,
     ) -> None:
+        """Initialize the quantification tab UI.
+
+        Parameters
+        ----------
+        backend : QuantificationBackend or None
+            Backend instance for quantification workflows.
+        napari_viewer : object or None
+            Napari viewer used to populate layer dropdowns.
+        """
         super().__init__()
         self._backend = backend or QuantificationBackend()
         self._viewer = napari_viewer
         self._feature_configs: list[dict] = []
         self._feature_registry = get_feature_registry()
+        self._features_watch_timer: QTimer | None = None
+        self._features_last_size: tuple[int, int] | None = None
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_output_section())
@@ -120,7 +131,7 @@ class QuantificationTab(QWidget):
         features_container = QWidget()
         self._features_container = features_container
         features_container.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
+            QSizePolicy.Expanding, QSizePolicy.Minimum
         )
         features_container.setMinimumWidth(200)
         self._features_min_width = 200
@@ -146,13 +157,20 @@ class QuantificationTab(QWidget):
         section.setLayout(section_layout)
 
         self._add_feature_row()
-        self._update_features_scroll_height()
+        self._apply_features_layout()
+        self._start_features_watch()
         return section
 
     def showEvent(self, event) -> None:
-        """Ensure the features list resizes on initial show."""
+        """Ensure layout sizing is applied on initial show.
+
+        Parameters
+        ----------
+        event : QShowEvent
+            Qt show event passed by the widget.
+        """
         super().showEvent(event)
-        self._update_features_scroll_height()
+        self._apply_features_layout()
 
     def resizeEvent(self, event) -> None:
         """Resize handler to keep the features list at a capped height.
@@ -163,102 +181,7 @@ class QuantificationTab(QWidget):
             Qt resize event passed by the widget.
         """
         super().resizeEvent(event)
-        self._update_features_scroll_height()
-
-    def _update_features_scroll_height(self) -> None:
-        """Update the features scroll area height based on the screen size.
-
-        The features list grows with its contents until it reaches a maximum
-        height (25% of the screen height), at which point vertical scrolling
-        is enabled.
-        """
-        if not hasattr(self, "_features_scroll_area"):
-            return
-        screen = self.window().screen() if self.window() is not None else None
-        if screen is None:
-            screen = QGuiApplication.primaryScreen()
-        screen_height = screen.availableGeometry().height() if screen else 720
-        target_height = max(180, int(screen_height * 0.25))
-        content_height = 0
-        if hasattr(self, "_features_container"):
-            self._features_container.adjustSize()
-            content_height = self._features_container.sizeHint().height()
-        frame = self._features_scroll_area.frameWidth() * 2
-        height = max(0, min(target_height, content_height + frame))
-        self._features_scroll_area.setUpdatesEnabled(False)
-        if content_height + frame <= target_height:
-            self._features_scroll_area.setVerticalScrollBarPolicy(
-                Qt.ScrollBarAlwaysOff
-            )
-        else:
-            self._features_scroll_area.setVerticalScrollBarPolicy(
-                Qt.ScrollBarAsNeeded
-            )
-        self._features_scroll_area.setFixedHeight(height)
-        self._features_scroll_area.setUpdatesEnabled(True)
-        self._update_feature_columns_width()
-
-    def _update_feature_columns_width(self) -> None:
-        """Update column minimum widths from the features container width."""
-        if not hasattr(self, "_features_container"):
-            return
-        total_min = getattr(self, "_features_min_width", 0)
-        if total_min <= 0:
-            total_min = self._features_container.minimumWidth()
-        left_hint = 0
-        right_hint = 0
-        if hasattr(self, "_left_container") and self._left_container is not None:
-            try:
-                left_hint = self._left_container.sizeHint().width()
-            except RuntimeError:
-                self._left_container = None
-        if hasattr(self, "_right_container") and self._right_container is not None:
-            try:
-                right_hint = self._right_container.sizeHint().width()
-            except RuntimeError:
-                self._right_container = None
-        left_min = max(int(total_min * 0.6), left_hint)
-        right_min = max(int(total_min * 0.4), right_hint)
-        if self._left_container is not None:
-            try:
-                self._left_container.setMinimumWidth(left_min)
-            except RuntimeError:
-                self._left_container = None
-        if self._right_container is not None:
-            try:
-                self._right_container.setMinimumWidth(right_min)
-            except RuntimeError:
-                self._right_container = None
-        self._update_features_container_width()
-
-    def _update_features_container_width(self) -> None:
-        """Ensure the features container can scroll to the widest feature."""
-        if not hasattr(self, "_features_container") or not hasattr(
-            self, "_features_layout"
-        ):
-            return
-        max_width = getattr(self, "_features_min_width", 0)
-        self._features_layout.invalidate()
-        layout_width = self._features_layout.sizeHint().width()
-        max_width = max(max_width, layout_width)
-        for index in range(self._features_layout.count()):
-            item = self._features_layout.itemAt(index)
-            widget = item.widget()
-            if widget is None:
-                continue
-            widget.adjustSize()
-            max_width = max(
-                max_width,
-                widget.sizeHint().width(),
-                widget.minimumSizeHint().width(),
-            )
-        max_width = max(
-            max_width,
-            self._features_container.sizeHint().width(),
-            self._features_container.minimumSizeHint().width(),
-        )
-        self._features_container.setMinimumWidth(max_width)
-        self._features_container.updateGeometry()
+        self._apply_features_layout()
 
     def _add_feature_row(self) -> None:
         """Add a new feature input row."""
@@ -337,7 +260,7 @@ class QuantificationTab(QWidget):
         content_layout.addWidget(left_container, 3)
         content_layout.addWidget(right_container, 2)
         section_layout.addLayout(content_layout)
-        self._update_feature_columns_width()
+        self._apply_features_layout()
         feature_section.setLayout(section_layout)
         feature_section.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
@@ -362,7 +285,7 @@ class QuantificationTab(QWidget):
         self._on_feature_type_changed(config)
         self._notify_features_changed()
         self._features_layout.activate()
-        QTimer.singleShot(0, self._update_features_scroll_height)
+        QTimer.singleShot(0, self._apply_features_layout)
 
     def _on_feature_type_changed(self, config: dict) -> None:
         """Update a feature section when its type changes.
@@ -411,7 +334,9 @@ class QuantificationTab(QWidget):
         self._renumber_features()
         self._notify_features_changed()
         self._features_layout.activate()
-        QTimer.singleShot(0, self._update_features_scroll_height)
+        if hasattr(self, "_features_container"):
+            self._features_container.adjustSize()
+        QTimer.singleShot(0, self._apply_features_layout)
 
     def _renumber_features(self) -> None:
         """Renumber feature sections after insertions/removals."""
@@ -498,3 +423,149 @@ class QuantificationTab(QWidget):
             1-based index of the feature.
         """
         return self._feature_configs.index(config) + 1
+
+    def _start_features_watch(self) -> None:
+        """Start a timer to monitor feature sizing changes.
+
+        The watcher polls for content size changes and reapplies layout
+        constraints without blocking the UI thread.
+        """
+        if self._features_watch_timer is not None:
+            return
+        self._features_watch_timer = QTimer(self)
+        self._features_watch_timer.setInterval(150)
+        self._features_watch_timer.timeout.connect(self._poll_features_geometry)
+        self._features_watch_timer.start()
+
+    def _poll_features_geometry(self) -> None:
+        """Recompute layout sizing when content size changes."""
+        if not hasattr(self, "_features_scroll_area"):
+            return
+        size = self._features_content_size()
+        if size == self._features_last_size:
+            return
+        self._features_last_size = size
+        self._apply_features_layout(size)
+
+    def _apply_features_layout(
+        self, content_size: tuple[int, int] | None = None
+    ) -> None:
+        """Apply sizing rules for the features container and scroll area.
+
+        Parameters
+        ----------
+        content_size : tuple of int or None
+            Optional (width, height) of the features content. If None, the
+            size is computed from the current layout.
+        """
+        if not hasattr(self, "_features_scroll_area"):
+            return
+        if content_size is None:
+            content_size = self._features_content_size()
+        content_width, content_height = content_size
+
+        total_min = getattr(self, "_features_min_width", 0)
+        if total_min <= 0 and hasattr(self, "_features_container"):
+            total_min = self._features_container.minimumWidth()
+        left_hint = 0
+        right_hint = 0
+        if hasattr(self, "_left_container") and self._left_container is not None:
+            try:
+                left_hint = self._left_container.sizeHint().width()
+            except RuntimeError:
+                self._left_container = None
+        if hasattr(self, "_right_container") and self._right_container is not None:
+            try:
+                right_hint = self._right_container.sizeHint().width()
+            except RuntimeError:
+                self._right_container = None
+        left_min = max(int(total_min * 0.6), left_hint)
+        right_min = max(int(total_min * 0.4), right_hint)
+        if self._left_container is not None:
+            try:
+                self._left_container.setMinimumWidth(left_min)
+            except RuntimeError:
+                self._left_container = None
+        if self._right_container is not None:
+            try:
+                self._right_container.setMinimumWidth(right_min)
+            except RuntimeError:
+                self._right_container = None
+
+        if hasattr(self, "_features_container"):
+            self._features_container.setMinimumHeight(0)
+            self._features_container.setMinimumWidth(
+                max(total_min, content_width)
+            )
+            self._features_container.updateGeometry()
+
+        screen = self.window().screen() if self.window() is not None else None
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        screen_height = screen.availableGeometry().height() if screen else 720
+        target_height = max(180, int(screen_height * 0.25))
+        frame = self._features_scroll_area.frameWidth() * 2
+        scroll_slack = 2
+        effective_height = content_height + scroll_slack
+        height = max(0, min(target_height, effective_height + frame))
+        self._features_scroll_area.setUpdatesEnabled(False)
+        self._features_scroll_area.setFixedHeight(height)
+        self._features_scroll_area.setUpdatesEnabled(True)
+        self._features_scroll_area.updateGeometry()
+        widget = self._features_scroll_area.widget()
+        if widget is not None:
+            widget.adjustSize()
+            widget.updateGeometry()
+        self._features_scroll_area.viewport().updateGeometry()
+        bar = self._features_scroll_area.verticalScrollBar()
+        if bar.maximum() > 0:
+            self._features_scroll_area.setVerticalScrollBarPolicy(
+                Qt.ScrollBarAsNeeded
+            )
+        else:
+            self._features_scroll_area.setVerticalScrollBarPolicy(
+                Qt.ScrollBarAlwaysOff
+            )
+            bar.setRange(0, 0)
+            bar.setValue(0)
+
+    def _features_content_size(self) -> tuple[int, int]:
+        """Compute the content size for the features layout.
+
+        Returns
+        -------
+        tuple of int
+            (width, height) of the content.
+        """
+        if not hasattr(self, "_features_layout"):
+            return (0, 0)
+        layout = self._features_layout
+        layout.activate()
+        margins = layout.contentsMargins()
+        spacing = layout.spacing()
+        count = layout.count()
+        total_height = margins.top() + margins.bottom()
+        max_width = 0
+        for index in range(count):
+            item = layout.itemAt(index)
+            widget = item.widget()
+            if widget is None:
+                item_size = item.sizeHint()
+            else:
+                widget.adjustSize()
+                item_size = widget.sizeHint().expandedTo(
+                    widget.minimumSizeHint()
+                )
+            max_width = max(max_width, item_size.width())
+            total_height += item_size.height()
+        if count > 1:
+            total_height += spacing * (count - 1)
+        total_width = margins.left() + margins.right() + max_width
+        if hasattr(self, "_features_container"):
+            self._features_container.adjustSize()
+            container_size = self._features_container.sizeHint().expandedTo(
+                self._features_container.minimumSizeHint()
+            )
+            total_width = max(total_width, container_size.width())
+            total_height = max(total_height, container_size.height())
+        return (total_width, total_height)

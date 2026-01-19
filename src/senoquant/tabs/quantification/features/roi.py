@@ -114,11 +114,10 @@ class ROISection:
         else:
             self.clear()
         self._tab._features_layout.activate()
-        self._tab._update_feature_columns_width()
-        self._tab._update_features_container_width()
+        self._tab._apply_features_layout()
         if self._tab._features_scroll_area is not None:
             self._tab._features_scroll_area.updateGeometry()
-        QTimer.singleShot(0, self._tab._update_features_scroll_height)
+        QTimer.singleShot(0, self._tab._apply_features_layout)
         QTimer.singleShot(0, self._update_scroll_height)
 
     def _add_row(self) -> None:
@@ -182,7 +181,7 @@ class ROISection:
         self._data["roi_items"] = self._items
         self.update_titles()
         self._tab._features_layout.activate()
-        QTimer.singleShot(0, self._tab._update_features_scroll_height)
+        QTimer.singleShot(0, self._tab._apply_features_layout)
         QTimer.singleShot(0, self._update_scroll_height)
 
     def _remove_row(self, roi_section: QGroupBox) -> None:
@@ -203,7 +202,7 @@ class ROISection:
         self.update_titles()
         self._update_scroll_height()
         self._tab._features_layout.activate()
-        QTimer.singleShot(0, self._tab._update_features_scroll_height)
+        QTimer.singleShot(0, self._tab._apply_features_layout)
 
     def update_titles(self) -> None:
         """Refresh ROI section titles based on current feature order."""

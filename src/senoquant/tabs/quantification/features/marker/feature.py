@@ -2,18 +2,21 @@
 
 import numpy as np
 
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, QTimer
 from qtpy.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
+    QPushButton,
     QSizePolicy,
     QWidget,
 )
 
 from ..base import RefreshingComboBox, SenoQuantFeature
 from ..roi import ROISection
+from .thresholding import THRESHOLD_METHODS, compute_threshold
 
 try:
     from superqt import QDoubleRangeSlider as RangeSlider
@@ -108,12 +111,29 @@ class MarkerFeature(SenoQuantFeature):
         threshold_container.setVisible(False)
         left_dynamic_layout.addWidget(threshold_container)
 
+        auto_threshold_container = QWidget()
+        auto_threshold_layout = QHBoxLayout()
+        auto_threshold_layout.setContentsMargins(0, 0, 0, 0)
+        auto_threshold_combo = QComboBox()
+        auto_threshold_combo.addItems(list(THRESHOLD_METHODS.keys()))
+        self._tab._configure_combo(auto_threshold_combo)
+        auto_threshold_button = QPushButton("Auto threshold")
+        auto_threshold_button.clicked.connect(self._run_auto_threshold)
+        auto_threshold_layout.addWidget(auto_threshold_combo, 1)
+        auto_threshold_layout.addWidget(auto_threshold_button)
+        auto_threshold_container.setLayout(auto_threshold_layout)
+        auto_threshold_container.setVisible(False)
+        left_dynamic_layout.addWidget(auto_threshold_container)
+
         self._data["channel_combo"] = channel_combo
         self._data["threshold_checkbox"] = threshold_checkbox
         self._data["threshold_slider"] = threshold_slider
         self._data["threshold_container"] = threshold_container
         self._data["threshold_min_spin"] = threshold_min_spin
         self._data["threshold_max_spin"] = threshold_max_spin
+        self._data["auto_threshold_container"] = auto_threshold_container
+        self._data["auto_threshold_combo"] = auto_threshold_combo
+        self._data["auto_threshold_button"] = auto_threshold_button
         self._on_channel_changed()
 
     def _refresh_image_combo(self, combo) -> None:
@@ -166,6 +186,9 @@ class MarkerFeature(SenoQuantFeature):
         slider = self._data.get("threshold_slider")
         min_spin = self._data.get("threshold_min_spin")
         max_spin = self._data.get("threshold_max_spin")
+        auto_container = self._data.get("auto_threshold_container")
+        auto_combo = self._data.get("auto_threshold_combo")
+        auto_button = self._data.get("auto_threshold_button")
         if combo is None or checkbox is None or slider is None:
             return
         container = self._data.get("threshold_container")
@@ -181,6 +204,12 @@ class MarkerFeature(SenoQuantFeature):
                 max_spin.setEnabled(False)
             if container is not None:
                 container.setVisible(False)
+            if auto_container is not None:
+                auto_container.setVisible(False)
+            if auto_combo is not None:
+                auto_combo.setEnabled(False)
+            if auto_button is not None:
+                auto_button.setEnabled(False)
             return
         checkbox.setEnabled(True)
         self._set_threshold_range(slider, layer)
@@ -198,6 +227,9 @@ class MarkerFeature(SenoQuantFeature):
         container = self._data.get("threshold_container")
         min_spin = self._data.get("threshold_min_spin")
         max_spin = self._data.get("threshold_max_spin")
+        auto_container = self._data.get("auto_threshold_container")
+        auto_combo = self._data.get("auto_threshold_combo")
+        auto_button = self._data.get("auto_threshold_button")
         if slider is None or container is None:
             return
         slider.setEnabled(enabled)
@@ -207,6 +239,15 @@ class MarkerFeature(SenoQuantFeature):
         if max_spin is not None:
             max_spin.setEnabled(enabled)
         container.setVisible(enabled)
+        if auto_container is not None:
+            auto_container.setVisible(enabled)
+        if auto_combo is not None:
+            auto_combo.setEnabled(enabled)
+        if auto_button is not None:
+            auto_button.setEnabled(enabled)
+        self._tab._features_layout.activate()
+        self._tab._apply_features_layout()
+        QTimer.singleShot(0, self._tab._apply_features_layout)
 
     def _make_range_slider(self):
         """Create a horizontal range slider if available.
@@ -214,7 +255,7 @@ class MarkerFeature(SenoQuantFeature):
         Returns
         -------
         QWidget
-            Range slider widget or placeholder.
+            Range slider widget or a placeholder QWidget when unavailable.
         """
         if RangeSlider is None:
             return QWidget()
@@ -231,7 +272,7 @@ class MarkerFeature(SenoQuantFeature):
         Parameters
         ----------
         slider : QWidget
-            Range slider widget.
+            Range slider widget instance.
 
         Returns
         -------
@@ -252,7 +293,7 @@ class MarkerFeature(SenoQuantFeature):
         slider : QWidget
             Range slider widget.
         values : tuple
-            (min, max) values for the slider.
+            (min, max) values to apply to the slider.
         """
         if hasattr(slider, "setValue"):
             try:
@@ -354,4 +395,43 @@ class MarkerFeature(SenoQuantFeature):
                 min_spin.blockSignals(False)
         self._data["threshold_updating"] = True
         self._set_slider_values(slider, (min_val, max_val))
+        self._data["threshold_updating"] = False
+
+    def _run_auto_threshold(self) -> None:
+        """Compute an automatic threshold and update the range controls.
+
+        The slider minimum is set to the computed threshold, while the maximum
+        remains at the image maximum for the selected channel.
+        """
+        combo = self._data.get("channel_combo")
+        method_combo = self._data.get("auto_threshold_combo")
+        slider = self._data.get("threshold_slider")
+        min_spin = self._data.get("threshold_min_spin")
+        max_spin = self._data.get("threshold_max_spin")
+        if combo is None or method_combo is None or slider is None:
+            return
+        layer = self._get_image_layer_by_name(combo.currentText())
+        if layer is None:
+            return
+        method = method_combo.currentText() or "Otsu"
+        try:
+            threshold = compute_threshold(layer.data, method)
+        except Exception:
+            return
+        min_val = float(np.nanmin(layer.data))
+        max_val = float(np.nanmax(layer.data))
+        if min_val == max_val:
+            max_val = min_val + 1.0
+        threshold = min(max(threshold, min_val), max_val)
+        self._set_threshold_range(slider, layer)
+        self._data["threshold_updating"] = True
+        self._set_slider_values(slider, (threshold, max_val))
+        if min_spin is not None:
+            min_spin.blockSignals(True)
+            min_spin.setValue(threshold)
+            min_spin.blockSignals(False)
+        if max_spin is not None:
+            max_spin.blockSignals(True)
+            max_spin.setValue(max_val)
+            max_spin.blockSignals(False)
         self._data["threshold_updating"] = False
