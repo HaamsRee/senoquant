@@ -1,11 +1,14 @@
 """Marker feature UI."""
 
+from pathlib import Path
+
 from qtpy.QtWidgets import QDialog, QPushButton
 
 from ..base import SenoQuantFeature
 from ..roi import ROISection
 from .config import MarkerFeatureData
 from .dialog import MarkerChannelsDialog
+from .export import export_marker
 
 
 class MarkerFeature(SenoQuantFeature):
@@ -90,3 +93,25 @@ class MarkerFeature(SenoQuantFeature):
             if layer.__class__.__name__ == "Image" and layer.name == name:
                 return layer
         return None
+
+    def export(self, temp_dir: Path, export_format: str):
+        """Export marker outputs into a temporary directory.
+
+        Parameters
+        ----------
+        temp_dir : Path
+            Temporary directory where outputs should be written.
+        export_format : str
+            File format requested by the user (``"csv"`` or ``"xlsx"``).
+
+        Returns
+        -------
+        iterable of Path
+            Paths to files produced by the export routine.
+        """
+        return export_marker(
+            self._state,
+            temp_dir,
+            viewer=self._tab._viewer,
+            export_format=export_format,
+        )

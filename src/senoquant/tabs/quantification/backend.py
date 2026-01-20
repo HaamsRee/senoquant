@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Iterable
 import shutil
 import tempfile
 
@@ -60,13 +60,14 @@ class QuantificationBackend:
 
     Notes
     -----
-    Feature processors are registered per feature type and are expected to
-    write outputs to the provided temporary directory. After all processors
-    run, their outputs are routed into a final output structure.
+    Feature export routines live with their feature implementations. The
+    backend iterates through configured feature contexts, asks each feature
+    handler to export into a temporary directory, and then routes those
+    outputs into a final output structure.
     """
 
     def __init__(self) -> None:
-        """Initialize the backend with an empty processor registry.
+        """Initialize the backend state.
 
         Attributes
         ----------
@@ -74,63 +75,28 @@ class QuantificationBackend:
             Placeholder container for computed metrics.
         """
         self.metrics: list[object] = []
-        self._processors: dict[str, Callable[[FeatureConfig, Path], Iterable[Path]]] = {}
-
-    def register_processor(
-        self,
-        feature_type: str,
-        processor: Callable[[FeatureConfig, Path], Iterable[Path]],
-    ) -> None:
-        """Register a feature export processor.
-
-        Parameters
-        ----------
-        feature_type : str
-            Feature type name used in the UI (e.g., ``"Marker"``).
-        processor : callable
-            Callable that accepts a feature config and a temp directory, and
-            returns an iterable of output paths.
-        """
-        self._processors[feature_type] = processor
-
-    def register_stub_processors(self, feature_types: Iterable[str]) -> None:
-        """Register no-op processors for provided feature types.
-
-        Parameters
-        ----------
-        feature_types : iterable of str
-            Feature type names to register with stub processors.
-
-        Notes
-        -----
-        This is primarily useful while wiring the UI so that processing
-        can proceed without feature-specific backends implemented.
-        """
-        for feature_type in feature_types:
-            self.register_processor(feature_type, self._noop_processor)
-
-    @staticmethod
-    def _noop_processor(_feature: FeatureConfig, _temp_dir: Path) -> list[Path]:
-        """Return an empty output list for placeholder processors."""
-        return []
 
     def process(
         self,
-        features: Iterable[FeatureConfig],
+        features: Iterable[object],
         output_path: str,
         output_name: str,
+        export_format: str,
         cleanup: bool = True,
     ) -> QuantificationResult:
         """Run feature exports and route their outputs.
 
         Parameters
         ----------
-        features : iterable of FeatureConfig
-            Configured features to export.
+        features : iterable of object
+            Feature UI contexts with ``state`` and ``feature_handler``.
+            Each handler should implement ``export(temp_dir, export_format)``.
         output_path : str
             Base output folder path.
         output_name : str
             Folder name used to group exported outputs.
+        export_format : str
+            File format requested by the user (``"csv"`` or ``"xlsx"``).
         cleanup : bool, optional
             Whether to delete temporary export folders after routing.
 
@@ -141,21 +107,29 @@ class QuantificationBackend:
 
         Notes
         -----
-        If a processor does not return explicit output paths, the backend
-        will move all files found in the feature's temp directory.
+        If a feature export does not return explicit output paths, the backend
+        will move all files found in the feature's temp directory. This allows
+        feature implementations to either return specific files or simply write
+        into the provided temporary directory.
         """
         output_root = self._resolve_output_root(output_path, output_name)
         output_root.mkdir(parents=True, exist_ok=True)
         temp_root = Path(tempfile.mkdtemp(prefix="senoquant-quant-"))
 
         feature_outputs: list[FeatureExportResult] = []
-        for feature in features:
+        for context in features:
+            feature = getattr(context, "state", None)
+            handler = getattr(context, "feature_handler", None)
+            if not isinstance(feature, FeatureConfig):
+                continue
             temp_dir = temp_root / feature.feature_id
             temp_dir.mkdir(parents=True, exist_ok=True)
-            processor = self._processors.get(feature.type_name)
             outputs: list[Path] = []
-            if processor is not None:
-                outputs = [Path(path) for path in processor(feature, temp_dir)]
+            if handler is not None and hasattr(handler, "export"):
+                outputs = [
+                    Path(path)
+                    for path in handler.export(temp_dir, export_format)
+                ]
             feature_outputs.append(
                 FeatureExportResult(
                     feature_id=feature.feature_id,
@@ -212,7 +186,8 @@ class QuantificationBackend:
         Notes
         -----
         When a feature returns no explicit output list, all files present
-        in the temporary directory are routed instead.
+        in the temporary directory are routed instead. Subdirectories are
+        not traversed.
         """
         for feature_output in feature_outputs:
             feature_dir = output_root / self._feature_dir_name(feature_output)

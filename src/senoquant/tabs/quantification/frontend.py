@@ -402,10 +402,14 @@ class QuantificationTab(QWidget):
 
     def _process_features(self) -> None:
         """Trigger quantification processing for configured features."""
-        configs = [context.state for context in self._feature_configs]
         process = getattr(self._backend, "process", None)
         if callable(process):
-            process(configs)
+            process(
+                self._feature_configs,
+                self._output_path_input.text(),
+                self._save_name_input.text(),
+                self._format_combo.currentText(),
+            )
 
     def _feature_handler_for_type(
         self, feature_type: str, context: FeatureUIContext

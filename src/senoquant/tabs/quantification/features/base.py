@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Iterable
 import uuid
 
 from qtpy.QtWidgets import QComboBox
@@ -69,6 +70,28 @@ class SenoQuantFeature:
     def build(self) -> None:
         """Build the UI for this feature."""
         raise NotImplementedError
+
+    def export(self, temp_dir: Path, export_format: str) -> Iterable[Path]:
+        """Export feature outputs into a temporary directory.
+
+        Parameters
+        ----------
+        temp_dir : Path
+            Temporary directory where outputs should be written.
+        export_format : str
+            File format requested by the user (``"csv"`` or ``"xlsx"``).
+
+        Returns
+        -------
+        iterable of Path
+            Paths to files produced by the export routine.
+
+        Notes
+        -----
+        Implementations may either return explicit file paths or simply
+        write outputs into ``temp_dir`` and return an empty iterable.
+        """
+        return []
 
     def on_features_changed(self, configs: list["FeatureUIContext"]) -> None:
         """Handle updates when the feature list changes.
