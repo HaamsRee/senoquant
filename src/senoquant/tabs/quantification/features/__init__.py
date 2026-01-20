@@ -6,10 +6,25 @@ import importlib
 import pkgutil
 from typing import Iterable
 
-from .base import SenoQuantFeature
+from .base import FeatureConfig, FeatureData, SenoQuantFeature
+from .colocalization.config import ColocalizationFeatureData
+from .marker.config import MarkerFeatureData
+from .spots.config import SpotsFeatureData
 
 
 def _iter_subclasses(cls: type[SenoQuantFeature]) -> Iterable[type[SenoQuantFeature]]:
+    """Yield all subclasses of a feature class recursively.
+
+    Parameters
+    ----------
+    cls : type[SenoQuantFeature]
+        Base class whose subclasses should be discovered.
+
+    Yields
+    ------
+    type[SenoQuantFeature]
+        Feature subclass types.
+    """
     for subclass in cls.__subclasses__():
         yield subclass
         yield from _iter_subclasses(subclass)
@@ -34,5 +49,34 @@ def get_feature_registry() -> dict[str, type[SenoQuantFeature]]:
         )
     )
 
+FEATURE_DATA_FACTORY: dict[str, type[FeatureData]] = {
+    "Marker": MarkerFeatureData,
+    "Spots": SpotsFeatureData,
+    "Colocalization": ColocalizationFeatureData,
+}
 
-__all__ = ["SenoQuantFeature", "get_feature_registry"]
+
+def build_feature_data(feature_type: str) -> FeatureData:
+    """Create a feature data instance for the specified feature type.
+
+    Parameters
+    ----------
+    feature_type : str
+        Feature type name.
+
+    Returns
+    -------
+    FeatureData
+        Feature-specific configuration instance.
+    """
+    data_cls = FEATURE_DATA_FACTORY.get(feature_type, FeatureData)
+    return data_cls()
+
+
+__all__ = [
+    "FeatureConfig",
+    "FeatureData",
+    "SenoQuantFeature",
+    "build_feature_data",
+    "get_feature_registry",
+]

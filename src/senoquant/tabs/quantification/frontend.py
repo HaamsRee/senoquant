@@ -18,8 +18,7 @@ from qtpy.QtWidgets import (
 )
 
 from .backend import QuantificationBackend
-from .config import FeatureConfig, build_feature_data
-from .features import get_feature_registry
+from .features import FeatureConfig, build_feature_data, get_feature_registry
 
 
 @dataclass
@@ -321,8 +320,6 @@ class QuantificationTab(QWidget):
         left_dynamic_layout = context.left_dynamic_layout
         self._clear_layout(left_dynamic_layout)
         self._clear_layout(context.right_layout)
-        if context.feature_handler is not None:
-            context.feature_handler.teardown()
         feature_type = context.type_combo.currentText()
         context.state.type_name = feature_type
         context.state.data = build_feature_data(feature_type)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
@@ -18,7 +20,25 @@ from qtpy.QtWidgets import (
 )
 
 from .base import RefreshingComboBox
-from ..config import ROIConfig
+
+
+@dataclass
+class ROIConfig:
+    """Configuration for a single ROI entry.
+
+    Attributes
+    ----------
+    name : str
+        Display name for the ROI.
+    layer : str
+        Shapes layer name used for the ROI.
+    roi_type : str
+        Whether the ROI should be included or excluded.
+    """
+
+    name: str = ""
+    layer: str = ""
+    roi_type: str = "Include"
 
 
 class ROISection:
@@ -129,9 +149,17 @@ class ROISection:
         QTimer.singleShot(0, self._update_scroll_height)
 
     def _add_row(self, roi: ROIConfig | None = None) -> None:
-        """Add a new ROI configuration row."""
+        """Add a new ROI configuration row.
+
+        Parameters
+        ----------
+        roi : ROIConfig or None
+            Existing ROI configuration to edit, or ``None`` to create one.
+        """
         if self._layout is None:
             return
+        if isinstance(roi, bool):
+            roi = None
         roi_index = len(self._items) + 1
         feature_index = self._tab._feature_index(self._context)
         if roi is None:
@@ -261,7 +289,13 @@ class ROISection:
         self._update_scroll_height()
 
     def _update_scroll_height(self) -> None:
-        """Resize the ROI scroll area based on content height."""
+        """Resize the ROI scroll area based on content height.
+
+        Notes
+        -----
+        The scroll area grows with content until a maximum height derived
+        from the screen size is reached, after which a scrollbar appears.
+        """
         scroll_area = self._scroll_area
         container = self._items_container
         if scroll_area is None or container is None:

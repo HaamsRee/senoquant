@@ -3,7 +3,7 @@
 from qtpy.QtWidgets import QComboBox, QFormLayout
 
 from ..base import SenoQuantFeature
-from ...config import ColocalizationFeatureData
+from .config import ColocalizationFeatureData
 
 
 class ColocalizationFeature(SenoQuantFeature):
