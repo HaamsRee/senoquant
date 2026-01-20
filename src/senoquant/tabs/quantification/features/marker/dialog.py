@@ -55,58 +55,17 @@ class MarkerChannelsDialog(QDialog):
         self._layout_last_sizes: dict[str, tuple[int, int]] = {}
 
         self.setWindowTitle("Marker channels")
-        self.setMinimumSize(720, 640)
+        self.setMinimumSize(600, 800)
         layout = QVBoxLayout()
 
         segmentations_section = self._build_segmentations_section()
-        self._segmentations_section = segmentations_section
-
-        self._channels_container = QWidget()
-        self._channels_container.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
-        )
-        self._channels_layout = QVBoxLayout()
-        self._channels_layout.setContentsMargins(0, 0, 0, 0)
-        self._channels_layout.setSpacing(8)
-        self._channels_container.setLayout(self._channels_layout)
-
-        frame = QGroupBox("Channels")
-        frame.setFlat(True)
-        frame.setStyleSheet(
-            "QGroupBox {"
-            "  margin-top: 8px;"
-            "}"
-            "QGroupBox::title {"
-            "  subcontrol-origin: margin;"
-            "  subcontrol-position: top left;"
-            "  padding: 0 6px;"
-            "}"
-        )
-
-        self._channels_scroll_area = QScrollArea()
-        self._channels_scroll_area.setWidgetResizable(True)
-        self._channels_scroll_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarAlwaysOff
-        )
-        self._channels_scroll_area.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
-        )
-        self._channels_scroll_area.setWidget(self._channels_container)
-
-        frame_layout = QVBoxLayout()
-        frame_layout.setContentsMargins(10, 12, 10, 10)
-        frame_layout.addWidget(self._channels_scroll_area)
-        add_button = QPushButton("Add channel")
-        add_button.clicked.connect(self._add_channel)
-        frame_layout.addWidget(add_button)
-        frame.setLayout(frame_layout)
-        self._channels_section = frame
+        channels_section = self._build_channels_section()
         splitter = QSplitter(Qt.Vertical)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(segmentations_section)
-        splitter.addWidget(frame)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 4)
+        splitter.addWidget(channels_section)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
         layout.addWidget(splitter, 1)
 
         close_button = QPushButton("Save")
@@ -133,16 +92,7 @@ class MarkerChannelsDialog(QDialog):
         """Create the segmentations section with add/remove controls."""
         section = QGroupBox("Segmentations")
         section.setFlat(True)
-        section.setStyleSheet(
-            "QGroupBox {"
-            "  margin-top: 8px;"
-            "}"
-            "QGroupBox::title {"
-            "  subcontrol-origin: margin;"
-            "  subcontrol-position: top left;"
-            "  padding: 0 6px;"
-            "}"
-        )
+        section.setStyleSheet(self._section_stylesheet())
 
         self._segmentations_container = QWidget()
         self._segmentations_container.setSizePolicy(
@@ -173,8 +123,59 @@ class MarkerChannelsDialog(QDialog):
         section_layout.addWidget(self._segmentations_scroll_area)
         section_layout.addWidget(add_button)
         section.setLayout(section_layout)
-
+        self._segmentations_section = section
         return section
+
+    def _build_channels_section(self) -> QGroupBox:
+        """Create the channels section with add/remove controls."""
+        self._channels_container = QWidget()
+        self._channels_container.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Fixed
+        )
+        self._channels_layout = QVBoxLayout()
+        self._channels_layout.setContentsMargins(0, 0, 0, 0)
+        self._channels_layout.setSpacing(8)
+        self._channels_container.setLayout(self._channels_layout)
+
+        section = QGroupBox("Channels")
+        section.setFlat(True)
+        section.setStyleSheet(self._section_stylesheet())
+
+        self._channels_scroll_area = QScrollArea()
+        self._channels_scroll_area.setWidgetResizable(True)
+        self._channels_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAlwaysOff
+        )
+        self._channels_scroll_area.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self._channels_scroll_area.setWidget(self._channels_container)
+
+        add_button = QPushButton("Add channel")
+        add_button.clicked.connect(self._add_channel)
+
+        section_layout = QVBoxLayout()
+        section_layout.setContentsMargins(10, 12, 10, 10)
+        section_layout.addWidget(self._channels_scroll_area)
+        section_layout.addWidget(add_button)
+        section.setLayout(section_layout)
+
+        self._channels_section = section
+        return section
+
+    @staticmethod
+    def _section_stylesheet() -> str:
+        """Return the stylesheet used for dialog sections."""
+        return (
+            "QGroupBox {"
+            "  margin-top: 8px;"
+            "}"
+            "QGroupBox::title {"
+            "  subcontrol-origin: margin;"
+            "  subcontrol-position: top left;"
+            "  padding: 0 6px;"
+            "}"
+        )
 
     def _refresh_labels_combo(self, combo: QComboBox) -> None:
         """Refresh labels layer options for the dialog.

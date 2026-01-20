@@ -1,22 +1,11 @@
 """Marker feature UI."""
 
-import numpy as np
-
-from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QDoubleSpinBox, QDialog, QPushButton, QWidget
+from qtpy.QtWidgets import QDialog, QPushButton
 
 from ..base import SenoQuantFeature
 from ..roi import ROISection
 from .config import MarkerFeatureData
 from .dialog import MarkerChannelsDialog
-
-try:
-    from superqt import QDoubleRangeSlider as RangeSlider
-except ImportError:  # pragma: no cover - fallback when superqt is unavailable
-    try:
-        from superqt import QRangeSlider as RangeSlider
-    except ImportError:  # pragma: no cover
-        RangeSlider = None
 
 
 class MarkerFeature(SenoQuantFeature):
@@ -101,80 +90,3 @@ class MarkerFeature(SenoQuantFeature):
             if layer.__class__.__name__ == "Image" and layer.name == name:
                 return layer
         return None
-
-    def _make_range_slider(self):
-        """Create a horizontal range slider if available.
-
-        Returns
-        -------
-        QWidget
-            Range slider widget or a placeholder QWidget when unavailable.
-        """
-        if RangeSlider is None:
-            return QWidget()
-        try:
-            return RangeSlider(Qt.Horizontal)
-        except TypeError:
-            slider = RangeSlider()
-            slider.setOrientation(Qt.Horizontal)
-            return slider
-
-    def _set_slider_values(self, slider, values) -> None:
-        """Set the range values on a slider.
-
-        Parameters
-        ----------
-        slider : QWidget
-            Range slider widget.
-        values : tuple
-            (min, max) values to apply to the slider.
-        """
-        if hasattr(slider, "setValue"):
-            try:
-                slider.setValue(values)
-                return
-            except TypeError:
-                pass
-        if hasattr(slider, "setValues"):
-            slider.setValues(values)
-
-    def _set_threshold_range(
-        self, slider, layer, min_spin: QDoubleSpinBox | None,
-        max_spin: QDoubleSpinBox | None
-    ) -> None:
-        """Set slider bounds using the selected image layer.
-
-        Parameters
-        ----------
-        slider : QWidget
-            Range slider widget.
-        layer : object
-            Napari image layer providing intensity bounds.
-        min_spin : QDoubleSpinBox or None
-            Spin box that displays the minimum threshold value.
-        max_spin : QDoubleSpinBox or None
-            Spin box that displays the maximum threshold value.
-        """
-        if not hasattr(slider, "setMinimum"):
-            return
-        data = layer.data
-        min_val = float(np.nanmin(data))
-        max_val = float(np.nanmax(data))
-        if min_val == max_val:
-            max_val = min_val + 1.0
-        if hasattr(slider, "setRange"):
-            slider.setRange(min_val, max_val)
-        else:
-            slider.setMinimum(min_val)
-            slider.setMaximum(max_val)
-        self._set_slider_values(slider, (min_val, max_val))
-        if min_spin is not None:
-            min_spin.blockSignals(True)
-            min_spin.setRange(min_val, max_val)
-            min_spin.setValue(min_val)
-            min_spin.blockSignals(False)
-        if max_spin is not None:
-            max_spin.blockSignals(True)
-            max_spin.setRange(min_val, max_val)
-            max_spin.setValue(max_val)
-            max_spin.blockSignals(False)

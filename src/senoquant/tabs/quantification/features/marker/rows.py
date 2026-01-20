@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -26,6 +27,14 @@ from .config import MarkerChannelConfig, MarkerSegmentationConfig
 
 if TYPE_CHECKING:
     from .dialog import MarkerChannelsDialog
+
+try:
+    from superqt import QDoubleRangeSlider as RangeSlider
+except ImportError:  # pragma: no cover - fallback when superqt is unavailable
+    try:
+        from superqt import QRangeSlider as RangeSlider
+    except ImportError:  # pragma: no cover
+        RangeSlider = None
 
 
 class MarkerSegmentationRow(QGroupBox):
@@ -176,7 +185,7 @@ class MarkerChannelRow(QGroupBox):
         threshold_container = QWidget()
         threshold_layout = QHBoxLayout()
         threshold_layout.setContentsMargins(0, 0, 0, 0)
-        threshold_slider = self._feature._make_range_slider()
+        threshold_slider = self._make_range_slider()
         if hasattr(threshold_slider, "valueChanged"):
             threshold_slider.valueChanged.connect(self._on_threshold_slider_changed)
         threshold_min_spin = QDoubleSpinBox()
@@ -297,7 +306,7 @@ class MarkerChannelRow(QGroupBox):
             self._set_threshold_controls(False)
             return
         self._threshold_checkbox.setEnabled(True)
-        self._feature._set_threshold_range(
+        self._set_threshold_range(
             self._threshold_slider,
             layer,
             self._threshold_min_spin,
@@ -353,6 +362,7 @@ class MarkerChannelRow(QGroupBox):
         self._threshold_updating = False
         self._set_data("threshold_min", float(values[0]))
         self._set_data("threshold_max", float(values[1]))
+        self._update_layer_contrast_limits(values)
 
     def _on_threshold_spin_changed(self, which: str, value: float) -> None:
         """Sync the slider when a spin box value changes.
@@ -380,12 +390,13 @@ class MarkerChannelRow(QGroupBox):
                 self._threshold_min_spin.setValue(min_val)
                 self._threshold_min_spin.blockSignals(False)
         self._threshold_updating = True
-        self._feature._set_slider_values(
+        self._set_slider_values(
             self._threshold_slider, (min_val, max_val)
         )
         self._threshold_updating = False
         self._set_data("threshold_min", float(min_val))
         self._set_data("threshold_max", float(max_val))
+        self._update_layer_contrast_limits((min_val, max_val))
 
     def _run_auto_threshold(self) -> None:
         """Compute an automatic threshold and update the range controls."""
@@ -404,14 +415,14 @@ class MarkerChannelRow(QGroupBox):
         if min_val == max_val:
             max_val = min_val + 1.0
         threshold = min(max(threshold, min_val), max_val)
-        self._feature._set_threshold_range(
+        self._set_threshold_range(
             self._threshold_slider,
             layer,
             self._threshold_min_spin,
             self._threshold_max_spin,
         )
         self._threshold_updating = True
-        self._feature._set_slider_values(
+        self._set_slider_values(
             self._threshold_slider, (threshold, max_val)
         )
         self._threshold_min_spin.blockSignals(True)
@@ -423,3 +434,103 @@ class MarkerChannelRow(QGroupBox):
         self._threshold_updating = False
         self._set_data("threshold_min", float(threshold))
         self._set_data("threshold_max", float(max_val))
+        self._update_layer_contrast_limits((threshold, max_val))
+
+    def _update_layer_contrast_limits(self, values) -> None:
+        """Sync the image layer contrast limits with the threshold values.
+
+        Parameters
+        ----------
+        values : tuple
+            (min, max) values to apply as contrast limits.
+        """
+        layer = self._feature._get_image_layer_by_name(
+            self._channel_combo.currentText()
+        )
+        if layer is None:
+            return
+        try:
+            layer.contrast_limits = [float(values[0]), float(values[1])]
+        except Exception:
+            return
+
+    def _make_range_slider(self):
+        """Create a horizontal range slider if available.
+
+        Returns
+        -------
+        QWidget
+            Range slider widget or a placeholder QWidget when unavailable.
+        """
+        if RangeSlider is None:
+            return QWidget()
+        try:
+            return RangeSlider(Qt.Horizontal)
+        except TypeError:
+            slider = RangeSlider()
+            slider.setOrientation(Qt.Horizontal)
+            return slider
+
+    def _set_slider_values(self, slider, values) -> None:
+        """Set the range values on a slider.
+
+        Parameters
+        ----------
+        slider : QWidget
+            Range slider widget.
+        values : tuple
+            (min, max) values to apply to the slider.
+        """
+        if hasattr(slider, "setValue"):
+            try:
+                slider.setValue(values)
+                return
+            except TypeError:
+                pass
+        if hasattr(slider, "setValues"):
+            slider.setValues(values)
+
+    def _set_threshold_range(
+        self, slider, layer, min_spin: QDoubleSpinBox | None,
+        max_spin: QDoubleSpinBox | None
+    ) -> None:
+        """Set slider bounds using the selected image layer.
+
+        Parameters
+        ----------
+        slider : QWidget
+            Range slider widget.
+        layer : object
+            Napari image layer providing intensity bounds.
+        min_spin : QDoubleSpinBox or None
+            Spin box that displays the minimum threshold value.
+        max_spin : QDoubleSpinBox or None
+            Spin box that displays the maximum threshold value.
+        """
+        if not hasattr(slider, "setMinimum"):
+            return
+        contrast = getattr(layer, "contrast_limits_range", None)
+        if contrast is not None and len(contrast) == 2:
+            min_val, max_val = float(contrast[0]), float(contrast[1])
+        else:
+            data = layer.data
+            min_val = float(np.nanmin(data))
+            max_val = float(np.nanmax(data))
+        if min_val == max_val:
+            max_val = min_val + 1.0
+        if hasattr(slider, "setRange"):
+            slider.setRange(min_val, max_val)
+        else:
+            slider.setMinimum(min_val)
+            slider.setMaximum(max_val)
+        self._set_slider_values(slider, (min_val, max_val))
+        if min_spin is not None:
+            min_spin.blockSignals(True)
+            min_spin.setRange(min_val, max_val)
+            min_spin.setValue(min_val)
+            min_spin.blockSignals(False)
+        if max_spin is not None:
+            max_spin.blockSignals(True)
+            max_spin.setRange(min_val, max_val)
+            max_spin.setValue(max_val)
+            max_spin.blockSignals(False)
