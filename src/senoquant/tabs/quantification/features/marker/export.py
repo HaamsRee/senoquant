@@ -1,10 +1,18 @@
-"""Marker feature export logic."""
+"""Marker feature export logic.
+
+This module serializes per-label morphology and per-channel intensity
+summaries for the marker feature. When thresholds are enabled for a
+channel, both raw and thresholded intensity columns are exported along
+with a JSON metadata file recording the threshold settings.
+"""
 
 from __future__ import annotations
 
 import csv
+import json
+import warnings
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 from skimage.measure import regionprops_table
@@ -35,7 +43,16 @@ def export_marker(
     Returns
     -------
     iterable of Path
-        Paths to files produced by the export routine.
+        Paths to files produced by the export routine. Each segmentation
+        produces one table, and a shared ``marker_thresholds.json`` file
+        is emitted when channels are configured.
+
+    Notes
+    -----
+    If an image layer does not match a labels layer in shape, that channel
+    is skipped and only morphological properties (centroids) are saved.
+    When a channel has thresholds enabled, thresholded columns are emitted
+    with a ``_thresholded`` suffix while the unthresholded values are kept.
     """
     data = feature.data
     if not isinstance(data, MarkerFeatureData) or viewer is None:
@@ -46,6 +63,10 @@ def export_marker(
     channels = [channel for channel in data.channels if channel.channel]
     if not data.segmentations or not channels:
         return []
+
+    metadata_path = _write_threshold_metadata(temp_dir, channels)
+    if metadata_path is not None:
+        outputs.append(metadata_path)
 
     for index, segmentation in enumerate(data.segmentations, start=1):
         label_name = segmentation.label.strip()
@@ -72,11 +93,24 @@ def export_marker(
                 continue
             image = np.asarray(channel_layer.data)
             if image.shape != labels.shape:
+                warnings.warn(
+                    "Marker export: image/label shape mismatch for "
+                    f"'{channel.channel}' vs '{label_name}'. "
+                    "Skipping intensity metrics for this channel; "
+                    "only morphological properties will be saved.",
+                    RuntimeWarning,
+                )
                 continue
             raw_sum = _intensity_sum(labels, image, label_ids)
             mean_intensity = _safe_divide(raw_sum, area_px)
             pixel_volume = _pixel_volume(channel_layer, labels.ndim)
             integrated = mean_intensity * (area_px * pixel_volume)
+            thresh_mean, thresh_raw, thresh_integrated = _apply_threshold(
+                mean_intensity,
+                raw_sum,
+                integrated,
+                channel,
+            )
             prefix = _channel_prefix(channel)
             for row, mean_val, raw_val, int_val in zip(
                 rows, mean_intensity, raw_sum, integrated
@@ -84,6 +118,17 @@ def export_marker(
                 row[f"{prefix}_mean_intensity"] = float(mean_val)
                 row[f"{prefix}_integrated_intensity"] = float(int_val)
                 row[f"{prefix}_raw_integrated_intensity"] = float(raw_val)
+            if getattr(channel, "threshold_enabled", False):
+                for row, mean_val, raw_val, int_val in zip(
+                    rows, thresh_mean, thresh_raw, thresh_integrated
+                ):
+                    row[f"{prefix}_mean_intensity_thresholded"] = float(mean_val)
+                    row[f"{prefix}_integrated_intensity_thresholded"] = float(
+                        int_val
+                    )
+                    row[f"{prefix}_raw_integrated_intensity_thresholded"] = float(
+                        raw_val
+                    )
             if not header:
                 header = list(rows[0].keys())
             else:
@@ -94,6 +139,14 @@ def export_marker(
                         f"{prefix}_raw_integrated_intensity",
                     ]
                 )
+                if getattr(channel, "threshold_enabled", False):
+                    header.extend(
+                        [
+                            f"{prefix}_mean_intensity_thresholded",
+                            f"{prefix}_integrated_intensity_thresholded",
+                            f"{prefix}_raw_integrated_intensity_thresholded",
+                        ]
+                    )
 
         if not rows:
             continue
@@ -205,6 +258,86 @@ def _safe_divide(numerator: np.ndarray, denominator: np.ndarray) -> np.ndarray:
         where=denominator != 0,
     )
     return result
+
+
+def _apply_threshold(
+    mean_intensity: np.ndarray,
+    raw_sum: np.ndarray,
+    integrated: np.ndarray,
+    channel,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Zero intensity values outside the configured threshold range.
+
+    Parameters
+    ----------
+    mean_intensity : np.ndarray
+        Mean intensity per label.
+    raw_sum : np.ndarray
+        Raw integrated intensity per label.
+    integrated : np.ndarray
+        Physical-unit integrated intensity per label.
+    channel : object
+        Channel configuration with threshold metadata.
+
+    Returns
+    -------
+    tuple of np.ndarray
+        Thresholded mean, raw, and integrated intensity arrays.
+    """
+    if not getattr(channel, "threshold_enabled", False):
+        return mean_intensity, raw_sum, integrated
+    min_val = getattr(channel, "threshold_min", None)
+    max_val = getattr(channel, "threshold_max", None)
+    keep = np.ones_like(mean_intensity, dtype=bool)
+    if min_val is not None:
+        keep &= mean_intensity >= float(min_val)
+    if max_val is not None:
+        keep &= mean_intensity <= float(max_val)
+    if keep.all():
+        return mean_intensity, raw_sum, integrated
+    mean = mean_intensity.copy()
+    raw = raw_sum.copy()
+    integ = integrated.copy()
+    mean[~keep] = 0.0
+    raw[~keep] = 0.0
+    integ[~keep] = 0.0
+    return mean, raw, integ
+
+
+def _write_threshold_metadata(
+    temp_dir: Path, channels: list
+) -> Optional[Path]:
+    """Persist channel threshold metadata for the export run.
+
+    Parameters
+    ----------
+    temp_dir : Path
+        Temporary output directory.
+    channels : list
+        Channel configurations to serialize.
+
+    Returns
+    -------
+    Path or None
+        Path to the metadata file written.
+    """
+    payload = {
+        "channels": [
+            {
+                "name": channel.name,
+                "channel": channel.channel,
+                "threshold_enabled": bool(channel.threshold_enabled),
+                "threshold_method": channel.threshold_method,
+                "threshold_min": channel.threshold_min,
+                "threshold_max": channel.threshold_max,
+            }
+            for channel in channels
+        ]
+    }
+    output_path = temp_dir / "marker_thresholds.json"
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    return output_path
 
 
 def _write_table(
