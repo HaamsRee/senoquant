@@ -24,3 +24,7 @@ src/senoquant/tabs/segmentation/models/cpsam/cpsam
 
 # OS files
 .DS_Store
+
+# Local debugging artifacts
+out.gv
+out.png
