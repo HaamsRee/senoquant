@@ -5,6 +5,7 @@ from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QFrame,
@@ -68,8 +69,11 @@ class QuantificationTab(QWidget):
         self._features_last_size: tuple[int, int] | None = None
 
         layout = QVBoxLayout()
-        layout.addWidget(self._make_output_section())
         layout.addWidget(self._make_features_section())
+        layout.addWidget(self._make_output_section())
+        process_button = QPushButton("Process")
+        process_button.clicked.connect(self._process_features)
+        layout.addWidget(process_button)
         layout.addStretch(1)
         self.setLayout(layout)
 
@@ -87,6 +91,17 @@ class QuantificationTab(QWidget):
         form_layout = QFormLayout()
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
 
+        self._output_path_input = QLineEdit()
+        self._output_path_input.setPlaceholderText("Output folder path")
+        browse_button = QPushButton("Browse")
+        browse_button.clicked.connect(self._select_output_path)
+        output_path_row = QHBoxLayout()
+        output_path_row.setContentsMargins(0, 0, 0, 0)
+        output_path_row.addWidget(self._output_path_input)
+        output_path_row.addWidget(browse_button)
+        output_path_widget = QWidget()
+        output_path_widget.setLayout(output_path_row)
+
         self._save_name_input = QLineEdit()
         self._save_name_input.setPlaceholderText("Output name")
         self._save_name_input.setMinimumWidth(180)
@@ -98,6 +113,7 @@ class QuantificationTab(QWidget):
         self._format_combo.addItems(["csv", "xlsx"])
         self._configure_combo(self._format_combo)
 
+        form_layout.addRow("Output path", output_path_widget)
         form_layout.addRow("Save name", self._save_name_input)
         form_layout.addRow("Format", self._format_combo)
 
@@ -374,6 +390,23 @@ class QuantificationTab(QWidget):
         """Return the available feature type names."""
         return list(self._feature_registry.keys())
 
+    def _select_output_path(self) -> None:
+        """Open a folder selection dialog for the output path."""
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Select output folder",
+            self._output_path_input.text(),
+        )
+        if path:
+            self._output_path_input.setText(path)
+
+    def _process_features(self) -> None:
+        """Trigger quantification processing for configured features."""
+        configs = [context.state for context in self._feature_configs]
+        process = getattr(self._backend, "process", None)
+        if callable(process):
+            process(configs)
+
     def _feature_handler_for_type(
         self, feature_type: str, context: FeatureUIContext
     ):
@@ -537,7 +570,7 @@ class QuantificationTab(QWidget):
         if screen is None:
             screen = QGuiApplication.primaryScreen()
         screen_height = screen.availableGeometry().height() if screen else 720
-        target_height = max(180, int(screen_height * 0.25))
+        target_height = max(180, int(screen_height * 0.5))
         frame = self._features_scroll_area.frameWidth() * 2
         scroll_slack = 2
         effective_height = content_height + scroll_slack
