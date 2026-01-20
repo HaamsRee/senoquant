@@ -219,10 +219,12 @@ class MarkerChannelRow(QGroupBox):
         auto_threshold_layout = QHBoxLayout()
         auto_threshold_layout.setContentsMargins(0, 0, 0, 0)
         auto_threshold_combo = QComboBox()
-        auto_threshold_combo.addItems(list(THRESHOLD_METHODS.keys()))
+        auto_threshold_combo.addItems(
+            ["Manual", *list(THRESHOLD_METHODS.keys())]
+        )
         self._tab._configure_combo(auto_threshold_combo)
         auto_threshold_combo.currentTextChanged.connect(
-            lambda text: self._set_data("threshold_method", text)
+            self._on_threshold_method_changed
         )
         auto_threshold_button = QPushButton("Auto threshold")
         auto_threshold_button.clicked.connect(self._run_auto_threshold)
@@ -282,7 +284,7 @@ class MarkerChannelRow(QGroupBox):
         channel_name = self.data.channel
         if channel_name:
             self._channel_combo.setCurrentText(channel_name)
-        method = self.data.threshold_method or "Otsu"
+        method = self.data.threshold_method or "Manual"
         self._auto_threshold_combo.setCurrentText(method)
         enabled = bool(self.data.threshold_enabled)
         self._threshold_checkbox.setChecked(enabled)
@@ -340,7 +342,19 @@ class MarkerChannelRow(QGroupBox):
         self._threshold_container.setVisible(enabled)
         self._auto_threshold_container.setVisible(enabled)
         self._auto_threshold_combo.setEnabled(enabled)
-        self._auto_threshold_button.setEnabled(enabled)
+        self._auto_threshold_button.setEnabled(
+            enabled and self._auto_threshold_combo.currentText() != "Manual"
+        )
+
+    def _on_threshold_method_changed(self, text: str) -> None:
+        """Handle changes to the thresholding method selection."""
+        self._set_data("threshold_method", text)
+        if text == "Manual":
+            self._auto_threshold_button.setEnabled(False)
+            return
+        self._auto_threshold_button.setEnabled(
+            self._threshold_checkbox.isChecked()
+        )
 
     def _on_threshold_slider_changed(self, values) -> None:
         """Sync spin boxes when the slider range changes.
@@ -350,7 +364,7 @@ class MarkerChannelRow(QGroupBox):
         values : tuple
             Updated (min, max) slider values.
         """
-        if values is None:
+        if values is None or self._threshold_updating:
             return
         self._threshold_updating = True
         self._threshold_min_spin.blockSignals(True)
@@ -363,6 +377,7 @@ class MarkerChannelRow(QGroupBox):
         self._set_data("threshold_min", float(values[0]))
         self._set_data("threshold_max", float(values[1]))
         self._update_layer_contrast_limits(values)
+        self._ensure_manual_threshold_mode()
 
     def _on_threshold_spin_changed(self, which: str, value: float) -> None:
         """Sync the slider when a spin box value changes.
@@ -397,6 +412,7 @@ class MarkerChannelRow(QGroupBox):
         self._set_data("threshold_min", float(min_val))
         self._set_data("threshold_max", float(max_val))
         self._update_layer_contrast_limits((min_val, max_val))
+        self._ensure_manual_threshold_mode()
 
     def _run_auto_threshold(self) -> None:
         """Compute an automatic threshold and update the range controls."""
@@ -406,6 +422,8 @@ class MarkerChannelRow(QGroupBox):
         if layer is None:
             return
         method = self._auto_threshold_combo.currentText() or "Otsu"
+        if method == "Manual":
+            return
         try:
             threshold = compute_threshold(layer.data, method)
         except Exception:
@@ -435,6 +453,18 @@ class MarkerChannelRow(QGroupBox):
         self._set_data("threshold_min", float(threshold))
         self._set_data("threshold_max", float(max_val))
         self._update_layer_contrast_limits((threshold, max_val))
+
+    def _ensure_manual_threshold_mode(self) -> None:
+        """Switch to manual mode after user-adjusted threshold changes."""
+        if not self._threshold_checkbox.isChecked():
+            return
+        if self._auto_threshold_combo.currentText() == "Manual":
+            return
+        self._auto_threshold_combo.blockSignals(True)
+        self._auto_threshold_combo.setCurrentText("Manual")
+        self._auto_threshold_combo.blockSignals(False)
+        self._set_data("threshold_method", "Manual")
+        self._auto_threshold_button.setEnabled(False)
 
     def _update_layer_contrast_limits(self, values) -> None:
         """Sync the image layer contrast limits with the threshold values.

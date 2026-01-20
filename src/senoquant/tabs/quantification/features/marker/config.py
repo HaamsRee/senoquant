@@ -45,7 +45,7 @@ class MarkerChannelConfig:
     name: str = ""
     channel: str = ""
     threshold_enabled: bool = False
-    threshold_method: str = "Otsu"
+    threshold_method: str = "Manual"
     threshold_min: Optional[float] = None
     threshold_max: Optional[float] = None
 
