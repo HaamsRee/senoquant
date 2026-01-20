@@ -250,6 +250,9 @@ class MarkerChannelRow(QGroupBox):
         self._auto_threshold_container = auto_threshold_container
         self._auto_threshold_combo = auto_threshold_combo
         self._auto_threshold_button = auto_threshold_button
+        self._auto_thresholding = False
+        self._threshold_min_bound: float | None = None
+        self._threshold_max_bound: float | None = None
 
         self._restore_state()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -428,35 +431,44 @@ class MarkerChannelRow(QGroupBox):
             threshold = compute_threshold(layer.data, method)
         except Exception:
             return
-        min_val = float(np.nanmin(layer.data))
-        max_val = float(np.nanmax(layer.data))
-        if min_val == max_val:
-            max_val = min_val + 1.0
+        min_val = self._threshold_min_bound
+        max_val = self._threshold_max_bound
+        if min_val is None or max_val is None:
+            self._set_threshold_range(
+                self._threshold_slider,
+                layer,
+                self._threshold_min_spin,
+                self._threshold_max_spin,
+            )
+            min_val = self._threshold_min_bound
+            max_val = self._threshold_max_bound
+        if min_val is None or max_val is None:
+            return
         threshold = min(max(threshold, min_val), max_val)
-        self._set_threshold_range(
-            self._threshold_slider,
-            layer,
-            self._threshold_min_spin,
-            self._threshold_max_spin,
-        )
-        self._threshold_updating = True
-        self._set_slider_values(
-            self._threshold_slider, (threshold, max_val)
-        )
-        self._threshold_min_spin.blockSignals(True)
-        self._threshold_min_spin.setValue(threshold)
-        self._threshold_min_spin.blockSignals(False)
-        self._threshold_max_spin.blockSignals(True)
-        self._threshold_max_spin.setValue(max_val)
-        self._threshold_max_spin.blockSignals(False)
-        self._threshold_updating = False
-        self._set_data("threshold_min", float(threshold))
-        self._set_data("threshold_max", float(max_val))
-        self._update_layer_contrast_limits((threshold, max_val))
+        self._auto_thresholding = True
+        try:
+            self._threshold_updating = True
+            self._set_slider_values(
+                self._threshold_slider, (threshold, max_val)
+            )
+            self._threshold_min_spin.blockSignals(True)
+            self._threshold_min_spin.setValue(threshold)
+            self._threshold_min_spin.blockSignals(False)
+            self._threshold_max_spin.blockSignals(True)
+            self._threshold_max_spin.setValue(max_val)
+            self._threshold_max_spin.blockSignals(False)
+            self._threshold_updating = False
+            self._set_data("threshold_min", float(threshold))
+            self._set_data("threshold_max", float(max_val))
+            self._update_layer_contrast_limits((threshold, max_val))
+        finally:
+            self._auto_thresholding = False
 
     def _ensure_manual_threshold_mode(self) -> None:
         """Switch to manual mode after user-adjusted threshold changes."""
         if not self._threshold_checkbox.isChecked():
+            return
+        if self._auto_thresholding:
             return
         if self._auto_threshold_combo.currentText() == "Manual":
             return
@@ -539,15 +551,7 @@ class MarkerChannelRow(QGroupBox):
         """
         if not hasattr(slider, "setMinimum"):
             return
-        contrast = getattr(layer, "contrast_limits_range", None)
-        if contrast is not None and len(contrast) == 2:
-            min_val, max_val = float(contrast[0]), float(contrast[1])
-        else:
-            data = layer.data
-            min_val = float(np.nanmin(data))
-            max_val = float(np.nanmax(data))
-        if min_val == max_val:
-            max_val = min_val + 1.0
+        min_val, max_val = self._get_threshold_bounds(layer)
         if hasattr(slider, "setRange"):
             slider.setRange(min_val, max_val)
         else:
@@ -564,3 +568,34 @@ class MarkerChannelRow(QGroupBox):
             max_spin.setRange(min_val, max_val)
             max_spin.setValue(max_val)
             max_spin.blockSignals(False)
+
+    def _get_threshold_bounds(self, layer) -> tuple[float, float]:
+        """Return threshold bounds based on the layer contrast range.
+
+        Parameters
+        ----------
+        layer : object
+            Napari image layer providing contrast bounds and data.
+
+        Returns
+        -------
+        tuple of float
+            Minimum and maximum bounds for the threshold controls.
+
+        Notes
+        -----
+        The computed bounds are cached on the row instance to avoid repeated
+        scans of large images when auto-thresholding runs.
+        """
+        contrast = getattr(layer, "contrast_limits_range", None)
+        if contrast is not None and len(contrast) == 2:
+            min_val, max_val = float(contrast[0]), float(contrast[1])
+        else:
+            data = layer.data
+            min_val = float(np.nanmin(data))
+            max_val = float(np.nanmax(data))
+        if min_val == max_val:
+            max_val = min_val + 1.0
+        self._threshold_min_bound = min_val
+        self._threshold_max_bound = max_val
+        return min_val, max_val
