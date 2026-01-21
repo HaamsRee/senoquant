@@ -28,3 +28,6 @@ src/senoquant/tabs/segmentation/models/cpsam/cpsam
 # Local debugging artifacts
 out.gv
 out.png
+
+# Local resources
+res/
