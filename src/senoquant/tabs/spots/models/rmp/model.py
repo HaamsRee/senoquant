@@ -17,6 +17,7 @@ from skimage.transform import rotate
 from skimage.util import img_as_ubyte
 
 from ..base import SenoQuantSpotDetector
+from senoquant.utils import layer_data_asarray
 
 try:
     import dask.array as da
@@ -424,7 +425,7 @@ class RMPDetector(SenoQuantSpotDetector):
         if config.denoising_se_length <= 0 or config.extraction_se_length <= 0:
             raise ValueError("Structuring element lengths must be positive.")
 
-        data = np.asarray(layer.data)
+        data = layer_data_asarray(layer)
         if data.ndim not in (2, 3):
             raise ValueError("RMP expects 2D images or 3D stacks.")
 

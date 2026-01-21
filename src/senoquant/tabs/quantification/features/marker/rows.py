@@ -21,6 +21,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from senoquant.utils import layer_data_asarray
 from ..base import RefreshingComboBox
 from .thresholding import THRESHOLD_METHODS, compute_threshold
 from .config import MarkerChannelConfig, MarkerSegmentationConfig
@@ -428,7 +429,7 @@ class MarkerChannelRow(QGroupBox):
         if method == "Manual":
             return
         try:
-            threshold = compute_threshold(layer.data, method)
+            threshold = compute_threshold(layer_data_asarray(layer), method)
         except Exception:
             return
         min_val = self._threshold_min_bound
@@ -591,7 +592,7 @@ class MarkerChannelRow(QGroupBox):
         if contrast is not None and len(contrast) == 2:
             min_val, max_val = float(contrast[0]), float(contrast[1])
         else:
-            data = layer.data
+            data = layer_data_asarray(layer)
             min_val = float(np.nanmin(data))
             max_val = float(np.nanmax(data))
         if min_val == max_val:

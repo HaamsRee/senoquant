@@ -17,6 +17,7 @@ from typing import Iterable, Optional
 import numpy as np
 from skimage.measure import regionprops_table
 
+from senoquant.utils import layer_data_asarray
 from .config import MarkerFeatureData
 from ..base import FeatureConfig
 
@@ -75,7 +76,7 @@ def export_marker(
         labels_layer = _find_layer(viewer, label_name, "Labels")
         if labels_layer is None:
             continue
-        labels = np.asarray(labels_layer.data)
+        labels = layer_data_asarray(labels_layer)
         if labels.size == 0:
             continue
 
@@ -91,7 +92,7 @@ def export_marker(
             channel_layer = _find_layer(viewer, channel.channel, "Image")
             if channel_layer is None:
                 continue
-            image = np.asarray(channel_layer.data)
+            image = layer_data_asarray(channel_layer)
             if image.shape != labels.shape:
                 warnings.warn(
                     "Marker export: image/label shape mismatch for "

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import numpy as np
 
+from senoquant.utils import layer_data_asarray
 from ..base import SenoQuantSegmentationModel
 
 
@@ -106,7 +107,7 @@ class CPSAMModel(SenoQuantSegmentationModel):
             if required:
                 raise ValueError("Layer is required for CPSAM.")
             return None
-        return np.asarray(layer.data)
+        return layer_data_asarray(layer)
 
     def _prepare_input(
         self,

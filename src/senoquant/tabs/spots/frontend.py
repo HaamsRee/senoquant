@@ -31,6 +31,7 @@ except Exception:  # pragma: no cover - optional import for runtime
     Notification = None
     NotificationSeverity = None
 
+from senoquant.utils import layer_data_asarray
 from .backend import SpotsBackend
 
 
@@ -426,8 +427,8 @@ class SpotsTab(QWidget):
         if not self._validate_label_layer(layer_b, "Labels B"):
             return
 
-        data_a = np.asarray(layer_a.data)
-        data_b = np.asarray(layer_b.data)
+        data_a = layer_data_asarray(layer_a)
+        data_b = layer_data_asarray(layer_b)
         if data_a.shape != data_b.shape:
             self._notify("Label layers must have matching shapes.")
             return
