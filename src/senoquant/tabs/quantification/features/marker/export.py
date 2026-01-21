@@ -85,7 +85,8 @@ def export_marker(
             continue
         area_px = _pixel_counts(labels, label_ids)
 
-        rows = _initialize_rows(label_ids, centroids)
+        pixel_sizes = _pixel_sizes(labels_layer, labels.ndim)
+        rows = _initialize_rows(label_ids, centroids, pixel_sizes)
         header = list(rows[0].keys()) if rows else []
 
         for channel in channels:
@@ -160,7 +161,22 @@ def export_marker(
 
 
 def _find_layer(viewer, name: str, layer_type: str):
-    """Return a layer by name and class name."""
+    """Return a layer by name and class name.
+
+    Parameters
+    ----------
+    viewer : object
+        Napari viewer instance containing layers.
+    name : str
+        Layer name to locate.
+    layer_type : str
+        Layer class name to match (e.g., ``"Image"`` or ``"Labels"``).
+
+    Returns
+    -------
+    object or None
+        Matching layer instance, or ``None`` if not found.
+    """
     for layer in viewer.layers:
         if layer.__class__.__name__ == layer_type and layer.name == name:
             return layer
@@ -168,7 +184,18 @@ def _find_layer(viewer, name: str, layer_type: str):
 
 
 def _compute_centroids(labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Compute centroid coordinates for each non-zero label."""
+    """Compute centroid coordinates for each non-zero label.
+
+    Parameters
+    ----------
+    labels : numpy.ndarray
+        Label image with integer ids.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        Label ids and centroid coordinates in pixel units.
+    """
     props = regionprops_table(labels, properties=("label", "centroid"))
     label_ids = np.asarray(props.get("label", []), dtype=int)
     centroid_cols = [key for key in props if key.startswith("centroid-")]
@@ -179,7 +206,20 @@ def _compute_centroids(labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _pixel_counts(labels: np.ndarray, label_ids: np.ndarray) -> np.ndarray:
-    """Return pixel counts for each label id."""
+    """Return pixel counts for each label id.
+
+    Parameters
+    ----------
+    labels : numpy.ndarray
+        Label image with integer ids.
+    label_ids : numpy.ndarray
+        Label ids to extract counts for.
+
+    Returns
+    -------
+    numpy.ndarray
+        Pixel counts for each provided label id.
+    """
     labels_flat = labels.ravel()
     max_label = int(labels_flat.max()) if labels_flat.size else 0
     counts = np.bincount(labels_flat, minlength=max_label + 1)
@@ -189,7 +229,22 @@ def _pixel_counts(labels: np.ndarray, label_ids: np.ndarray) -> np.ndarray:
 def _intensity_sum(
     labels: np.ndarray, image: np.ndarray, label_ids: np.ndarray
 ) -> np.ndarray:
-    """Return raw intensity sums for each label id."""
+    """Return raw intensity sums for each label id.
+
+    Parameters
+    ----------
+    labels : numpy.ndarray
+        Label image with integer ids.
+    image : numpy.ndarray
+        Image data aligned to ``labels``.
+    label_ids : numpy.ndarray
+        Label ids to extract sums for.
+
+    Returns
+    -------
+    numpy.ndarray
+        Raw intensity sums for each label id.
+    """
     labels_flat = labels.ravel()
     image_flat = np.nan_to_num(image.ravel(), nan=0.0)
     max_label = int(labels_flat.max()) if labels_flat.size else 0
@@ -198,20 +253,152 @@ def _intensity_sum(
 
 
 def _pixel_volume(layer, ndim: int) -> float:
-    """Compute the per-pixel physical volume based on layer scale."""
-    scale = getattr(layer, "scale", None)
-    if scale is None:
+    """Compute per-pixel physical volume from bioio metadata.
+
+    Parameters
+    ----------
+    layer : object
+        Napari image layer providing BioIO metadata.
+    ndim : int
+        Dimensionality of the image data.
+
+    Returns
+    -------
+    float
+        Physical volume of one pixel/voxel in cubic micrometers.
+
+    Notes
+    -----
+    BioIO stores physical pixel sizes in the layer metadata under
+    ``metadata["images"][0].dict()["pixels"]["physical_size_x/y/z"]``.
+    These are assumed to be in micrometers (um). Missing values default
+    to 1.0 so the measurement stays in pixel units.
+    """
+    metadata = getattr(layer, "metadata", None)
+    if not isinstance(metadata, dict):
         return 1.0
-    scale_vals = np.asarray(scale, dtype=float)
-    if scale_vals.size == 0:
+    images = metadata.get("images") if isinstance(metadata, dict) else None
+    if not images:
         return 1.0
-    if scale_vals.size != ndim:
-        scale_vals = scale_vals[-ndim:]
-    return float(np.prod(scale_vals))
+    image = images[0]
+    try:
+        image_dict = image.dict()
+    except Exception:
+        return 1.0
+    pixels = image_dict.get("pixels", {})
+    size_x = pixels.get("physical_size_x")
+    size_y = pixels.get("physical_size_y")
+    size_z = pixels.get("physical_size_z")
+    pixel_sizes = _pixel_sizes_from_metadata(size_x, size_y, size_z, ndim)
+    if pixel_sizes is None:
+        return 1.0
+    return float(np.prod(pixel_sizes))
+
+
+def _safe_float(value) -> float | None:
+    """Convert a metadata value to float when possible.
+
+    Parameters
+    ----------
+    value : object
+        Metadata value to convert.
+
+    Returns
+    -------
+    float or None
+        Converted value when possible, otherwise ``None``.
+    """
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _pixel_sizes(layer, ndim: int) -> np.ndarray | None:
+    """Return per-axis pixel sizes from BioIO metadata.
+
+    Parameters
+    ----------
+    layer : object
+        Napari image layer providing BioIO metadata.
+    ndim : int
+        Dimensionality of the image data.
+
+    Returns
+    -------
+    numpy.ndarray or None
+        Per-axis pixel sizes in micrometers, ordered to match the data axes.
+    """
+    metadata = getattr(layer, "metadata", None)
+    if not isinstance(metadata, dict):
+        return None
+    images = metadata.get("images") if isinstance(metadata, dict) else None
+    if not images:
+        return None
+    image = images[0]
+    try:
+        image_dict = image.dict()
+    except Exception:
+        return None
+    pixels = image_dict.get("pixels", {})
+    size_x = pixels.get("physical_size_x")
+    size_y = pixels.get("physical_size_y")
+    size_z = pixels.get("physical_size_z")
+    return _pixel_sizes_from_metadata(size_x, size_y, size_z, ndim)
+
+
+def _pixel_sizes_from_metadata(
+    size_x, size_y, size_z, ndim: int
+) -> np.ndarray | None:
+    """Normalize metadata sizes into axis-ordered pixel sizes.
+
+    Parameters
+    ----------
+    size_x : object
+        Physical size along X.
+    size_y : object
+        Physical size along Y.
+    size_z : object
+        Physical size along Z.
+    ndim : int
+        Dimensionality of the image data.
+
+    Returns
+    -------
+    numpy.ndarray or None
+        Axis-ordered pixel sizes in micrometers.
+    """
+    axis_sizes = {
+        "x": _safe_float(size_x),
+        "y": _safe_float(size_y),
+        "z": _safe_float(size_z),
+    }
+    if ndim == 2:
+        sizes = [axis_sizes["y"], axis_sizes["x"]]
+    elif ndim == 3:
+        sizes = [axis_sizes["z"], axis_sizes["y"], axis_sizes["x"]]
+    else:
+        return None
+    if any(value is None for value in sizes):
+        return None
+    return np.asarray(sizes, dtype=float)
 
 
 def _axis_names(ndim: int) -> list[str]:
-    """Return axis suffixes for centroid columns."""
+    """Return axis suffixes for centroid columns.
+
+    Parameters
+    ----------
+    ndim : int
+        Number of spatial dimensions.
+
+    Returns
+    -------
+    list of str
+        Axis suffixes in display order.
+    """
     if ndim == 2:
         return ["y", "x"]
     if ndim == 3:
@@ -220,21 +407,52 @@ def _axis_names(ndim: int) -> list[str]:
 
 
 def _initialize_rows(
-    label_ids: np.ndarray, centroids: np.ndarray
+    label_ids: np.ndarray,
+    centroids: np.ndarray,
+    pixel_sizes: np.ndarray | None,
 ) -> list[dict[str, float]]:
-    """Initialize output rows with label ids and centroid coordinates."""
+    """Initialize output rows with label ids and centroid coordinates.
+
+    Parameters
+    ----------
+    label_ids : numpy.ndarray
+        Label identifiers for each row.
+    centroids : numpy.ndarray
+        Centroid coordinates in pixel units.
+    pixel_sizes : numpy.ndarray or None
+        Per-axis pixel sizes in micrometers.
+
+    Returns
+    -------
+    list of dict
+        Row dictionaries with centroid fields populated.
+    """
     axes = _axis_names(centroids.shape[1] if centroids.size else 0)
     rows: list[dict[str, float]] = []
     for label_id, centroid in zip(label_ids, centroids):
         row: dict[str, float] = {"label_id": int(label_id)}
         for axis, value in zip(axes, centroid):
-            row[f"centroid_{axis}"] = float(value)
+            row[f"centroid_{axis}_pixels"] = float(value)
+        if pixel_sizes is not None and pixel_sizes.size == len(axes):
+            for axis, value, scale in zip(axes, centroid, pixel_sizes):
+                row[f"centroid_{axis}_um"] = float(value * scale)
         rows.append(row)
     return rows
 
 
 def _channel_prefix(channel) -> str:
-    """Return a sanitized column prefix for a channel."""
+    """Return a sanitized column prefix for a channel.
+
+    Parameters
+    ----------
+    channel : object
+        Marker channel configuration.
+
+    Returns
+    -------
+    str
+        Sanitized prefix for column names.
+    """
     name = channel.name.strip() if channel.name else ""
     if not name:
         name = channel.channel
@@ -242,7 +460,18 @@ def _channel_prefix(channel) -> str:
 
 
 def _sanitize_name(value: str) -> str:
-    """Normalize names for filenames and column prefixes."""
+    """Normalize names for filenames and column prefixes.
+
+    Parameters
+    ----------
+    value : str
+        Raw name to sanitize.
+
+    Returns
+    -------
+    str
+        Lowercased name with unsafe characters removed.
+    """
     cleaned = "".join(
         char if char.isalnum() or char in "-_ " else "_" for char in value
     )
@@ -250,7 +479,20 @@ def _sanitize_name(value: str) -> str:
 
 
 def _safe_divide(numerator: np.ndarray, denominator: np.ndarray) -> np.ndarray:
-    """Compute numerator/denominator with zero-safe handling."""
+    """Compute numerator/denominator with zero-safe handling.
+
+    Parameters
+    ----------
+    numerator : numpy.ndarray
+        Numerator values.
+    denominator : numpy.ndarray
+        Denominator values.
+
+    Returns
+    -------
+    numpy.ndarray
+        Division result with zero denominators handled safely.
+    """
     result = np.zeros_like(numerator, dtype=float)
     np.divide(
         numerator,
@@ -282,7 +524,7 @@ def _apply_threshold(
 
     Returns
     -------
-    tuple of np.ndarray
+    tuple of numpy.ndarray
         Thresholded mean, raw, and integrated intensity arrays.
     """
     if not getattr(channel, "threshold_enabled", False):
@@ -319,7 +561,7 @@ def _write_threshold_metadata(
 
     Returns
     -------
-    Path or None
+    pathlib.Path or None
         Path to the metadata file written.
     """
     payload = {
@@ -344,7 +586,19 @@ def _write_threshold_metadata(
 def _write_table(
     path: Path, header: list[str], rows: list[dict[str, float]], fmt: str
 ) -> None:
-    """Write rows to disk as CSV or XLSX."""
+    """Write rows to disk as CSV or XLSX.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Destination file path.
+    header : list of str
+        Column names for the output table.
+    rows : list of dict
+        Table rows keyed by column name.
+    fmt : str
+        Output format (``"csv"`` or ``"xlsx"``).
+    """
     if fmt == "csv":
         with path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=header)
