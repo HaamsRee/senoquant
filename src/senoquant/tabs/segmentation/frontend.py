@@ -718,8 +718,11 @@ class SegmentationTab(QWidget):
         if getattr(layer, "rgb", False):
             self._notify(f"{label} must be single-channel (not RGB).")
             return False
-        ndim = getattr(layer, "ndim", None)
-        if ndim is not None and ndim not in (2, 3):
+        shape = getattr(getattr(layer, "data", None), "shape", None)
+        if shape is None:
+            return False
+        squeezed_ndim = sum(dim != 1 for dim in shape)
+        if squeezed_ndim not in (2, 3):
             self._notify(f"{label} must be 2D or 3D single-channel.")
             return False
         return True

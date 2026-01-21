@@ -269,7 +269,7 @@ def _pixel_volume(layer, ndim: int) -> float:
 
     Notes
     -----
-    BioIO stores physical pixel sizes in the layer metadata under
+    BioIO with Bio-Formats stores physical pixel sizes in the layer metadata under
     ``metadata["images"][0].dict()["pixels"]["physical_size_x/y/z"]``.
     These are assumed to be in micrometers (um). Missing values default
     to 1.0 so the measurement stays in pixel units.
