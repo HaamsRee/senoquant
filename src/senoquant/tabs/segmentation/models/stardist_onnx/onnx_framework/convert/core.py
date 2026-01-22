@@ -7,6 +7,7 @@ import re
 import sys
 import types
 import importlib
+import tempfile
 
 
 DEFAULT_2D_MODEL = "2D_versatile_fluo"
@@ -17,7 +18,7 @@ def convert_pretrained_2d(
     model_name: str = DEFAULT_2D_MODEL,
     output: str | Path = ".",
     *,
-    opset: int = 13,
+    opset: int = 18,
 ) -> Path:
     """Convert a pretrained StarDist2D model to ONNX.
 
@@ -44,7 +45,7 @@ def convert_pretrained_3d(
     model_name: str = DEFAULT_3D_MODEL,
     output: str | Path = ".",
     *,
-    opset: int = 13,
+    opset: int = 18,
 ) -> Path:
     """Convert a pretrained StarDist3D model to ONNX.
 
@@ -67,7 +68,7 @@ def convert_pretrained_3d(
     return convert_model_to_onnx(model, output_path, opset=opset)
 
 
-def convert_model_to_onnx(model, output_path: str | Path, *, opset: int = 13) -> Path:
+def convert_model_to_onnx(model, output_path: str | Path, *, opset: int = 18) -> Path:
     """Convert a StarDist model instance to ONNX.
 
     Parameters
@@ -99,15 +100,32 @@ def convert_model_to_onnx(model, output_path: str | Path, *, opset: int = 13) ->
     if input_shape and input_shape[0] is None:
         input_shape[0] = 1
     input_signature = (tf.TensorSpec(tuple(input_shape), input_tensor.dtype, name=input_name),)
-    output_names = [out.name.split(":")[0] for out in keras_model.outputs]
-
-    tf2onnx.convert.from_keras(
-        keras_model,
-        input_signature=input_signature,
-        opset=opset,
-        output_path=str(output_path),
-        output_names=output_names,
-    )
+    try:
+        _convert_via_saved_model(tf2onnx, keras_model, input_signature, opset, output_path)
+    except Exception:
+        try:
+            output_names = [out.name.split(":")[0] for out in keras_model.outputs]
+            tf2onnx.convert.from_keras(
+                keras_model,
+                input_signature=input_signature,
+                opset=opset,
+                output_path=str(output_path),
+                output_names=output_names,
+            )
+        except TypeError:
+            try:
+                tf2onnx.convert.from_keras(
+                    keras_model,
+                    input_signature=input_signature,
+                    opset=opset,
+                    output_path=str(output_path),
+                )
+            except ValueError as exc:
+                if "explicit_paddings" not in str(exc):
+                    raise
+                _convert_via_frozen_graph(
+                    tf2onnx, tf, keras_model, input_signature, opset, output_path
+                )
     return output_path
 
 
@@ -200,3 +218,68 @@ def _import_tf2onnx():
     except ImportError as exc:
         raise RuntimeError("tf2onnx is required to export StarDist models.") from exc
     return tf2onnx
+
+
+def _convert_via_frozen_graph(tf2onnx, tf, keras_model, input_signature, opset, output_path):
+    @tf.function
+    def _model_fn(*args):
+        return keras_model(*args, training=False)
+
+    concrete = _model_fn.get_concrete_function(*input_signature)
+
+    try:
+        from tensorflow.python.framework.convert_to_constants import (
+            convert_variables_to_constants_v2,
+        )
+    except ImportError as exc:
+        raise RuntimeError("TensorFlow constants converter is unavailable.") from exc
+
+    frozen_func = convert_variables_to_constants_v2(concrete)
+    graph_def = frozen_func.graph.as_graph_def()
+    inputs = [tensor.name for tensor in frozen_func.inputs]
+    outputs = [tensor.name for tensor in frozen_func.outputs]
+
+    _strip_empty_explicit_paddings(graph_def)
+
+    try:
+        tf2onnx.convert.from_graph_def(
+            graph_def,
+            input_names=inputs,
+            output_names=outputs,
+            opset=opset,
+            output_path=str(output_path),
+        )
+    except TypeError:
+        tf2onnx.convert.from_graph_def(
+            graph_def,
+            inputs,
+            outputs,
+            opset=opset,
+            output_path=str(output_path),
+        )
+
+
+def _convert_via_saved_model(tf2onnx, keras_model, input_signature, opset, output_path):
+    if not hasattr(keras_model, "export"):
+        raise RuntimeError("Keras model does not support export().")
+    export_dir = Path(tempfile.mkdtemp(prefix="stardist_saved_model_"))
+    keras_model.export(
+        str(export_dir),
+        format="tf_saved_model",
+        input_signature=input_signature,
+    )
+    if hasattr(tf2onnx.convert, "from_saved_model"):
+        tf2onnx.convert.from_saved_model(
+            str(export_dir),
+            output_path=str(output_path),
+            opset=opset,
+        )
+    else:
+        raise RuntimeError("tf2onnx does not support from_saved_model.")
+
+
+def _strip_empty_explicit_paddings(graph_def):
+    for node in graph_def.node:
+        attr = node.attr.get("explicit_paddings")
+        if attr is not None and len(attr.list.i) == 0:
+            del node.attr["explicit_paddings"]

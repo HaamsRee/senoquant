@@ -34,7 +34,7 @@ def main() -> None:
     parser.add_argument(
         "--opset",
         type=int,
-        default=13,
+        default=18,
         help="ONNX opset version to export.",
     )
     args = parser.parse_args()
