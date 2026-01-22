@@ -211,6 +211,7 @@ def _iter_channel_layers(
         physical_sizes = _physical_pixel_sizes(image)
         meta = {
             "name": layer_name,
+            "blending": "additive",
             "metadata": {
                 "bioio_metadata": image.metadata,
                 "scene_info": scene_meta,

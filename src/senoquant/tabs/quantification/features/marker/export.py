@@ -71,7 +71,7 @@ def export_marker(
     if metadata_path is not None:
         outputs.append(metadata_path)
 
-    for index, segmentation in enumerate(data.segmentations, start=1):
+    for index, segmentation in enumerate(data.segmentations, start=0):
         label_name = segmentation.label.strip()
         if not label_name:
             continue
@@ -418,7 +418,7 @@ def _add_roi_columns(
         return
     labels_flat = labels.ravel()
     max_label = int(labels_flat.max()) if labels_flat.size else 0
-    for index, roi in enumerate(rois, start=1):
+    for index, roi in enumerate(rois, start=0):
         layer_name = getattr(roi, "layer", "")
         if not layer_name:
             continue

@@ -160,7 +160,7 @@ class ROISection:
             return
         if isinstance(roi, bool):
             roi = None
-        roi_index = len(self._items) + 1
+        roi_index = len(self._items)
         feature_index = self._tab._feature_index(self._context)
         if roi is None:
             roi = ROIConfig()
@@ -272,7 +272,7 @@ class ROISection:
     def update_titles(self) -> None:
         """Refresh ROI section titles based on current feature order."""
         feature_index = self._tab._feature_index(self._context)
-        for roi_index, (section, _roi) in enumerate(self._items, start=1):
+        for roi_index, (section, _roi) in enumerate(self._items, start=0):
             section.setTitle(f"Feature {feature_index}: ROI {roi_index}")
 
     def clear(self) -> None:

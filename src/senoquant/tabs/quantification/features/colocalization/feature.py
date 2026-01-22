@@ -82,7 +82,7 @@ class ColocalizationFeature(SenoQuantFeature):
             Display labels and feature ids for spot features.
         """
         choices = []
-        for index, config in enumerate(configs, start=1):
+        for index, config in enumerate(configs, start=0):
             if config.state.type_name == cls.spot_feature_type:
                 name = config.state.name.strip()
                 label = name if name else f"Feature {index}"

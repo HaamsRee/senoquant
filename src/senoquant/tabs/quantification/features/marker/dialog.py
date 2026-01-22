@@ -278,7 +278,7 @@ class MarkerChannelsDialog(QDialog):
 
     def _renumber_rows(self) -> None:
         """Update channel row titles after changes."""
-        for index, row in enumerate(self._rows, start=1):
+        for index, row in enumerate(self._rows, start=0):
             row.update_title(index)
 
     def _add_segmentation(
@@ -322,7 +322,7 @@ class MarkerChannelsDialog(QDialog):
 
     def _renumber_segmentations(self) -> None:
         """Update segmentation row titles after changes."""
-        for index, row in enumerate(self._segmentation_rows, start=1):
+        for index, row in enumerate(self._segmentation_rows, start=0):
             row.update_title(index)
 
     def _start_layout_watch(self) -> None:

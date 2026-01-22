@@ -105,7 +105,7 @@ class MarkerSegmentationRow(QGroupBox):
         Parameters
         ----------
         index : int
-            1-based index used in the title.
+            0-based index used in the title.
         """
         self.setTitle(f"Segmentation {index}")
 
@@ -264,7 +264,7 @@ class MarkerChannelRow(QGroupBox):
         Parameters
         ----------
         index : int
-            1-based index used in the title.
+            0-based index used in the title.
         """
         self.setTitle(f"Channel {index}")
 

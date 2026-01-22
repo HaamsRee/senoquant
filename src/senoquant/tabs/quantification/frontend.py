@@ -216,7 +216,7 @@ class QuantificationTab(QWidget):
 
     def _add_feature_row(self) -> None:
         """Add a new feature input row."""
-        index = len(self._feature_configs) + 1
+        index = len(self._feature_configs)
         feature_section = QGroupBox(f"Feature {index}")
         feature_section.setFlat(True)
         feature_section.setStyleSheet(
@@ -373,7 +373,7 @@ class QuantificationTab(QWidget):
 
     def _renumber_features(self) -> None:
         """Renumber feature sections after insertions/removals."""
-        for index, context in enumerate(self._feature_configs, start=1):
+        for index, context in enumerate(self._feature_configs, start=0):
             context.section.setTitle(f"Feature {index}")
 
     def _notify_features_changed(self) -> None:
@@ -466,7 +466,7 @@ class QuantificationTab(QWidget):
                 self._clear_layout(child_layout)
 
     def _feature_index(self, context: FeatureUIContext) -> int:
-        """Return the 1-based index for a feature config.
+        """Return the 0-based index for a feature config.
 
         Parameters
         ----------
@@ -476,9 +476,9 @@ class QuantificationTab(QWidget):
         Returns
         -------
         int
-            1-based index of the feature.
+            0-based index of the feature.
         """
-        return self._feature_configs.index(context) + 1
+        return self._feature_configs.index(context)
 
     def _on_feature_name_changed(
         self, context: FeatureUIContext, text: str
