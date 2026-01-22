@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -91,6 +92,7 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
     base_name = Path(path).name
     image = _open_bioimage(path)
     layers: list[tuple] = []
+    colormap_cycle = _colormap_cycle()
     scenes = image.scenes
 
     for scene_idx, scene_id in enumerate(scenes):
@@ -103,6 +105,7 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
                 scene_idx=scene_idx,
                 total_scenes=len(scenes),
                 path=path,
+                colormap_cycle=colormap_cycle,
             )
         )
 
@@ -127,6 +130,49 @@ def _open_bioimage(path: str):
     return bioio.BioImage(path)
 
 
+def _colormap_cycle() -> Iterable[str]:
+    """Return an iterator cycling through approved colormap names.
+
+    Returns
+    -------
+    iterable of str
+        Cycle of colormap names to assign to reader layers.
+    """
+    names = [
+        "blue",
+        "bop blue",
+        "bop orange",
+        "bop purple",
+        "cyan",
+        # "fire",
+        # "gist_earth",
+        # "gray",
+        # "gray_r",
+        "green",
+        # "HiLo",
+        # "hsv",
+        # "I Blue",
+        # "I Bordeaux",
+        # "I Forest",
+        # "I Orange",
+        # "I Purple",
+        # "ice",
+        # "inferno",
+        # "magenta",
+        # "magma",
+        # "nan",
+        # "PiYG",
+        # "plasma",
+        "red",
+        # "turbo",
+        # "twilight",
+        # "twilight_shifted",
+        # "viridis",
+        "yellow",
+    ]
+    return itertools.cycle(names)
+
+
 def _physical_pixel_sizes(image) -> dict[str, float | None]:
     """Return physical pixel sizes (um) for the active scene."""
     try:
@@ -148,6 +194,7 @@ def _iter_channel_layers(
     scene_idx: int,
     total_scenes: int,
     path: str,
+    colormap_cycle: Iterable[str] | None = None,
 ) -> list[tuple]:
     """Split BioIO data into single-channel (Z)YX napari layers.
 
@@ -165,6 +212,8 @@ def _iter_channel_layers(
         Total number of scenes in the file.
     path : str
         Original image path to store in the metadata.
+    colormap_cycle : iterable of str or None, optional
+        Iterator that provides colormap names to assign to each layer.
 
     Returns
     -------
@@ -220,6 +269,8 @@ def _iter_channel_layers(
                 "physical_pixel_sizes": physical_sizes,
             },
         }
+        if colormap_cycle is not None:
+            meta["colormap"] = next(colormap_cycle)
         layers.append((layer_data, meta, "image"))
 
     return layers
