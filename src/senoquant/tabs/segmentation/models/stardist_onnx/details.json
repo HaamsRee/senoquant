@@ -1,6 +1,6 @@
 {
   "name": "stardist_onnx",
-  "description": "StarDist ONNX nuclear model skeleton",
+  "description": "StarDist ONNX model wrapper using upstream StarDist preprocessing/tiling",
   "version": "0.1.0",
   "tasks": {
     "nuclear": {
@@ -30,28 +30,12 @@
       "default": 0.4
     },
     {
-      "key": "normalize",
-      "label": "Normalize",
-      "type": "bool",
-      "default": true
-    },
-    {
-      "key": "pmin",
-      "label": "Normalize p-min",
-      "type": "float",
-      "decimals": 1,
-      "min": 0.0,
-      "max": 20.0,
-      "default": 1.0
-    },
-    {
-      "key": "pmax",
-      "label": "Normalize p-max",
-      "type": "float",
-      "decimals": 1,
-      "min": 80.0,
-      "max": 100.0,
-      "default": 99.8
+      "key": "n_tiles",
+      "label": "Tiles per axis",
+      "type": "int",
+      "min": 1,
+      "max": 16,
+      "default": 1
     }
   ]
 }

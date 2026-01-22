@@ -1,1 +1,1 @@
-"""StarDist ONNX model helpers."""
+"""StarDist ONNX wrapper around bundled StarDist code."""
