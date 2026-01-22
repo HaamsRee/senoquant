@@ -1,0 +1,268 @@
+"""StarDist ONNX segmentation model implementation."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import importlib.util
+import sys
+import types
+
+import numpy as np
+import onnxruntime as ort
+
+from senoquant.utils import layer_data_asarray
+from ..base import SenoQuantSegmentationModel
+from .onnx_framework import normalize, predict_tiled
+
+
+class StarDistOnnxModel(SenoQuantSegmentationModel):
+    """StarDist ONNX segmentation model."""
+
+    def __init__(self, models_root=None) -> None:
+        super().__init__("stardist_onnx", models_root=models_root)
+        self._sessions: dict[Path, ort.InferenceSession] = {}
+        self._rays_class = None
+        self._has_stardist_2d_lib = False
+        self._has_stardist_3d_lib = False
+
+    def run(self, **kwargs) -> dict:
+        """Run StarDist ONNX for nuclear segmentation."""
+        task = kwargs.get("task")
+        if task != "nuclear":
+            raise ValueError("StarDist ONNX only supports nuclear segmentation.")
+
+        layer = kwargs.get("layer")
+        settings = kwargs.get("settings", {})
+        image = self._extract_layer_data(layer, required=True)
+
+        if image.ndim not in (2, 3):
+            raise ValueError("Input image must be 2D (YX) or 3D (ZYX).")
+
+        image = image.astype(np.float32, copy=False)
+        if settings.get("normalize", True):
+            pmin = float(settings.get("pmin", 1.0))
+            pmax = float(settings.get("pmax", 99.8))
+            image = normalize(image, pmin=pmin, pmax=pmax)
+
+        grid_val = int(settings.get("grid", 1))
+        grid = (grid_val,) * image.ndim
+
+        tile_size = int(settings.get("tile_size", 0))
+        tile_overlap = int(settings.get("tile_overlap", 0))
+        tile_shape = (tile_size,) * image.ndim if tile_size > 0 else None
+        overlap = (tile_overlap,) * image.ndim if tile_overlap > 0 else None
+
+        session = self._get_session(image.ndim)
+        input_name, output_names = self._resolve_io_names(session)
+
+        if image.ndim == 2:
+            input_layout = "NHWC"
+            prob_layout = "NHWC"
+            dist_layout = "NYXR"
+        else:
+            input_layout = "NDHWC"
+            prob_layout = "NDHWC"
+            dist_layout = "NZYXR"
+
+        prob, dist = predict_tiled(
+            image,
+            session,
+            input_name=input_name,
+            output_names=output_names,
+            grid=grid,
+            input_layout=input_layout,
+            prob_layout=prob_layout,
+            dist_layout=dist_layout,
+            tile_shape=tile_shape,
+            overlap=overlap,
+        )
+
+        prob_thresh = float(settings.get("prob_thresh", 0.5))
+        nms_thresh = float(settings.get("nms_thresh", 0.4))
+        use_python_nms = bool(settings.get("use_python_nms", False))
+
+        self._ensure_stardist_lib_stubs()
+        from .onnx_framework import (
+            instances_from_prediction_2d,
+            instances_from_prediction_3d,
+        )
+
+        if image.ndim == 2:
+            nms_backend = "python" if use_python_nms or not self._has_stardist_2d_lib else "compiled"
+            labels, info = instances_from_prediction_2d(
+                prob,
+                dist,
+                grid=grid,
+                prob_thresh=prob_thresh,
+                nms_thresh=nms_thresh,
+                nms_backend=nms_backend,
+            )
+        else:
+            if not self._has_stardist_3d_lib:
+                raise RuntimeError(
+                    "3D StarDist labeling requires compiled ops; build "
+                    "extensions in stardist_onnx/_stardist/lib."
+                )
+            rays = self._get_rays_class()(n=dist.shape[-1])
+            nms_backend = "python" if use_python_nms or not self._has_stardist_3d_lib else "compiled"
+            labels, info = instances_from_prediction_3d(
+                prob,
+                dist,
+                grid=grid,
+                prob_thresh=prob_thresh,
+                nms_thresh=nms_thresh,
+                rays=rays,
+                nms_backend=nms_backend,
+            )
+
+        return {"masks": labels, "prob": prob, "dist": dist, "info": info}
+
+    def _extract_layer_data(self, layer, required: bool) -> np.ndarray:
+        if layer is None:
+            if required:
+                raise ValueError("Layer is required for StarDist ONNX.")
+            return None
+        return layer_data_asarray(layer)
+
+    def _get_session(self, ndim: int) -> ort.InferenceSession:
+        model_path = self._resolve_model_path(ndim)
+        session = self._sessions.get(model_path)
+        if session is None:
+            session = ort.InferenceSession(str(model_path))
+            self._sessions[model_path] = session
+        return session
+
+    def _resolve_model_path(self, ndim: int) -> Path:
+        if ndim == 2:
+            candidates = [
+                self.model_dir / "onnx_models" / "stardist2d_2D_versatile_fluo.onnx",
+                self.model_dir / "stardist2d_2D_versatile_fluo.onnx",
+                self.model_dir / "stardist2d.onnx",
+            ]
+        elif ndim == 3:
+            candidates = [
+                self.model_dir / "onnx_models" / "stardist3d_3D_demo.onnx",
+                self.model_dir / "stardist3d_3D_demo.onnx",
+                self.model_dir / "stardist3d.onnx",
+            ]
+        else:
+            raise ValueError("Only 2D and 3D models are supported.")
+
+        for path in candidates:
+            if path.exists():
+                return path
+
+        matches = []
+        for folder in (self.model_dir / "onnx_models", self.model_dir):
+            if folder.exists():
+                matches.extend(sorted(folder.glob("*.onnx")))
+
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise ValueError(
+                "Multiple ONNX files found; keep one or use default file names."
+            )
+        raise FileNotFoundError(
+            "No ONNX model found. Place the exported model in the model folder."
+        )
+
+    def _resolve_io_names(self, session: ort.InferenceSession) -> tuple[str, list[str]]:
+        inputs = session.get_inputs()
+        outputs = session.get_outputs()
+        if not inputs:
+            raise RuntimeError("ONNX model has no inputs.")
+        if len(outputs) < 2:
+            raise RuntimeError("ONNX model must have prob and dist outputs.")
+
+        input_name = inputs[0].name
+
+        prob = None
+        dist = None
+        for output in outputs:
+            name = output.name.lower()
+            if "prob" in name and prob is None:
+                prob = output
+            elif "dist" in name and dist is None:
+                dist = output
+
+        if prob is None or dist is None:
+            for output in outputs:
+                shape = output.shape or []
+                channel = shape[-1] if shape else None
+                if channel == 1 and prob is None:
+                    prob = output
+                elif channel not in (None, 1) and dist is None:
+                    dist = output
+
+        if prob is None or dist is None:
+            prob, dist = outputs[0], outputs[1]
+
+        return input_name, [prob.name, dist.name]
+
+    def _ensure_stardist_lib_stubs(self) -> None:
+        csbdeep_root = self.model_dir / "_csbdeep"
+        if csbdeep_root.exists():
+            csbdeep_path = str(csbdeep_root)
+            if csbdeep_path not in sys.path:
+                sys.path.insert(0, csbdeep_path)
+
+        stardist_pkg = "senoquant.tabs.segmentation.models.stardist_onnx._stardist"
+        if stardist_pkg not in sys.modules:
+            pkg = types.ModuleType(stardist_pkg)
+            pkg.__path__ = [str(self.model_dir / "_stardist")]
+            sys.modules[stardist_pkg] = pkg
+
+        base_pkg = f"{stardist_pkg}.lib"
+        if base_pkg not in sys.modules:
+            pkg = types.ModuleType(base_pkg)
+            pkg.__path__ = []
+            sys.modules[base_pkg] = pkg
+
+        def _stub(*_args, **_kwargs):
+            raise RuntimeError("StarDist compiled ops are unavailable.")
+
+        lib_dir = self.model_dir / "_stardist" / "lib"
+        has_2d = any(lib_dir.glob("stardist2d*.so")) or any(
+            lib_dir.glob("stardist2d*.pyd")
+        )
+        has_3d = any(lib_dir.glob("stardist3d*.so")) or any(
+            lib_dir.glob("stardist3d*.pyd")
+        )
+        self._has_stardist_2d_lib = has_2d
+        self._has_stardist_3d_lib = has_3d
+
+        mod2d = f"{base_pkg}.stardist2d"
+        if not has_2d and mod2d not in sys.modules:
+            module = types.ModuleType(mod2d)
+            module.c_star_dist = _stub
+            module.c_non_max_suppression_inds_old = _stub
+            module.c_non_max_suppression_inds = _stub
+            sys.modules[mod2d] = module
+
+        mod3d = f"{base_pkg}.stardist3d"
+        if not has_3d and mod3d not in sys.modules:
+            module = types.ModuleType(mod3d)
+            module.c_star_dist3d = _stub
+            module.c_polyhedron_to_label = _stub
+            module.c_non_max_suppression_inds = _stub
+            sys.modules[mod3d] = module
+
+    def _get_rays_class(self):
+        if self._rays_class is not None:
+            return self._rays_class
+
+        rays_path = self.model_dir / "_stardist" / "rays3d.py"
+        if not rays_path.exists():
+            rays_path = Path(__file__).parent / "_stardist" / "rays3d.py"
+        if not rays_path.exists():
+            raise FileNotFoundError("Could not locate StarDist rays3d.py.")
+
+        module_name = "senoquant_stardist_rays3d"
+        spec = importlib.util.spec_from_file_location(module_name, rays_path)
+        if spec is None or spec.loader is None:
+            raise ImportError("Failed to load StarDist rays3d module.")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self._rays_class = module.Rays_GoldenSpiral
+        return self._rays_class

@@ -1,0 +1,87 @@
+{
+  "name": "stardist_onnx",
+  "description": "StarDist nuclear segmentation using ONNX runtime",
+  "version": "0.1.0",
+  "tasks": {
+    "nuclear": {
+      "supported": true
+    },
+    "cytoplasmic": {
+      "supported": false
+    }
+  },
+  "settings": [
+    {
+      "key": "normalize",
+      "label": "Normalize",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "pmin",
+      "label": "Percentile min",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.0,
+      "max": 100.0,
+      "default": 1.0
+    },
+    {
+      "key": "pmax",
+      "label": "Percentile max",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.0,
+      "max": 100.0,
+      "default": 99.8
+    },
+    {
+      "key": "grid",
+      "label": "Grid",
+      "type": "int",
+      "min": 1,
+      "max": 8,
+      "default": 1
+    },
+    {
+      "key": "tile_size",
+      "label": "Tile size",
+      "type": "int",
+      "min": 0,
+      "max": 4096,
+      "default": 0
+    },
+    {
+      "key": "tile_overlap",
+      "label": "Tile overlap",
+      "type": "int",
+      "min": 0,
+      "max": 2048,
+      "default": 0
+    },
+    {
+      "key": "prob_thresh",
+      "label": "Prob threshold",
+      "type": "float",
+      "decimals": 3,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5
+    },
+    {
+      "key": "nms_thresh",
+      "label": "NMS threshold",
+      "type": "float",
+      "decimals": 3,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.4
+    },
+    {
+      "key": "use_python_nms",
+      "label": "Use Python NMS",
+      "type": "bool",
+      "default": false
+    }
+  ]
+}
