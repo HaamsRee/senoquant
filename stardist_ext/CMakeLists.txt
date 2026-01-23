@@ -59,6 +59,10 @@ target_include_directories(stardist3d PRIVATE
 
 target_compile_definitions(stardist2d PRIVATE NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION)
 target_compile_definitions(stardist3d PRIVATE NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION)
+target_compile_options(stardist3d PRIVATE $<$<COMPILE_LANGUAGE:C>:-include;stdbool.h>)
+
+target_link_libraries(stardist2d PRIVATE Python3::Module)
+target_link_libraries(stardist3d PRIVATE Python3::Module)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND AND NOT APPLE)
