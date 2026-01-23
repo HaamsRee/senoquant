@@ -13,7 +13,7 @@ import math
 
 import numpy as np
 
-from ..pre import pad_to_multiple, unpad_to_shape, validate_image
+from ..pre import unpad_to_shape, validate_image
 
 
 @dataclass(frozen=True)
@@ -81,6 +81,7 @@ def predict_tiled(
     dist_layout: str,
     tile_shape: tuple[int, ...] | None = None,
     overlap: tuple[int, ...] | None = None,
+    div_by: tuple[int, ...] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Run ONNX prediction with optional tiling.
 
@@ -114,8 +115,12 @@ def predict_tiled(
         image is used.
     overlap : tuple[int, ...] or None, optional
         Overlap per spatial axis in input pixels. Defaults to zero.
-        Padding is computed so each axis is divisible by both the model
-        grid and the tile step size (``tile_shape - overlap``).
+        Padding is computed so each axis aligns with the tiling grid, i.e.,
+        the padded size is ``tile_shape + k * (tile_shape - overlap)`` and
+        divisible by the model grid/divisibility constraints.
+    div_by : tuple[int, ...] or None, optional
+        Additional per-axis divisibility constraint (e.g., from ONNX graph
+        inspection). If provided, padding is also aligned to these multiples.
 
     Returns
     -------
@@ -141,13 +146,28 @@ def predict_tiled(
     tile_shape = tiling.tile_shape
     overlap = tiling.overlap
 
-    multiples = []
-    for g, ts, ov in zip(grid, tile_shape, overlap):
+    if div_by is None:
+        div_by = grid
+    if len(div_by) != image.ndim:
+        raise ValueError("div_by must match image dimensionality.")
+
+    pads = []
+    for dim, g, ts, ov, d in zip(image.shape, grid, tile_shape, overlap, div_by):
         step = ts - ov
         if step <= 0:
             raise ValueError("overlap must be smaller than tile size.")
-        multiples.append(math.lcm(int(g), int(step)))
-    padded, pads = pad_to_multiple(image, tuple(multiples))
+        if dim <= ts:
+            target = ts
+        else:
+            target = ts + math.ceil((dim - ts) / step) * step
+        div_req = math.lcm(int(g), int(d))
+        if div_req > 1:
+            while target % div_req != 0:
+                target += step
+        pads.append((0, int(max(0, target - dim))))
+    padded = np.pad(image, pads, mode="reflect")
+    padded = padded.astype(np.float32, copy=False)
+    pads = tuple(pads)
 
     tiles = _iter_tiles(padded.shape, tile_shape, overlap)
     prob_out = None
@@ -332,10 +352,13 @@ def _iter_tiles(shape: tuple[int, ...], tile_shape: tuple[int, ...], overlap: tu
             raise ValueError("overlap must be smaller than tile size.")
         # Step is the non-overlapping stride between consecutive tiles.
         step = size - ov
-        starts = list(range(0, dim, step))
+        max_start = max(0, dim - size)
+        starts = list(range(0, max_start + 1, step))
+        if not starts:
+            starts = [0]
         # Ensure the last tile reaches the end even if step doesn't align.
-        if starts and starts[-1] + size < dim:
-            starts.append(dim - size)
+        if starts[-1] != max_start:
+            starts.append(max_start)
         tile_ranges.append((starts, size, ov))
 
     # Iterate all coordinate combinations across axes.

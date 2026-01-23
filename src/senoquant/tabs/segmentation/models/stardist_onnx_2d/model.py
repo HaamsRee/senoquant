@@ -47,6 +47,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         self._has_stardist_3d_lib = False
         self._div_by_cache: dict[Path, tuple[int, ...]] = {}
         self._overlap_cache: dict[Path, tuple[int, ...]] = {}
+        self._valid_size_cache: dict[Path, list[dict[str, int | list[int]]]] = {}
 
     def run(self, **kwargs) -> dict:
         """Run StarDist ONNX for nuclear segmentation.
@@ -106,7 +107,10 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             prob_layout,
         )
 
-        tile_shape, overlap = self._infer_tiling(image, model_path)
+        tile_shape, overlap = self._infer_tiling(
+            image, model_path, session, input_name, output_names, input_layout
+        )
+        div_by = self._div_by_cache.get(model_path, grid)
 
         prob, dist = predict_tiled(
             image,
@@ -119,6 +123,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             dist_layout=dist_layout,
             tile_shape=tile_shape,
             overlap=overlap,
+            div_by=div_by,
         )
 
         prob_thresh = float(settings.get("prob_thresh", 0.5))
@@ -213,7 +218,13 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         return session
 
     def _infer_tiling(
-        self, image: np.ndarray, model_path: Path
+        self,
+        image: np.ndarray,
+        model_path: Path,
+        session: ort.InferenceSession,
+        input_name: str,
+        output_names: list[str],
+        input_layout: str,
     ) -> tuple[tuple[int, ...], tuple[int, ...]]:
         """Infer tiling shape and overlap for ONNX tiled prediction.
 
@@ -277,15 +288,64 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
 
         max_tile = 1024
         capped_shape = tuple(min(size, max_tile) for size in image.shape)
+
         tile_shape = tuple(
             max(div, (size // div) * div) if div > 0 else size
             for size, div in zip(capped_shape, div_by)
         )
+
+        patterns = self._valid_size_cache.get(model_path)
+        if patterns is None:
+            try:
+                from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect import (
+                    infer_valid_size_patterns,
+                )
+            except Exception:
+                patterns = None
+            else:
+                try:
+                    patterns = infer_valid_size_patterns(
+                        session,
+                        input_name,
+                        output_names,
+                        input_layout,
+                        ndim,
+                    )
+                except Exception:
+                    patterns = None
+            self._valid_size_cache[model_path] = patterns
+
+        if patterns:
+            tile_shape = tuple(
+                self._snap_to_valid_size(size, patterns[axis])
+                for axis, size in enumerate(tile_shape)
+            )
         overlap = tuple(
             max(0, min(int(ov), max(0, ts - 1)))
             for ov, ts in zip(overlap, tile_shape)
         )
         return tile_shape, overlap
+
+    @staticmethod
+    def _snap_to_valid_size(
+        size: int, pattern: dict[str, int | list[int]]
+    ) -> int:
+        """Adjust a size to the nearest valid residue <= size."""
+        period = int(pattern["period"])
+        residues = {int(r) for r in pattern["residues"]}
+        min_valid = int(pattern["min_valid"])
+        if size < min_valid:
+            return min_valid
+        for delta in range(period + 1):
+            candidate = size - delta
+            if candidate < min_valid:
+                break
+            if candidate % period in residues:
+                return candidate
+        candidate = size
+        while candidate % period not in residues:
+            candidate += 1
+        return candidate
 
     def _resolve_model_path(self, ndim: int) -> Path:
         """Resolve the ONNX model file for 2D or 3D inference.
