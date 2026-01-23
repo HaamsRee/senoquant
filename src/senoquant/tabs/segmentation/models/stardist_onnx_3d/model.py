@@ -19,15 +19,15 @@ from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework import (
 
 
 class StarDistOnnxModel(SenoQuantSegmentationModel):
-    """StarDist ONNX segmentation model.
+    """StarDist ONNX 3D segmentation model.
 
-    This wrapper loads an exported StarDist ONNX model (2D or 3D), runs
+    This wrapper loads an exported StarDist 3D ONNX model, runs
     preprocessing and tiled inference, and postprocesses the outputs into
     instance labels using StarDist geometry and NMS utilities.
 
     Notes
     -----
-    - Inputs must be single-channel images in YX (2D) or ZYX (3D) order.
+    - Inputs must be single-channel images in ZYX (3D) order.
     - ONNX model outputs are assumed to be probability and distance maps.
     """
 
@@ -39,7 +39,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         models_root : pathlib.Path or None
             Optional root directory for model storage.
         """
-        super().__init__("stardist_onnx", models_root=models_root)
+        super().__init__("stardist_onnx_3d", models_root=models_root)
         self._sessions: dict[Path, ort.InferenceSession] = {}
         self._rays_class = None
         self._has_stardist_2d_lib = False
@@ -77,8 +77,8 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         settings = kwargs.get("settings", {})
         image = self._extract_layer_data(layer, required=True)
 
-        if image.ndim not in (2, 3):
-            raise ValueError("Input image must be 2D (YX) or 3D (ZYX).")
+        if image.ndim != 3:
+            raise ValueError("StarDist ONNX 3D expects a 3D (ZYX) image.")
 
         image = image.astype(np.float32, copy=False)
         if settings.get("normalize", True):
@@ -90,14 +90,9 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         session = self._get_session(image.ndim)
         input_name, output_names = self._resolve_io_names(session)
 
-        if image.ndim == 2:
-            input_layout = "NHWC"
-            prob_layout = "NHWC"
-            dist_layout = "NYXR"
-        else:
-            input_layout = "NDHWC"
-            prob_layout = "NDHWC"
-            dist_layout = "NZYXR"
+        input_layout = "NDHWC"
+        prob_layout = "NDHWC"
+        dist_layout = "NZYXR"
 
         grid = self._infer_grid(
             image,
@@ -132,34 +127,20 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             instances_from_prediction_3d,
         )
 
-        if image.ndim == 2:
-            if not self._has_stardist_2d_lib:
-                raise RuntimeError(
-                    "StarDist 2D compiled ops are missing. Build the "
-                    "extensions in stardist_onnx_utils/_stardist/lib."
-                )
-            labels, info = instances_from_prediction_2d(
-                prob,
-                dist,
-                grid=grid,
-                prob_thresh=prob_thresh,
-                nms_thresh=nms_thresh,
+        if not self._has_stardist_3d_lib:
+            raise RuntimeError(
+                "3D StarDist labeling requires compiled ops; build "
+                "extensions in stardist_onnx_utils/_stardist/lib."
             )
-        else:
-            if not self._has_stardist_3d_lib:
-                raise RuntimeError(
-                    "3D StarDist labeling requires compiled ops; build "
-                    "extensions in stardist_onnx_utils/_stardist/lib."
-                )
-            rays = self._get_rays_class()(n=dist.shape[-1])
-            labels, info = instances_from_prediction_3d(
-                prob,
-                dist,
-                grid=grid,
-                prob_thresh=prob_thresh,
-                nms_thresh=nms_thresh,
-                rays=rays,
-            )
+        rays = self._get_rays_class()(n=dist.shape[-1])
+        labels, info = instances_from_prediction_3d(
+            prob,
+            dist,
+            grid=grid,
+            prob_thresh=prob_thresh,
+            nms_thresh=nms_thresh,
+            rays=rays,
+        )
 
         return {"masks": labels, "prob": prob, "dist": dist, "info": info}
 
@@ -284,20 +265,13 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         ValueError
             If multiple candidates are found without a default name.
         """
-        if ndim == 2:
-            candidates = [
-                self.model_dir / "onnx_models" / "stardist2d_2D_versatile_fluo.onnx",
-                self.model_dir / "stardist2d_2D_versatile_fluo.onnx",
-                self.model_dir / "stardist2d.onnx",
-            ]
-        elif ndim == 3:
-            candidates = [
-                self.model_dir / "onnx_models" / "stardist3d_3D_demo.onnx",
-                self.model_dir / "stardist3d_3D_demo.onnx",
-                self.model_dir / "stardist3d.onnx",
-            ]
-        else:
-            raise ValueError("Only 2D and 3D models are supported.")
+        if ndim != 3:
+            raise ValueError("StarDist ONNX 3D expects a 3D model.")
+        candidates = [
+            self.model_dir / "onnx_models" / "stardist3d_3D_demo.onnx",
+            self.model_dir / "stardist3d_3D_demo.onnx",
+            self.model_dir / "stardist3d.onnx",
+        ]
 
         for path in candidates:
             if path.exists():

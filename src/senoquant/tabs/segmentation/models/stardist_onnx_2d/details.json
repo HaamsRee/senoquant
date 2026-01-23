@@ -1,6 +1,6 @@
 {
-  "name": "stardist_onnx",
-  "description": "StarDist nuclear segmentation using ONNX runtime",
+  "name": "stardist_onnx_2d",
+  "description": "StarDist 2D nuclear segmentation using ONNX runtime",
   "version": "0.1.0",
   "tasks": {
     "nuclear": {
@@ -42,7 +42,7 @@
       "decimals": 3,
       "min": 0.0,
       "max": 1.0,
-      "default": 0.5
+      "default": 0.479071
     },
     {
       "key": "nms_thresh",
@@ -51,7 +51,7 @@
       "decimals": 3,
       "min": 0.0,
       "max": 1.0,
-      "default": 0.4
+      "default": 0.3
     }
   ]
 }
