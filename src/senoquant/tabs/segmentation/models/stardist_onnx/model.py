@@ -302,25 +302,53 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             sys.modules[stardist_pkg] = pkg
 
         base_pkg = f"{stardist_pkg}.lib"
-        if base_pkg not in sys.modules:
+        lib_dirs = [self.model_dir / "_stardist" / "lib"]
+        for entry in list(sys.path):
+            if not entry:
+                continue
+            try:
+                candidate = (
+                    Path(entry)
+                    / "senoquant"
+                    / "tabs"
+                    / "segmentation"
+                    / "models"
+                    / "stardist_onnx"
+                    / "_stardist"
+                    / "lib"
+                )
+            except Exception:
+                continue
+            if candidate.exists():
+                lib_dirs.append(candidate)
+
+        if base_pkg in sys.modules:
+            pkg = sys.modules[base_pkg]
+            pkg.__path__ = [str(p) for p in lib_dirs]
+        else:
             pkg = types.ModuleType(base_pkg)
-            pkg.__path__ = []
+            pkg.__path__ = [str(p) for p in lib_dirs]
             sys.modules[base_pkg] = pkg
 
         def _stub(*_args, **_kwargs):
             raise RuntimeError("StarDist compiled ops are unavailable.")
 
-        lib_dir = self.model_dir / "_stardist" / "lib"
-        has_2d = any(lib_dir.glob("stardist2d*.so")) or any(
-            lib_dir.glob("stardist2d*.pyd")
-        )
-        has_3d = any(lib_dir.glob("stardist3d*.so")) or any(
-            lib_dir.glob("stardist3d*.pyd")
-        )
+        has_2d = False
+        has_3d = False
+        for lib_dir in lib_dirs:
+            has_2d = has_2d or any(lib_dir.glob("stardist2d*.so")) or any(
+                lib_dir.glob("stardist2d*.pyd")
+            )
+            has_3d = has_3d or any(lib_dir.glob("stardist3d*.so")) or any(
+                lib_dir.glob("stardist3d*.pyd")
+            )
         self._has_stardist_2d_lib = has_2d
         self._has_stardist_3d_lib = has_3d
 
         mod2d = f"{base_pkg}.stardist2d"
+        if has_2d and mod2d in sys.modules:
+            if getattr(sys.modules[mod2d], "__file__", None) is None:
+                del sys.modules[mod2d]
         if not has_2d and mod2d not in sys.modules:
             module = types.ModuleType(mod2d)
             module.c_star_dist = _stub
@@ -329,6 +357,9 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             sys.modules[mod2d] = module
 
         mod3d = f"{base_pkg}.stardist3d"
+        if has_3d and mod3d in sys.modules:
+            if getattr(sys.modules[mod3d], "__file__", None) is None:
+                del sys.modules[mod3d]
         if not has_3d and mod3d not in sys.modules:
             module = types.ModuleType(mod3d)
             module.c_star_dist3d = _stub
