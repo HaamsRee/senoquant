@@ -30,6 +30,11 @@ set(STARDIST_3D_SOURCES
     ${QHULL_CPP_SOURCES}
 )
 
+set_source_files_properties(
+    "${STARDIST_LIB_DIR}/stardist3d_lib.c"
+    PROPERTIES LANGUAGE CXX
+)
+
 add_library(stardist2d MODULE ${STARDIST_2D_SOURCES})
 add_library(stardist3d MODULE ${STARDIST_3D_SOURCES})
 
