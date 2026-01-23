@@ -36,30 +36,6 @@
       "default": 99.8
     },
     {
-      "key": "grid",
-      "label": "Grid (0=auto)",
-      "type": "int",
-      "min": 0,
-      "max": 8,
-      "default": 0
-    },
-    {
-      "key": "tile_size",
-      "label": "Tile size",
-      "type": "int",
-      "min": 0,
-      "max": 4096,
-      "default": 0
-    },
-    {
-      "key": "tile_overlap",
-      "label": "Tile overlap",
-      "type": "int",
-      "min": 0,
-      "max": 2048,
-      "default": 0
-    },
-    {
       "key": "prob_thresh",
       "label": "Prob threshold",
       "type": "float",

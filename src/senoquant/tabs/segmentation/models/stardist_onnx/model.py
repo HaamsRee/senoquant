@@ -44,6 +44,8 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         self._rays_class = None
         self._has_stardist_2d_lib = False
         self._has_stardist_3d_lib = False
+        self._div_by_cache: dict[Path, tuple[int, ...]] = {}
+        self._overlap_cache: dict[Path, tuple[int, ...]] = {}
 
     def run(self, **kwargs) -> dict:
         """Run StarDist ONNX for nuclear segmentation.
@@ -84,13 +86,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             pmax = float(settings.get("pmax", 99.8))
             image = normalize(image, pmin=pmin, pmax=pmax)
 
-        grid_val = int(settings.get("grid", 0))
-
-        tile_size = int(settings.get("tile_size", 0))
-        tile_overlap = int(settings.get("tile_overlap", 0))
-        tile_shape = (tile_size,) * image.ndim if tile_size > 0 else None
-        overlap = (tile_overlap,) * image.ndim if tile_overlap > 0 else None
-
+        model_path = self._resolve_model_path(image.ndim)
         session = self._get_session(image.ndim)
         input_name, output_names = self._resolve_io_names(session)
 
@@ -103,17 +99,16 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             prob_layout = "NDHWC"
             dist_layout = "NZYXR"
 
-        if grid_val <= 0:
-            grid = self._infer_grid(
-                image,
-                session,
-                input_name,
-                output_names,
-                input_layout,
-                prob_layout,
-            )
-        else:
-            grid = (grid_val,) * image.ndim
+        grid = self._infer_grid(
+            image,
+            session,
+            input_name,
+            output_names,
+            input_layout,
+            prob_layout,
+        )
+
+        tile_shape, overlap = self._infer_tiling(image, model_path)
 
         prob, dist = predict_tiled(
             image,
@@ -197,6 +192,77 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             session = ort.InferenceSession(str(model_path))
             self._sessions[model_path] = session
         return session
+
+    def _infer_tiling(
+        self, image: np.ndarray, model_path: Path
+    ) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        """Infer tiling shape and overlap for ONNX tiled prediction.
+
+        This method uses the ONNX inspection utilities to derive:
+        - the per-axis divisibility requirement (``div_by``), and
+        - a recommended overlap based on the empirical receptive field.
+
+        The inferred values are cached per ONNX model path so the expensive
+        inspection (graph parsing / RF probing) only happens once per model.
+        If inspection fails for any reason, safe fallbacks are used:
+        ``div_by = (1, ... )`` and ``overlap = (0, ... )``.
+
+        Parameters
+        ----------
+        image : numpy.ndarray
+            Input image used to determine spatial dimensionality and to
+            clamp tile shape/overlap to valid ranges.
+        model_path : pathlib.Path
+            Path to the ONNX model, used as a cache key for inferred values.
+
+        Returns
+        -------
+        tuple[tuple[int, ...], tuple[int, ...]]
+            A tuple ``(tile_shape, overlap)``, each a per-axis tuple with
+            the same length as ``image.ndim``. ``tile_shape`` is rounded
+            down to the nearest multiple of ``div_by`` (never exceeding the
+            input size), and ``overlap`` is clamped to ``[0, tile_size - 1]``.
+        """
+        ndim = image.ndim
+        div_by = self._div_by_cache.get(model_path)
+        if div_by is None:
+            try:
+                from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect import (
+                    infer_div_by,
+                )
+            except Exception:
+                div_by = (1,) * ndim
+            else:
+                try:
+                    div_by = infer_div_by(model_path, ndim=ndim)
+                except Exception:
+                    div_by = (1,) * ndim
+            self._div_by_cache[model_path] = div_by
+
+        overlap = self._overlap_cache.get(model_path)
+        if overlap is None:
+            try:
+                from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect.receptive_field import (
+                    recommend_tile_overlap,
+                )
+            except Exception:
+                overlap = (0,) * ndim
+            else:
+                try:
+                    overlap = recommend_tile_overlap(model_path, ndim=ndim)
+                except Exception:
+                    overlap = (0,) * ndim
+            self._overlap_cache[model_path] = overlap
+
+        tile_shape = tuple(
+            max(div, (size // div) * div) if div > 0 else size
+            for size, div in zip(image.shape, div_by)
+        )
+        overlap = tuple(
+            max(0, min(int(ov), max(0, ts - 1)))
+            for ov, ts in zip(overlap, tile_shape)
+        )
+        return tile_shape, overlap
 
     def _resolve_model_path(self, ndim: int) -> Path:
         """Resolve the ONNX model file for 2D or 3D inference.
