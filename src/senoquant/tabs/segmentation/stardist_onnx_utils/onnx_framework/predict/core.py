@@ -9,11 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import product
-import math
 
 import numpy as np
 
-from ..pre import unpad_to_shape, validate_image
+from ..pre import pad_for_tiling, unpad_to_shape, validate_image
 
 
 @dataclass(frozen=True)
@@ -151,23 +150,9 @@ def predict_tiled(
     if len(div_by) != image.ndim:
         raise ValueError("div_by must match image dimensionality.")
 
-    pads = []
-    for dim, g, ts, ov, d in zip(image.shape, grid, tile_shape, overlap, div_by):
-        step = ts - ov
-        if step <= 0:
-            raise ValueError("overlap must be smaller than tile size.")
-        if dim <= ts:
-            target = ts
-        else:
-            target = ts + math.ceil((dim - ts) / step) * step
-        div_req = math.lcm(int(g), int(d))
-        if div_req > 1:
-            while target % div_req != 0:
-                target += step
-        pads.append((0, int(max(0, target - dim))))
-    padded = np.pad(image, pads, mode="reflect")
-    padded = padded.astype(np.float32, copy=False)
-    pads = tuple(pads)
+    padded, pads = pad_for_tiling(
+        image, grid, tile_shape, overlap, div_by=div_by, mode="reflect"
+    )
 
     tiles = _iter_tiles(padded.shape, tile_shape, overlap)
     prob_out = None

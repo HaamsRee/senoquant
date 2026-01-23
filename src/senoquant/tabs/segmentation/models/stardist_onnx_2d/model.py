@@ -6,6 +6,7 @@ from pathlib import Path
 import importlib.util
 import sys
 import types
+from typing import TYPE_CHECKING
 
 import numpy as np
 import onnxruntime as ort
@@ -17,6 +18,10 @@ from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework import (
     normalize,
     predict_tiled,
 )
+if TYPE_CHECKING:
+    from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect.valid_sizes import (
+        ValidSizePattern,
+    )
 
 
 class StarDistOnnxModel(SenoQuantSegmentationModel):
@@ -47,7 +52,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         self._has_stardist_3d_lib = False
         self._div_by_cache: dict[Path, tuple[int, ...]] = {}
         self._overlap_cache: dict[Path, tuple[int, ...]] = {}
-        self._valid_size_cache: dict[Path, list[dict[str, int | list[int]]]] = {}
+        self._valid_size_cache: dict[Path, list["ValidSizePattern"] | None] = {}
 
     def run(self, **kwargs) -> dict:
         """Run StarDist ONNX for nuclear segmentation.
@@ -297,17 +302,15 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         patterns = self._valid_size_cache.get(model_path)
         if patterns is None:
             try:
-                from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect import (
-                    infer_valid_size_patterns,
+                from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect.valid_sizes import (
+                    infer_valid_size_patterns_from_path,
                 )
             except Exception:
                 patterns = None
             else:
                 try:
-                    patterns = infer_valid_size_patterns(
-                        session,
-                        input_name,
-                        output_names,
+                    patterns = infer_valid_size_patterns_from_path(
+                        model_path,
                         input_layout,
                         ndim,
                     )
@@ -316,36 +319,16 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             self._valid_size_cache[model_path] = patterns
 
         if patterns:
-            tile_shape = tuple(
-                self._snap_to_valid_size(size, patterns[axis])
-                for axis, size in enumerate(tile_shape)
+            from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect.valid_sizes import (
+                snap_shape,
             )
+
+            tile_shape = snap_shape(tile_shape, patterns)
         overlap = tuple(
             max(0, min(int(ov), max(0, ts - 1)))
             for ov, ts in zip(overlap, tile_shape)
         )
         return tile_shape, overlap
-
-    @staticmethod
-    def _snap_to_valid_size(
-        size: int, pattern: dict[str, int | list[int]]
-    ) -> int:
-        """Adjust a size to the nearest valid residue <= size."""
-        period = int(pattern["period"])
-        residues = {int(r) for r in pattern["residues"]}
-        min_valid = int(pattern["min_valid"])
-        if size < min_valid:
-            return min_valid
-        for delta in range(period + 1):
-            candidate = size - delta
-            if candidate < min_valid:
-                break
-            if candidate % period in residues:
-                return candidate
-        candidate = size
-        while candidate % period not in residues:
-            candidate += 1
-        return candidate
 
     def _resolve_model_path(self, ndim: int) -> Path:
         """Resolve the ONNX model file for 2D or 3D inference.

@@ -2,6 +2,7 @@
 
 __all__ = [
     "normalize",
+    "pad_for_tiling",
     "pad_to_multiple",
     "unpad_to_shape",
     "TilingSpec",
@@ -20,7 +21,7 @@ __all__ = [
 
 
 def __getattr__(name):
-    if name in {"normalize", "pad_to_multiple", "unpad_to_shape"}:
+    if name in {"normalize", "pad_for_tiling", "pad_to_multiple", "unpad_to_shape"}:
         from . import pre as _pre
         return getattr(_pre, name)
     if name in {"TilingSpec", "default_tiling_spec", "predict_tiled"}:

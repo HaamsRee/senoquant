@@ -8,6 +8,8 @@ spatial axes ordered as YX (2D) or ZYX (3D).
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 
@@ -153,3 +155,72 @@ def unpad_to_shape(
             slices.append(slice(None))
     slices.extend([slice(None)] * (data.ndim - len(pads)))
     return data[tuple(slices)]
+
+
+def pad_for_tiling(
+    image: np.ndarray,
+    grid: tuple[int, ...],
+    tile_shape: tuple[int, ...],
+    overlap: tuple[int, ...],
+    div_by: tuple[int, ...] | None = None,
+    mode: str = "reflect",
+) -> tuple[np.ndarray, tuple[tuple[int, int], ...]]:
+    """Pad input so tiled prediction aligns with overlap and divisibility.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        Input image (2D or 3D).
+    grid : tuple[int, ...]
+        Model output grid/stride per axis.
+    tile_shape : tuple[int, ...]
+        Spatial size of each tile in input pixels.
+    overlap : tuple[int, ...]
+        Overlap per axis in input pixels.
+    div_by : tuple[int, ...] or None, optional
+        Additional per-axis divisibility constraints. If None, uses ``grid``.
+    mode : str, optional
+        Padding mode passed to ``numpy.pad``. Default is "reflect".
+
+    Returns
+    -------
+    numpy.ndarray
+        Padded image as float32.
+    tuple[tuple[int, int], ...]
+        Padding applied per axis as (before, after) pairs. This implementation
+        only pads at the end of each axis (before = 0).
+
+    Raises
+    ------
+    ValueError
+        If shapes are inconsistent or overlap is invalid.
+    """
+    if len(grid) != image.ndim:
+        raise ValueError("Grid must match image dimensionality.")
+    if len(tile_shape) != image.ndim:
+        raise ValueError("tile_shape must match image dimensionality.")
+    if len(overlap) != image.ndim:
+        raise ValueError("overlap must match image dimensionality.")
+
+    if div_by is None:
+        div_by = grid
+    if len(div_by) != image.ndim:
+        raise ValueError("div_by must match image dimensionality.")
+
+    pads = []
+    for dim, g, ts, ov, d in zip(image.shape, grid, tile_shape, overlap, div_by):
+        step = ts - ov
+        if step <= 0:
+            raise ValueError("overlap must be smaller than tile size.")
+        if dim <= ts:
+            target = ts
+        else:
+            target = ts + math.ceil((dim - ts) / step) * step
+        div_req = math.lcm(int(g), int(d))
+        if div_req > 1:
+            while target % div_req != 0:
+                target += step
+        pads.append((0, int(max(0, target - dim))))
+
+    padded = np.pad(image, pads, mode=mode)
+    return padded.astype(np.float32, copy=False), tuple(pads)

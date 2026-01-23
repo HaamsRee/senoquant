@@ -8,9 +8,29 @@ periodic residues (e.g., sizes of the form ``16k`` or ``16k+1``).
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from dataclasses import dataclass
+from typing import Iterable, Sequence
 
 import numpy as np
+
+
+@dataclass(frozen=True)
+class ValidSizePattern:
+    """Periodic validity pattern for a single spatial axis.
+
+    Attributes
+    ----------
+    period : int
+        Periodicity for valid sizes.
+    residues : tuple[int, ...]
+        Allowed ``size % period`` residues.
+    min_valid : int
+        Smallest observed valid size.
+    """
+
+    period: int
+    residues: tuple[int, ...]
+    min_valid: int
 
 
 def infer_valid_size_patterns(
@@ -20,7 +40,7 @@ def infer_valid_size_patterns(
     input_layout: str,
     ndim: int,
     max_probe: int = 64,
-) -> list[dict[str, int | list[int]]]:
+) -> list[ValidSizePattern]:
     """Probe ONNX execution to infer valid size residues per axis.
 
     Parameters
@@ -40,11 +60,8 @@ def infer_valid_size_patterns(
 
     Returns
     -------
-    list[dict[str, int | list[int]]]
-        One entry per axis with keys:
-        - ``period``: inferred periodicity of valid sizes
-        - ``residues``: sorted list of valid ``size % period`` residues
-        - ``min_valid``: smallest valid size observed
+    list[ValidSizePattern]
+        One entry per axis describing periodic valid size residues.
 
     Raises
     ------
@@ -60,7 +77,8 @@ def infer_valid_size_patterns(
         session, input_name, output_names, input_layout, ndim, max_probe
     )
 
-    patterns: list[dict[str, int | list[int]]] = []
+    patterns: list[ValidSizePattern] = []
+    any_valid = False
     for axis in range(ndim):
         valid = []
         for size in range(1, max_probe + 1):
@@ -69,15 +87,65 @@ def infer_valid_size_patterns(
             if _try_run(session, input_name, output_names, input_layout, shape):
                 valid.append(size)
         if not valid:
-            raise RuntimeError(
-                f"No valid sizes found for axis {axis} within 1..{max_probe}."
-            )
+            patterns.append(ValidSizePattern(period=1, residues=(0,), min_valid=1))
+            continue
+        any_valid = True
         period, residues = _infer_period_and_residues(valid, max_probe)
         patterns.append(
-            {"period": period, "residues": residues, "min_valid": min(valid)}
+            ValidSizePattern(
+                period=int(period),
+                residues=tuple(int(r) for r in residues),
+                min_valid=int(min(valid)),
+            )
         )
 
+    if not any_valid:
+        raise RuntimeError(
+            f"No valid sizes found within 1..{max_probe} for any axis."
+        )
     return patterns
+
+
+def infer_valid_size_patterns_from_path(
+    model_path,
+    input_layout: str,
+    ndim: int,
+    max_probe: int = 64,
+) -> list[ValidSizePattern]:
+    """Probe valid sizes using a temporary, quiet ONNX session.
+
+    Parameters
+    ----------
+    model_path : str or pathlib.Path
+        Path to the ONNX model file.
+    input_layout : str
+        Input layout string (e.g., ``"NHWC"`` or ``"NDHWC"``).
+    ndim : int
+        Spatial dimensionality (2 or 3).
+    max_probe : int, optional
+        Maximum size to probe per axis. Default is 64.
+
+    Returns
+    -------
+    list[ValidSizePattern]
+        One entry per axis describing periodic valid size residues.
+    """
+    import onnxruntime as ort
+
+    sess_options = ort.SessionOptions()
+    # Suppress ORT error logs during probe failures.
+    sess_options.log_severity_level = 4
+    session = ort.InferenceSession(str(model_path), sess_options=sess_options)
+    input_name = session.get_inputs()[0].name
+    output_names = [o.name for o in session.get_outputs()]
+    return infer_valid_size_patterns(
+        session,
+        input_name,
+        output_names,
+        input_layout,
+        ndim,
+        max_probe=max_probe,
+    )
 
 
 def _find_valid_base(
@@ -93,7 +161,7 @@ def _find_valid_base(
         shape = [size] * ndim
         if _try_run(session, input_name, output_names, input_layout, shape):
             return size
-    raise RuntimeError("Failed to find a valid base size for probing.")
+    raise RuntimeError("Failed to find any valid base size for probing.")
 
 
 def _try_run(
@@ -145,3 +213,66 @@ def _infer_period_and_residues(
         period = math.gcd(period, d)
     residues = sorted({v % period for v in valid_set})
     return max(1, period), residues
+
+
+def snap_size(size: int, pattern: ValidSizePattern) -> int:
+    """Adjust a size to the nearest valid residue at or below ``size``.
+
+    Parameters
+    ----------
+    size : int
+        Proposed size.
+    pattern : ValidSizePattern
+        Valid size pattern for the axis.
+
+    Returns
+    -------
+    int
+        Snapped valid size.
+    """
+    period = max(1, int(pattern.period))
+    residues = set(int(r) for r in pattern.residues)
+    min_valid = int(pattern.min_valid)
+    if size <= min_valid:
+        return min_valid
+    for delta in range(period + 1):
+        candidate = size - delta
+        if candidate < min_valid:
+            break
+        if candidate % period in residues:
+            return candidate
+    candidate = size
+    while candidate % period not in residues:
+        candidate += 1
+    return candidate
+
+
+def snap_shape(
+    shape: Sequence[int],
+    patterns: Sequence[ValidSizePattern],
+    *,
+    skip_axes: Sequence[int] = (),
+) -> tuple[int, ...]:
+    """Snap each axis of a shape to the nearest valid size.
+
+    Parameters
+    ----------
+    shape : Sequence[int]
+        Proposed spatial shape.
+    patterns : Sequence[ValidSizePattern]
+        Per-axis valid size patterns.
+    skip_axes : Sequence[int], optional
+        Axes to leave unchanged (e.g., skip Z for 3D models).
+
+    Returns
+    -------
+    tuple[int, ...]
+        Snapped spatial shape.
+    """
+    snapped = []
+    for axis, size in enumerate(shape):
+        if axis in skip_axes:
+            snapped.append(int(size))
+            continue
+        snapped.append(snap_size(int(size), patterns[axis]))
+    return tuple(snapped)
