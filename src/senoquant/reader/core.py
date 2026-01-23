@@ -127,7 +127,65 @@ def _open_bioimage(path: str):
     """
     import bioio
 
+    plugin = None
+    try:
+        plugin = bioio.BioImage.determine_plugin(path)
+    except Exception:
+        plugin = None
+
+    if _should_force_tifffile(plugin, path):
+        image = _try_bioimage_readers(
+            bioio,
+            path,
+            reader_names=("bioio_tifffile", "bioio_ome_tiff"),
+        )
+        if image is not None:
+            return image
+
     return bioio.BioImage(path)
+
+
+def _should_force_tifffile(plugin, path: str) -> bool:
+    """Return True when tiff_glob should be bypassed for single-file TIFFs."""
+    if "*" in path or "?" in path:
+        return False
+    if not path.lower().endswith((".tif", ".tiff")):
+        return False
+    names = set()
+    if isinstance(plugin, str):
+        names.add(plugin)
+    else:
+        for attr in ("name", "value", "__name__", "__module__"):
+            value = getattr(plugin, attr, None)
+            if value:
+                names.add(str(value))
+        entrypoint = getattr(plugin, "entrypoint", None)
+        if entrypoint is not None:
+            for attr in ("name", "value", "__name__", "__module__"):
+                value = getattr(entrypoint, attr, None)
+                if value:
+                    names.add(str(value))
+    return any("tiff_glob" in name or "tiff-glob" in name for name in names)
+
+
+def _try_bioimage_readers(bioio, path: str, reader_names: tuple[str, ...]):
+    """Try opening a BioImage with explicit reader plugins."""
+    import importlib
+
+    for reader_name in reader_names:
+        module = None
+        try:
+            module = importlib.import_module(reader_name)
+        except Exception:
+            module = None
+        if module is not None:
+            reader_cls = getattr(module, "Reader", None)
+            if reader_cls is not None:
+                try:
+                    return bioio.BioImage(path, reader=reader_cls)
+                except Exception:
+                    continue
+    return None
 
 
 def _colormap_cycle() -> Iterable[str]:
@@ -186,6 +244,34 @@ def _physical_pixel_sizes(image) -> dict[str, float | None]:
     }
 
 
+def _axes_present(image) -> set[str]:
+    """Return the set of axis labels present in the BioIO image."""
+    dims = getattr(image, "dims", None)
+    if dims is None:
+        return set()
+    if isinstance(dims, str):
+        return set(dims)
+    order = getattr(dims, "order", None)
+    if isinstance(order, str):
+        return set(order)
+    axes = getattr(dims, "axes", None)
+    if not axes:
+        return set()
+    result: set[str] = set()
+    for axis in axes:
+        if isinstance(axis, str):
+            result.add(axis)
+            continue
+        name = (
+            getattr(axis, "name", None)
+            or getattr(axis, "value", None)
+            or getattr(axis, "axis", None)
+        )
+        if name:
+            result.add(str(name))
+    return result
+
+
 def _iter_channel_layers(
     image,
     *,
@@ -221,9 +307,10 @@ def _iter_channel_layers(
         Napari layer tuples for each channel.
     """
     dims = getattr(image, "dims", None)
-    t_size = getattr(dims, "T", 1) if dims is not None else 1
-    c_size = getattr(dims, "C", 1) if dims is not None else 1
-    z_size = getattr(dims, "Z", 1) if dims is not None else 1
+    axes_present = _axes_present(image)
+    t_size = getattr(dims, "T", 1) if "T" in axes_present else 1
+    c_size = getattr(dims, "C", 1) if "C" in axes_present else 1
+    z_size = getattr(dims, "Z", 1) if "Z" in axes_present else 1
 
     scene_name = scene_id or f"Scene {scene_idx}"
     scene_meta = {
@@ -237,15 +324,21 @@ def _iter_channel_layers(
 
     if c_size > 1:
         order = "CZYX" if z_size > 1 else "CYX"
-        kwargs = {"T": t_index}
-        if z_size == 1:
+        kwargs = {}
+        if "T" in axes_present and "T" not in order:
+            kwargs["T"] = t_index
+        if "Z" in axes_present and "Z" not in order:
             kwargs["Z"] = 0
         data = image.get_image_data(order, **kwargs)
         channel_iter = range(c_size)
     else:
         order = "ZYX" if z_size > 1 else "YX"
-        kwargs = {"T": t_index, "C": 0}
-        if z_size == 1 and order == "YX":
+        kwargs = {}
+        if "T" in axes_present and "T" not in order:
+            kwargs["T"] = t_index
+        if "C" in axes_present and "C" not in order:
+            kwargs["C"] = 0
+        if "Z" in axes_present and "Z" not in order:
             kwargs["Z"] = 0
         data = image.get_image_data(order, **kwargs)
         channel_iter = [0]
