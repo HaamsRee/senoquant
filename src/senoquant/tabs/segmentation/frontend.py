@@ -95,6 +95,8 @@ class SegmentationTab(QWidget):
         self._viewer = napari_viewer
         self._nuclear_settings_widgets = {}
         self._cyto_settings_widgets = {}
+        self._nuclear_settings_meta = {}
+        self._cyto_settings_meta = {}
         self._settings = settings_backend or SettingsBackend()
         self._settings.preload_models_changed.connect(
             self._on_preload_models_changed
@@ -417,8 +419,16 @@ class SegmentationTab(QWidget):
             if settings_layout is self._nuclear_model_settings_layout
             else self._cyto_settings_widgets
         )
+        settings_meta = (
+            self._nuclear_settings_meta
+            if settings_layout is self._nuclear_model_settings_layout
+            else self._cyto_settings_meta
+        )
         settings_map.clear()
-        form_layout = self._build_model_settings(model, settings_map)
+        settings_meta.clear()
+        form_layout = self._build_model_settings(
+            model, settings_map, settings_meta
+        )
         if form_layout is None:
             settings_layout.addWidget(
                 QLabel(f"No settings defined for '{model_name}'.")
@@ -452,7 +462,9 @@ class SegmentationTab(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
-    def _build_model_settings(self, model, settings_map: dict) -> QFormLayout | None:
+    def _build_model_settings(
+        self, model, settings_map: dict, settings_meta: dict
+    ) -> QFormLayout | None:
         """Build model settings controls from model metadata.
 
         Parameters
@@ -461,6 +473,8 @@ class SegmentationTab(QWidget):
             Model wrapper providing settings metadata.
         settings_map : dict
             Mapping of setting keys to their widgets.
+        settings_meta : dict
+            Mapping of setting keys to their metadata dictionaries.
 
         Returns
         -------
@@ -475,6 +489,8 @@ class SegmentationTab(QWidget):
         for setting in settings:
             setting_type = setting.get("type")
             label = setting.get("label", setting.get("key", "Setting"))
+            key = setting.get("key", label)
+            settings_meta[key] = setting
 
             if setting_type == "float":
                 widget = QDoubleSpinBox()
@@ -486,7 +502,7 @@ class SegmentationTab(QWidget):
                 )
                 widget.setSingleStep(0.1)
                 widget.setValue(float(setting.get("default", 0.0)))
-                settings_map[setting.get("key", label)] = widget
+                settings_map[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "int":
                 widget = QSpinBox()
@@ -496,17 +512,43 @@ class SegmentationTab(QWidget):
                 )
                 widget.setSingleStep(1)
                 widget.setValue(int(setting.get("default", 0)))
-                settings_map[setting.get("key", label)] = widget
+                settings_map[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "bool":
                 widget = QCheckBox()
                 widget.setChecked(bool(setting.get("default", False)))
-                settings_map[setting.get("key", label)] = widget
+                widget.toggled.connect(
+                    lambda _checked, m=settings_map, meta=settings_meta: self._apply_setting_dependencies(m, meta)
+                )
+                settings_map[key] = widget
                 form_layout.addRow(label, widget)
             else:
                 form_layout.addRow(label, QLabel("Unsupported setting type"))
 
+        self._apply_setting_dependencies(settings_map, settings_meta)
+
         return form_layout
+
+    def _apply_setting_dependencies(
+        self, settings_map: dict, settings_meta: dict
+    ) -> None:
+        """Apply enabled/disabled relationships between settings."""
+        for key, setting in settings_meta.items():
+            widget = settings_map.get(key)
+            if widget is None:
+                continue
+
+            enabled_by = setting.get("enabled_by")
+            disabled_by = setting.get("disabled_by")
+
+            if enabled_by:
+                controller = settings_map.get(enabled_by)
+                if isinstance(controller, QCheckBox):
+                    widget.setEnabled(controller.isChecked())
+            if disabled_by:
+                controller = settings_map.get(disabled_by)
+                if isinstance(controller, QCheckBox):
+                    widget.setEnabled(not controller.isChecked())
 
     def _collect_settings(self, settings_map: dict) -> dict:
         """Collect current values from the settings widgets.

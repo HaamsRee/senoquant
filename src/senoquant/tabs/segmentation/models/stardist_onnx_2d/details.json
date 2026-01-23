@@ -24,7 +24,8 @@
       "decimals": 1,
       "min": 0.0,
       "max": 100.0,
-      "default": 1.0
+      "default": 1.0,
+      "enabled_by": "normalize"
     },
     {
       "key": "pmax",
@@ -33,7 +34,8 @@
       "decimals": 1,
       "min": 0.0,
       "max": 100.0,
-      "default": 99.8
+      "default": 99.8,
+      "enabled_by": "normalize"
     },
     {
       "key": "prob_thresh",
