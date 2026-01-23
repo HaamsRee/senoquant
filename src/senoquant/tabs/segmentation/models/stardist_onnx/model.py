@@ -26,8 +26,6 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
     -----
     - Inputs must be single-channel images in YX (2D) or ZYX (3D) order.
     - ONNX model outputs are assumed to be probability and distance maps.
-    - When compiled StarDist NMS ops are unavailable, a Python fallback can
-      be used for 2D (slower) via the ``use_python_nms`` setting.
     """
 
     def __init__(self, models_root=None) -> None:
