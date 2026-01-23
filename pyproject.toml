@@ -35,6 +35,7 @@ dependencies = [
   "openpyxl>=3.1",
   "scikit-image>=0.22,<0.25",
   "scipy>=1.8",
+  "senoquant-stardist-ext>=0.1.0",
 ]
 
 [project.entry-points."napari.manifest"]
@@ -62,6 +63,7 @@ all = [
   "openpyxl>=3.1",
   "scikit-image>=0.22,<0.25",
   "scipy>=1.8",
+  "senoquant-stardist-ext>=0.1.0",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
   "cupy-cuda12x>=12.0",
