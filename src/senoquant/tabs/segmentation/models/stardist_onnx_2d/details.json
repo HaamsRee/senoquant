@@ -38,6 +38,15 @@
       "enabled_by": "normalize"
     },
     {
+      "key": "object_diameter_px",
+      "label": "Object diameter (px)",
+      "type": "float",
+      "decimals": 1,
+      "min": 1.0,
+      "max": 500.0,
+      "default": 30.0
+    },
+    {
       "key": "prob_thresh",
       "label": "Prob threshold",
       "type": "float",

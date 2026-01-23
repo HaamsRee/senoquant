@@ -9,6 +9,7 @@ import types
 
 import numpy as np
 import onnxruntime as ort
+from scipy import ndimage as ndi
 
 from senoquant.utils import layer_data_asarray
 from ..base import SenoQuantSegmentationModel
@@ -76,11 +77,13 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         layer = kwargs.get("layer")
         settings = kwargs.get("settings", {})
         image = self._extract_layer_data(layer, required=True)
+        original_shape = image.shape
 
         if image.ndim != 3:
             raise ValueError("StarDist ONNX 3D expects a 3D (ZYX) image.")
 
         image = image.astype(np.float32, copy=False)
+        image, scale = self._scale_input(image, settings)
         if settings.get("normalize", True):
             pmin = float(settings.get("pmin", 1.0))
             pmax = float(settings.get("pmax", 99.8))
@@ -140,9 +143,50 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             prob_thresh=prob_thresh,
             nms_thresh=nms_thresh,
             rays=rays,
+            scale=scale,
+            img_shape=original_shape,
         )
 
         return {"masks": labels, "prob": prob, "dist": dist, "info": info}
+
+    def _scale_input(
+        self, image: np.ndarray, settings: dict
+    ) -> tuple[np.ndarray, dict[str, float] | None]:
+        """Scale the input image to match training object sizes.
+
+        Parameters
+        ----------
+        image : numpy.ndarray
+            Input 3D image in ZYX order.
+        settings : dict
+            Model settings containing the ``object_diameter_px`` entry.
+
+        Returns
+        -------
+        numpy.ndarray
+            Scaled image. If no scaling is requested, returns the input image.
+        dict[str, float] or None
+            Scale factors keyed by axis (``"Z"``, ``"Y"``, ``"X"``) for rescaling
+            predictions back to the original image space.
+        """
+        diameter_px = float(settings.get("object_diameter_px", 30.0))
+        if diameter_px <= 0:
+            raise ValueError("Object diameter (px) must be positive.")
+        scale_factor = 30.0 / diameter_px
+        if np.isclose(scale_factor, 1.0):
+            return image, None
+
+        scale = (scale_factor, scale_factor, scale_factor)
+        scaled = ndi.zoom(image, scale, order=1)
+        if min(scaled.shape) < 1:
+            raise ValueError(
+                "Scaling factor produced an empty image; adjust object diameter."
+            )
+        return scaled.astype(np.float32, copy=False), {
+            "Z": scale_factor,
+            "Y": scale_factor,
+            "X": scale_factor,
+        }
 
     def _extract_layer_data(self, layer, required: bool) -> np.ndarray:
         """Return numpy data for a napari layer.
@@ -203,6 +247,8 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             the same length as ``image.ndim``. ``tile_shape`` is rounded
             down to the nearest multiple of ``div_by`` (never exceeding the
             input size), and ``overlap`` is clamped to ``[0, tile_size - 1]``.
+            The XY tile sizes are capped at 1024 pixels per axis to avoid
+            feeding overly large tiles to the ONNX model.
         """
         ndim = image.ndim
         div_by = self._div_by_cache.get(model_path)
@@ -235,9 +281,14 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
                     overlap = (0,) * ndim
             self._overlap_cache[model_path] = overlap
 
+        max_tile = 1024
+        if image.ndim == 3:
+            capped_shape = (image.shape[0], min(image.shape[1], max_tile), min(image.shape[2], max_tile))
+        else:
+            capped_shape = tuple(min(size, max_tile) for size in image.shape)
         tile_shape = tuple(
             max(div, (size // div) * div) if div > 0 else size
-            for size, div in zip(image.shape, div_by)
+            for size, div in zip(capped_shape, div_by)
         )
         overlap = tuple(
             max(0, min(int(ov), max(0, ts - 1)))

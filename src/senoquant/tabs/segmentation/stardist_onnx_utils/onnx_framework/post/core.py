@@ -12,6 +12,8 @@ def instances_from_prediction_2d(
     grid: tuple[int, int],
     prob_thresh: float,
     nms_thresh: float,
+    scale: dict[str, float] | None = None,
+    img_shape: tuple[int, int] | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Create 2D instance labels from StarDist outputs.
 
@@ -27,6 +29,13 @@ def instances_from_prediction_2d(
         Probability threshold used to filter candidate points before NMS.
     nms_thresh : float
         NMS IoU/overlap threshold for suppressing nearby detections.
+    scale : dict[str, float], optional
+        Scale factors applied to the input image before inference. If
+        provided, must include ``"X"`` and ``"Y"`` so that points and
+        distances can be rescaled back to the original image space.
+    img_shape : tuple[int, int], optional
+        Original image shape (Y, X). If provided, the output label image
+        is generated in this shape instead of the scaled prediction shape.
     Returns
     -------
     tuple[numpy.ndarray, dict]
@@ -48,9 +57,20 @@ def instances_from_prediction_2d(
         prob_thresh=prob_thresh,
         nms_thresh=nms_thresh,
     )
+    if scale is not None:
+        if not (isinstance(scale, dict) and "X" in scale and "Y" in scale):
+            raise ValueError("scale must be a dictionary with entries for 'X' and 'Y'")
+        rescale = (1 / scale["Y"], 1 / scale["X"])
+        points = points * np.array(rescale).reshape(1, 2)
+    else:
+        rescale = (1, 1)
     from ..._stardist.geometry.geom2d import polygons_to_label
-    shape = tuple(s * g for s, g in zip(prob.shape, grid))
-    labels = polygons_to_label(distances, points, shape=shape, prob=scores)
+    shape = img_shape if img_shape is not None else tuple(
+        s * g for s, g in zip(prob.shape, grid)
+    )
+    labels = polygons_to_label(
+        distances, points, shape=shape, prob=scores, scale_dist=rescale
+    )
     return labels, {"points": points, "prob": scores, "dist": distances}
 
 
@@ -62,6 +82,8 @@ def instances_from_prediction_3d(
     prob_thresh: float,
     nms_thresh: float,
     rays,
+    scale: dict[str, float] | None = None,
+    img_shape: tuple[int, int, int] | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Create 3D instance labels from StarDist outputs.
 
@@ -79,6 +101,14 @@ def instances_from_prediction_3d(
         NMS IoU/overlap threshold for suppressing nearby detections.
     rays : object
         StarDist 3D rays object describing ray directions and sampling.
+    scale : dict[str, float], optional
+        Scale factors applied to the input image before inference. If
+        provided, must include ``"X"``, ``"Y"``, and ``"Z"`` so that points
+        and rays can be rescaled back to the original image space.
+    img_shape : tuple[int, int, int], optional
+        Original image shape (Z, Y, X). If provided, the output label
+        volume is generated in this shape instead of the scaled prediction
+        shape.
     Returns
     -------
     tuple[numpy.ndarray, dict]
@@ -102,8 +132,25 @@ def instances_from_prediction_3d(
         prob_thresh=prob_thresh,
         nms_thresh=nms_thresh,
     )
+    if scale is not None:
+        if not (
+            isinstance(scale, dict)
+            and "X" in scale
+            and "Y" in scale
+            and "Z" in scale
+        ):
+            raise ValueError(
+                "scale must be a dictionary with entries for 'X', 'Y', and 'Z'"
+            )
+        rescale = (1 / scale["Z"], 1 / scale["Y"], 1 / scale["X"])
+        points = points * np.array(rescale).reshape(1, 3)
+        rays = rays.copy(scale=rescale)
+    else:
+        rescale = (1, 1, 1)
     from ..._stardist.geometry.geom3d import polyhedron_to_label
-    shape = tuple(s * g for s, g in zip(prob.shape, grid))
+    shape = img_shape if img_shape is not None else tuple(
+        s * g for s, g in zip(prob.shape, grid)
+    )
     labels = polyhedron_to_label(
         distances, points, rays=rays, shape=shape, prob=scores, verbose=False
     )

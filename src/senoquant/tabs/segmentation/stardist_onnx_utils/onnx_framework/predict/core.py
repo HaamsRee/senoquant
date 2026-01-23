@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import product
+import math
 
 import numpy as np
 
@@ -113,6 +114,8 @@ def predict_tiled(
         image is used.
     overlap : tuple[int, ...] or None, optional
         Overlap per spatial axis in input pixels. Defaults to zero.
+        Padding is computed so each axis is divisible by both the model
+        grid and the tile step size (``tile_shape - overlap``).
 
     Returns
     -------
@@ -132,13 +135,19 @@ def predict_tiled(
     if len(grid) != image.ndim:
         raise ValueError("Grid must match image dimensionality.")
 
-    padded, pads = pad_to_multiple(image, grid)
-
     tiling = default_tiling_spec(
-        padded.shape, tile_shape=tile_shape, overlap=overlap
+        image.shape, tile_shape=tile_shape, overlap=overlap
     )
     tile_shape = tiling.tile_shape
     overlap = tiling.overlap
+
+    multiples = []
+    for g, ts, ov in zip(grid, tile_shape, overlap):
+        step = ts - ov
+        if step <= 0:
+            raise ValueError("overlap must be smaller than tile size.")
+        multiples.append(math.lcm(int(g), int(step)))
+    padded, pads = pad_to_multiple(image, tuple(multiples))
 
     tiles = _iter_tiles(padded.shape, tile_shape, overlap)
     prob_out = None
