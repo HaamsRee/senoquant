@@ -134,12 +134,12 @@ def _load_stardist_model(ndim: int, name_or_path: str):
     _ensure_stardist_stub()
     if ndim == 2:
         module = importlib.import_module(
-            "senoquant.tabs.segmentation.models.stardist_onnx._stardist.models"
+            "senoquant.tabs.segmentation.stardist_onnx_utils._stardist.models"
         )
         model_cls = module.StarDist2D
     elif ndim == 3:
         module = importlib.import_module(
-            "senoquant.tabs.segmentation.models.stardist_onnx._stardist.models"
+            "senoquant.tabs.segmentation.stardist_onnx_utils._stardist.models"
         )
         model_cls = module.StarDist3D
     else:
@@ -175,7 +175,7 @@ def _ensure_csbdeep_on_path() -> None:
 
 
 def _ensure_stardist_stub() -> None:
-    base_pkg = "senoquant.tabs.segmentation.models.stardist_onnx._stardist"
+    base_pkg = "senoquant.tabs.segmentation.stardist_onnx_utils._stardist"
     root = Path(__file__).resolve().parents[2] / "_stardist"
     if base_pkg not in sys.modules:
         pkg = types.ModuleType(base_pkg)

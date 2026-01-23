@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module NumPy)
 
-set(STARDIST_LIB_DIR "${CMAKE_CURRENT_LIST_DIR}/../src/senoquant/tabs/segmentation/models/stardist_onnx/_stardist/lib")
+set(STARDIST_LIB_DIR "${CMAKE_CURRENT_LIST_DIR}/../src/senoquant/tabs/segmentation/stardist_onnx_utils/_stardist/lib")
 
 set(STARDIST_EXTERNAL_DIR "${STARDIST_LIB_DIR}/external")
 set(STARDIST_QHULL_DIR "${STARDIST_EXTERNAL_DIR}/qhull_src/src")
@@ -75,7 +75,7 @@ if(OpenMP_CXX_FOUND AND NOT APPLE)
     target_link_libraries(stardist3d PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
-set(INSTALL_SUBDIR "senoquant/tabs/segmentation/models/stardist_onnx/_stardist/lib")
+set(INSTALL_SUBDIR "senoquant/tabs/segmentation/stardist_onnx_utils/_stardist/lib")
 
 install(TARGETS stardist2d stardist3d
     LIBRARY DESTINATION "${INSTALL_SUBDIR}"

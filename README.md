@@ -21,8 +21,8 @@ A minimal napari plugin scaffold using qtpy.
   - `uv pip install --upgrade "protobuf>=6.33.4"`
 - Ensure the package is installed (see Development section): `uv pip install -e .`
 - Convert a pretrained model:
-  - 2D: `python -m senoquant.tabs.segmentation.models.stardist_onnx.onnx_framework.convert.cli --dim 2 --model 2D_versatile_fluo --output ./onnx_models`
-  - 3D: `python -m senoquant.tabs.segmentation.models.stardist_onnx.onnx_framework.convert.cli --dim 3 --model 3D_demo --output ./onnx_models`
+  - 2D: `python -m senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.convert.cli --dim 2 --model 2D_versatile_fluo --output ./onnx_models`
+  - 3D: `python -m senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.convert.cli --dim 3 --model 3D_demo --output ./onnx_models`
 
 ### Version Notes
 

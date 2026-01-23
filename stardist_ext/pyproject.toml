@@ -18,7 +18,7 @@ wheel.packages = []
 
 [tool.scikit-build.sdist]
 include = [
-  "../src/senoquant/tabs/segmentation/models/stardist_onnx/_stardist/lib/**",
+  "../src/senoquant/tabs/segmentation/stardist_onnx_utils/_stardist/lib/**",
   "CMakeLists.txt",
   "README.md",
 ]

@@ -12,7 +12,10 @@ import onnxruntime as ort
 
 from senoquant.utils import layer_data_asarray
 from ..base import SenoQuantSegmentationModel
-from .onnx_framework import normalize, predict_tiled
+from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework import (
+    normalize,
+    predict_tiled,
+)
 
 
 class StarDistOnnxModel(SenoQuantSegmentationModel):
@@ -129,7 +132,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         nms_thresh = float(settings.get("nms_thresh", 0.4))
 
         self._ensure_stardist_lib_stubs()
-        from .onnx_framework import (
+        from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework import (
             instances_from_prediction_2d,
             instances_from_prediction_3d,
         )
@@ -138,7 +141,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             if not self._has_stardist_2d_lib:
                 raise RuntimeError(
                     "StarDist 2D compiled ops are missing. Build the "
-                    "extensions in stardist_onnx/_stardist/lib."
+                    "extensions in stardist_onnx_utils/_stardist/lib."
                 )
             labels, info = instances_from_prediction_2d(
                 prob,
@@ -151,7 +154,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             if not self._has_stardist_3d_lib:
                 raise RuntimeError(
                     "3D StarDist labeling requires compiled ops; build "
-                    "extensions in stardist_onnx/_stardist/lib."
+                    "extensions in stardist_onnx_utils/_stardist/lib."
                 )
             rays = self._get_rays_class()(n=dist.shape[-1])
             labels, info = instances_from_prediction_3d(
@@ -289,20 +292,23 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         This registers minimal stubs for compiled modules when shared
         libraries are absent, allowing Python utilities to import.
         """
-        csbdeep_root = self.model_dir / "_csbdeep"
+        utils_root = self._get_utils_root()
+        csbdeep_root = utils_root / "_csbdeep"
         if csbdeep_root.exists():
             csbdeep_path = str(csbdeep_root)
             if csbdeep_path not in sys.path:
                 sys.path.insert(0, csbdeep_path)
 
-        stardist_pkg = "senoquant.tabs.segmentation.models.stardist_onnx._stardist"
+        stardist_pkg = (
+            "senoquant.tabs.segmentation.stardist_onnx_utils._stardist"
+        )
         if stardist_pkg not in sys.modules:
             pkg = types.ModuleType(stardist_pkg)
-            pkg.__path__ = [str(self.model_dir / "_stardist")]
+            pkg.__path__ = [str(utils_root / "_stardist")]
             sys.modules[stardist_pkg] = pkg
 
         base_pkg = f"{stardist_pkg}.lib"
-        lib_dirs = [self.model_dir / "_stardist" / "lib"]
+        lib_dirs = [utils_root / "_stardist" / "lib"]
         for entry in list(sys.path):
             if not entry:
                 continue
@@ -312,8 +318,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
                     / "senoquant"
                     / "tabs"
                     / "segmentation"
-                    / "models"
-                    / "stardist_onnx"
+                    / "stardist_onnx_utils"
                     / "_stardist"
                     / "lib"
                 )
@@ -372,9 +377,8 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         if self._rays_class is not None:
             return self._rays_class
 
-        rays_path = self.model_dir / "_stardist" / "rays3d.py"
-        if not rays_path.exists():
-            rays_path = Path(__file__).parent / "_stardist" / "rays3d.py"
+        utils_root = self._get_utils_root()
+        rays_path = utils_root / "_stardist" / "rays3d.py"
         if not rays_path.exists():
             raise FileNotFoundError("Could not locate StarDist rays3d.py.")
 
@@ -386,6 +390,10 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         spec.loader.exec_module(module)
         self._rays_class = module.Rays_GoldenSpiral
         return self._rays_class
+
+    def _get_utils_root(self) -> Path:
+        """Return the stardist_onnx_utils package root."""
+        return Path(__file__).resolve().parents[2] / "stardist_onnx_utils"
 
     def _infer_grid(
         self,
