@@ -14,6 +14,8 @@ __all__ = [
     "convert_model_to_onnx",
     "convert_pretrained_2d",
     "convert_pretrained_3d",
+    "infer_div_by",
+    "summarize_model_io",
 ]
 
 
@@ -36,4 +38,7 @@ def __getattr__(name):
     }:
         from . import convert as _convert
         return getattr(_convert, name)
+    if name in {"infer_div_by", "summarize_model_io"}:
+        from . import inspect as _inspect
+        return getattr(_inspect, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
