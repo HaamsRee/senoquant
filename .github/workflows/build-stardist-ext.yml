@@ -1,0 +1,39 @@
+name: Build StarDist Extensions
+
+on:
+  push:
+    paths:
+      - "stardist_ext/**"
+      - "src/senoquant/tabs/segmentation/models/stardist_onnx/_stardist/lib/**"
+  pull_request:
+    paths:
+      - "stardist_ext/**"
+      - "src/senoquant/tabs/segmentation/models/stardist_onnx/_stardist/lib/**"
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: ${{ matrix.os }} / ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pypa/cibuildwheel@v2.19.2
+        env:
+          CIBW_BUILD: "cp${{ matrix.python }}-*"
+          CIBW_PROJECT_REQUIRES_PYTHON: ">=3.9"
+          CIBW_BUILD_VERBOSITY: "1"
+          CIBW_SKIP: "*musllinux*"
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
+          CIBW_PACKAGE_DIR: "stardist_ext"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardist-ext-${{ matrix.os }}-py${{ matrix.python }}
+          path: wheelhouse/*.whl

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["scikit-build-core>=0.9", "numpy>=1.23"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "senoquant-stardist-ext"
+version = "0.1.0"
+description = "Prebuilt StarDist C/C++ extensions for SenoQuant"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "SenoQuant Team" }]
+
+[tool.scikit-build]
+cmake.minimum-version = "3.18"
+build.verbose = true
+wheel.packages = []
+
+[tool.scikit-build.sdist]
+include = [
+  "../src/senoquant/tabs/segmentation/models/stardist_onnx/_stardist/lib/**",
+  "CMakeLists.txt",
+  "README.md",
+]

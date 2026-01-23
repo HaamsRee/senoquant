@@ -32,3 +32,26 @@ A minimal napari plugin scaffold using qtpy.
   - `protobuf==6.33.4` (must be installed after TensorFlow/tf2onnx)
 - If you see protobuf/runtime import errors, reinstall protobuf last.
 - macOS note: some TF/protobuf builds can crash with `libc++abi` mutex errors. If that happens, try a clean conda env and prefer Linux for conversion.
+
+## StarDist Extension (Compiled NMS)
+
+The StarDist ONNX model uses compiled C/C++ extensions for NMS and 3D label rendering.
+These are packaged as a separate wheel to keep the main plugin lightweight.
+
+- Install the extension wheel (when available):
+  - `pip install senoquant-stardist-ext`
+- If you are working from source, build the wheel:
+  - `pip install -U scikit-build-core`
+  - `pip wheel ./stardist_ext -w ./wheelhouse`
+  - `pip install ./wheelhouse/senoquant_stardist_ext-*.whl`
+- Then install and run the plugin as usual:
+  - `uv pip install -e .`
+  - `napari`
+
+### Wheels from CI
+
+The GitHub Actions workflow `.github/workflows/build-stardist-ext.yml` builds
+platform wheels via `cibuildwheel`. Download artifacts from the workflow run
+and install the appropriate wheel for your platform:
+
+- `pip install /path/to/senoquant_stardist_ext-*.whl`

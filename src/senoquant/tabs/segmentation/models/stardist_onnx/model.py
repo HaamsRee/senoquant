@@ -129,7 +129,6 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
 
         prob_thresh = float(settings.get("prob_thresh", 0.5))
         nms_thresh = float(settings.get("nms_thresh", 0.4))
-        use_python_nms = bool(settings.get("use_python_nms", False))
 
         self._ensure_stardist_lib_stubs()
         from .onnx_framework import (
@@ -138,14 +137,17 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         )
 
         if image.ndim == 2:
-            nms_backend = "python" if use_python_nms or not self._has_stardist_2d_lib else "compiled"
+            if not self._has_stardist_2d_lib:
+                raise RuntimeError(
+                    "StarDist 2D compiled ops are missing. Build the "
+                    "extensions in stardist_onnx/_stardist/lib."
+                )
             labels, info = instances_from_prediction_2d(
                 prob,
                 dist,
                 grid=grid,
                 prob_thresh=prob_thresh,
                 nms_thresh=nms_thresh,
-                nms_backend=nms_backend,
             )
         else:
             if not self._has_stardist_3d_lib:
@@ -154,7 +156,6 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
                     "extensions in stardist_onnx/_stardist/lib."
                 )
             rays = self._get_rays_class()(n=dist.shape[-1])
-            nms_backend = "python" if use_python_nms or not self._has_stardist_3d_lib else "compiled"
             labels, info = instances_from_prediction_3d(
                 prob,
                 dist,
@@ -162,7 +163,6 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
                 prob_thresh=prob_thresh,
                 nms_thresh=nms_thresh,
                 rays=rays,
-                nms_backend=nms_backend,
             )
 
         return {"masks": labels, "prob": prob, "dist": dist, "info": info}
