@@ -37,11 +37,11 @@
     },
     {
       "key": "grid",
-      "label": "Grid",
+      "label": "Grid (0=auto)",
       "type": "int",
-      "min": 1,
+      "min": 0,
       "max": 8,
-      "default": 1
+      "default": 0
     },
     {
       "key": "tile_size",

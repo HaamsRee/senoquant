@@ -16,9 +16,28 @@ from .onnx_framework import normalize, predict_tiled
 
 
 class StarDistOnnxModel(SenoQuantSegmentationModel):
-    """StarDist ONNX segmentation model."""
+    """StarDist ONNX segmentation model.
+
+    This wrapper loads an exported StarDist ONNX model (2D or 3D), runs
+    preprocessing and tiled inference, and postprocesses the outputs into
+    instance labels using StarDist geometry and NMS utilities.
+
+    Notes
+    -----
+    - Inputs must be single-channel images in YX (2D) or ZYX (3D) order.
+    - ONNX model outputs are assumed to be probability and distance maps.
+    - When compiled StarDist NMS ops are unavailable, a Python fallback can
+      be used for 2D (slower) via the ``use_python_nms`` setting.
+    """
 
     def __init__(self, models_root=None) -> None:
+        """Initialize the StarDist ONNX model wrapper.
+
+        Parameters
+        ----------
+        models_root : pathlib.Path or None
+            Optional root directory for model storage.
+        """
         super().__init__("stardist_onnx", models_root=models_root)
         self._sessions: dict[Path, ort.InferenceSession] = {}
         self._rays_class = None
@@ -26,7 +45,27 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         self._has_stardist_3d_lib = False
 
     def run(self, **kwargs) -> dict:
-        """Run StarDist ONNX for nuclear segmentation."""
+        """Run StarDist ONNX for nuclear segmentation.
+
+        Parameters
+        ----------
+        **kwargs
+            task : str
+                Must be "nuclear" for this model.
+            layer : napari.layers.Image
+                Single-channel image layer (YX or ZYX).
+            settings : dict
+                Model settings keyed by ``details.json``.
+
+        Returns
+        -------
+        dict
+            Dictionary with:
+            - ``masks``: instance label image
+            - ``prob``: probability map
+            - ``dist``: distance/ray map
+            - ``info``: NMS metadata (points, prob, dist)
+        """
         task = kwargs.get("task")
         if task != "nuclear":
             raise ValueError("StarDist ONNX only supports nuclear segmentation.")
@@ -44,8 +83,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             pmax = float(settings.get("pmax", 99.8))
             image = normalize(image, pmin=pmin, pmax=pmax)
 
-        grid_val = int(settings.get("grid", 1))
-        grid = (grid_val,) * image.ndim
+        grid_val = int(settings.get("grid", 0))
 
         tile_size = int(settings.get("tile_size", 0))
         tile_overlap = int(settings.get("tile_overlap", 0))
@@ -63,6 +101,18 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             input_layout = "NDHWC"
             prob_layout = "NDHWC"
             dist_layout = "NZYXR"
+
+        if grid_val <= 0:
+            grid = self._infer_grid(
+                image,
+                session,
+                input_name,
+                output_names,
+                input_layout,
+                prob_layout,
+            )
+        else:
+            grid = (grid_val,) * image.ndim
 
         prob, dist = predict_tiled(
             image,
@@ -118,6 +168,20 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         return {"masks": labels, "prob": prob, "dist": dist, "info": info}
 
     def _extract_layer_data(self, layer, required: bool) -> np.ndarray:
+        """Return numpy data for a napari layer.
+
+        Parameters
+        ----------
+        layer : object or None
+            Napari layer to convert.
+        required : bool
+            Whether a missing layer should raise an error.
+
+        Returns
+        -------
+        numpy.ndarray
+            Layer data as an array.
+        """
         if layer is None:
             if required:
                 raise ValueError("Layer is required for StarDist ONNX.")
@@ -125,6 +189,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         return layer_data_asarray(layer)
 
     def _get_session(self, ndim: int) -> ort.InferenceSession:
+        """Return (and cache) an ONNX Runtime session for 2D or 3D models."""
         model_path = self._resolve_model_path(ndim)
         session = self._sessions.get(model_path)
         if session is None:
@@ -133,6 +198,25 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         return session
 
     def _resolve_model_path(self, ndim: int) -> Path:
+        """Resolve the ONNX model file for 2D or 3D inference.
+
+        Parameters
+        ----------
+        ndim : int
+            Spatial dimensionality (2 or 3).
+
+        Returns
+        -------
+        pathlib.Path
+            Path to the ONNX model file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If no ONNX model file is found.
+        ValueError
+            If multiple candidates are found without a default name.
+        """
         if ndim == 2:
             candidates = [
                 self.model_dir / "onnx_models" / "stardist2d_2D_versatile_fluo.onnx",
@@ -168,6 +252,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         )
 
     def _resolve_io_names(self, session: ort.InferenceSession) -> tuple[str, list[str]]:
+        """Resolve input and output tensor names for prob/dist inference."""
         inputs = session.get_inputs()
         outputs = session.get_outputs()
         if not inputs:
@@ -201,6 +286,11 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         return input_name, [prob.name, dist.name]
 
     def _ensure_stardist_lib_stubs(self) -> None:
+        """Ensure StarDist modules import without compiled extensions.
+
+        This registers minimal stubs for compiled modules when shared
+        libraries are absent, allowing Python utilities to import.
+        """
         csbdeep_root = self.model_dir / "_csbdeep"
         if csbdeep_root.exists():
             csbdeep_path = str(csbdeep_root)
@@ -249,6 +339,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             sys.modules[mod3d] = module
 
     def _get_rays_class(self):
+        """Load and cache the StarDist Rays_GoldenSpiral class."""
         if self._rays_class is not None:
             return self._rays_class
 
@@ -266,3 +357,71 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         spec.loader.exec_module(module)
         self._rays_class = module.Rays_GoldenSpiral
         return self._rays_class
+
+    def _infer_grid(
+        self,
+        image: np.ndarray,
+        session: ort.InferenceSession,
+        input_name: str,
+        output_names: list[str],
+        input_layout: str,
+        prob_layout: str,
+    ) -> tuple[int, ...]:
+        """Infer model grid/stride by running a probe tile.
+
+        Parameters
+        ----------
+        image : numpy.ndarray
+            Input image.
+        session : onnxruntime.InferenceSession
+            ONNX Runtime session.
+        input_name : str
+            ONNX input tensor name.
+        output_names : list[str]
+            ONNX output tensor names (prob, dist).
+        input_layout : str
+            Input layout string (e.g., "NHWC", "NDHWC").
+        prob_layout : str
+            Probability output layout string.
+
+        Returns
+        -------
+        tuple[int, ...]
+            Estimated grid/stride per axis.
+        """
+        probe = self._make_probe_image(image)
+        if input_layout in ("NHWC", "NDHWC"):
+            input_tensor = probe[np.newaxis, ..., np.newaxis]
+        else:
+            input_tensor = probe[np.newaxis, np.newaxis, ...]
+
+        prob = session.run(output_names, {input_name: input_tensor})[0]
+        if prob_layout in ("NHWC", "NDHWC"):
+            out_shape = prob.shape[1:-1]
+        elif prob_layout in ("NCHW", "NCDHW"):
+            out_shape = prob.shape[2:]
+        else:
+            raise ValueError(f"Unsupported prob layout {prob_layout}.")
+
+        grid = []
+        for dim_in, dim_out in zip(probe.shape, out_shape):
+            if dim_out in (0, None):
+                grid.append(1)
+                continue
+            ratio = dim_in / dim_out
+            grid.append(max(1, int(round(ratio))))
+        return tuple(grid)
+
+    def _make_probe_image(self, image: np.ndarray) -> np.ndarray:
+        """Create a small probe image for grid inference."""
+        target = 256 if image.ndim == 2 else 64
+        probe_shape = []
+        for dim in image.shape:
+            size = min(dim, target)
+            if size >= 16:
+                size = size - (size % 16)
+                if size == 0:
+                    size = min(dim, target)
+            probe_shape.append(max(1, size))
+        slices = tuple(slice(0, s) for s in probe_shape)
+        return image[slices]
