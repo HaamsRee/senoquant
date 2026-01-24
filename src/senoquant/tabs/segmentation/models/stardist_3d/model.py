@@ -25,15 +25,15 @@ if TYPE_CHECKING:
 
 
 class StarDistOnnxModel(SenoQuantSegmentationModel):
-    """StarDist ONNX 2D segmentation model.
+    """StarDist ONNX 3D segmentation model.
 
-    This wrapper loads an exported StarDist 2D ONNX model, runs
+    This wrapper loads an exported StarDist 3D ONNX model, runs
     preprocessing and tiled inference, and postprocesses the outputs into
     instance labels using StarDist geometry and NMS utilities.
 
     Notes
     -----
-    - Inputs must be single-channel images in YX (2D) order.
+    - Inputs must be single-channel images in ZYX (3D) order.
     - ONNX model outputs are assumed to be probability and distance maps.
     """
 
@@ -45,7 +45,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         models_root : pathlib.Path or None
             Optional root directory for model storage.
         """
-        super().__init__("stardist_onnx_2d", models_root=models_root)
+        super().__init__("stardist_3d", models_root=models_root)
         self._sessions: dict[Path, ort.InferenceSession] = {}
         self._rays_class = None
         self._has_stardist_2d_lib = False
@@ -85,11 +85,12 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         image = self._extract_layer_data(layer, required=True)
         original_shape = image.shape
 
-        if image.ndim != 2:
-            raise ValueError("StarDist ONNX 2D expects a 2D (YX) image.")
+        if image.ndim != 3:
+            raise ValueError("StarDist ONNX 3D expects a 3D (ZYX) image.")
 
         image = image.astype(np.float32, copy=False)
         image, scale = self._scale_input(image, settings)
+        image = self._scale_intensity(image)
         if settings.get("normalize", True):
             pmin = float(settings.get("pmin", 1.0))
             pmax = float(settings.get("pmax", 99.8))
@@ -99,9 +100,9 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         session = self._get_session(image.ndim)
         input_name, output_names = self._resolve_io_names(session)
 
-        input_layout = "NHWC"
-        prob_layout = "NHWC"
-        dist_layout = "NYXR"
+        input_layout = "NDHWC"
+        prob_layout = "NDHWC"
+        dist_layout = "NZYXR"
 
         grid = self._infer_grid(
             image,
@@ -136,21 +137,22 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
 
         self._ensure_stardist_lib_stubs()
         from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework import (
-            instances_from_prediction_2d,
             instances_from_prediction_3d,
         )
 
-        if not self._has_stardist_2d_lib:
+        if not self._has_stardist_3d_lib:
             raise RuntimeError(
-                "StarDist 2D compiled ops are missing. Build the "
+                "3D StarDist labeling requires compiled ops; build "
                 "extensions in stardist_onnx_utils/_stardist/lib."
             )
-        labels, info = instances_from_prediction_2d(
+        rays = self._get_rays_class()(n=dist.shape[-1])
+        labels, info = instances_from_prediction_3d(
             prob,
             dist,
             grid=grid,
             prob_thresh=prob_thresh,
             nms_thresh=nms_thresh,
+            rays=rays,
             scale=scale,
             img_shape=original_shape,
         )
@@ -165,7 +167,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         Parameters
         ----------
         image : numpy.ndarray
-            Input 2D image in YX order.
+            Input 3D image in ZYX order.
         settings : dict
             Model settings containing the ``object_diameter_px`` entry.
 
@@ -174,7 +176,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         numpy.ndarray
             Scaled image. If no scaling is requested, returns the input image.
         dict[str, float] or None
-            Scale factors keyed by axis (``"Y"``, ``"X"``) for rescaling
+            Scale factors keyed by axis (``"Z"``, ``"Y"``, ``"X"``) for rescaling
             predictions back to the original image space.
         """
         diameter_px = float(settings.get("object_diameter_px", 30.0))
@@ -184,13 +186,28 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         if np.isclose(scale_factor, 1.0):
             return image, None
 
-        scale = (scale_factor, scale_factor)
+        scale = (scale_factor, scale_factor, scale_factor)
         scaled = ndi.zoom(image, scale, order=1)
         if min(scaled.shape) < 1:
             raise ValueError(
                 "Scaling factor produced an empty image; adjust object diameter."
             )
-        return scaled.astype(np.float32, copy=False), {"Y": scale_factor, "X": scale_factor}
+        return scaled.astype(np.float32, copy=False), {
+            "Z": scale_factor,
+            "Y": scale_factor,
+            "X": scale_factor,
+        }
+
+    @staticmethod
+    def _scale_intensity(image: np.ndarray) -> np.ndarray:
+        """Scale image intensities into [0, 1] using min/max."""
+        imin = float(np.nanmin(image))
+        imax = float(np.nanmax(image))
+        if not np.isfinite(imin) or not np.isfinite(imax):
+            return image
+        if imax <= imin:
+            return image
+        return ((image - imin) / (imax - imin)).astype(np.float32, copy=False)
 
     def _extract_layer_data(self, layer, required: bool) -> np.ndarray:
         """Return numpy data for a napari layer.
@@ -257,8 +274,8 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             the same length as ``image.ndim``. ``tile_shape`` is rounded
             down to the nearest multiple of ``div_by`` (never exceeding the
             input size), and ``overlap`` is clamped to ``[0, tile_size - 1]``.
-            Tile sizes are additionally capped at 1024 pixels per axis to
-            avoid feeding overly large tiles to the ONNX model.
+            The XY tile sizes are capped at 1024 pixels per axis to avoid
+            feeding overly large tiles to the ONNX model.
         """
         ndim = image.ndim
         div_by = self._div_by_cache.get(model_path)
@@ -292,7 +309,14 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             self._overlap_cache[model_path] = overlap
 
         max_tile = 1024
-        capped_shape = tuple(min(size, max_tile) for size in image.shape)
+        if image.ndim == 3:
+            capped_shape = (
+                image.shape[0],
+                min(image.shape[1], max_tile),
+                min(image.shape[2], max_tile),
+            )
+        else:
+            capped_shape = tuple(min(size, max_tile) for size in image.shape)
 
         tile_shape = tuple(
             max(div, (size // div) * div) if div > 0 else size
@@ -323,7 +347,8 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
                 snap_shape,
             )
 
-            tile_shape = snap_shape(tile_shape, patterns)
+            skip = (0,) if ndim == 3 else ()
+            tile_shape = snap_shape(tile_shape, patterns, skip_axes=skip)
         overlap = tuple(
             max(0, min(int(ov), max(0, ts - 1)))
             for ov, ts in zip(overlap, tile_shape)
@@ -350,12 +375,12 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         ValueError
             If multiple candidates are found without a default name.
         """
-        if ndim != 2:
-            raise ValueError("StarDist ONNX 2D expects a 2D model.")
+        if ndim != 3:
+            raise ValueError("StarDist ONNX 3D expects a 3D model.")
         candidates = [
-            self.model_dir / "onnx_models" / "stardist2d_2D_versatile_fluo.onnx",
-            self.model_dir / "stardist2d_2D_versatile_fluo.onnx",
-            self.model_dir / "stardist2d.onnx",
+            self.model_dir / "onnx_models" / "stardist3d_3D_demo.onnx",
+            self.model_dir / "stardist3d_3D_demo.onnx",
+            self.model_dir / "stardist3d.onnx",
         ]
 
         for path in candidates:

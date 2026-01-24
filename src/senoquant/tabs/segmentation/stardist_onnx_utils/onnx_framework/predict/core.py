@@ -174,11 +174,11 @@ def predict_tiled(
             prob_out = np.zeros(out_shape, dtype=np.float32)
             dist_out = np.zeros(out_shape + (dist_tile.shape[-1],), dtype=np.float32)
 
-        prob_write, dist_write = _tile_write_slices(
+        prob_write, crop_write = _tile_write_slices(
             crop_slice, write_slice, grid
         )
-        prob_out[prob_write] = prob_tile[dist_write[:-1]]
-        dist_out[dist_write] = dist_tile[dist_write]
+        prob_out[prob_write] = prob_tile[crop_write]
+        dist_out[prob_write + (slice(None),)] = dist_tile[crop_write + (slice(None),)]
 
     prob_out = unpad_to_shape(prob_out, pads, scale=grid)
     dist_out = unpad_to_shape(dist_out, pads, scale=grid)
@@ -374,7 +374,7 @@ def _tile_write_slices(
     write_slice: tuple[slice, ...],
     grid: tuple[int, ...],
 ) -> tuple[tuple[slice, ...], tuple[slice, ...]]:
-    """Compute write slices for prob/dist outputs given crop/write slices.
+    """Compute output-write and crop slices for prob/dist outputs.
 
     Parameters
     ----------
@@ -388,13 +388,14 @@ def _tile_write_slices(
     Returns
     -------
     tuple[tuple[slice, ...], tuple[slice, ...]]
-        Slices for the prob output and dist output.
+        Output write slices (in output coordinates) and crop slices
+        (in tile output coordinates).
     """
     prob_write = []
-    dist_write = []
+    crop_write = []
     for crop, write, g in zip(crop_slice, write_slice, grid):
         prob_write.append(slice(write.start // g, write.stop // g))
-        dist_write.append(slice(crop.start // g, crop.stop // g))
+        crop_write.append(slice(crop.start // g, crop.stop // g))
     prob_write = tuple(prob_write)
-    dist_write = tuple(dist_write + [slice(None)])
-    return prob_write, dist_write
+    crop_write = tuple(crop_write)
+    return prob_write, crop_write
