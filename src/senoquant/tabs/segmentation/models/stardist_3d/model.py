@@ -235,9 +235,28 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         model_path = self._resolve_model_path(ndim)
         session = self._sessions.get(model_path)
         if session is None:
-            session = ort.InferenceSession(str(model_path))
+            session = ort.InferenceSession(
+                str(model_path),
+                providers=self._preferred_providers(),
+            )
             self._sessions[model_path] = session
         return session
+
+    @staticmethod
+    def _preferred_providers() -> list[str]:
+        """Return a provider list that prefers GPU providers when available."""
+        available = set(ort.get_available_providers())
+        preferred = [
+            "CUDAExecutionProvider",
+            "ROCMExecutionProvider",
+            "DirectMLExecutionProvider",
+            "CoreMLExecutionProvider",
+            "CPUExecutionProvider",
+        ]
+        providers = [provider for provider in preferred if provider in available]
+        if not providers:
+            providers = list(available)
+        return providers
 
     def _infer_tiling(
         self,
