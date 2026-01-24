@@ -118,19 +118,39 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         )
         div_by = self._div_by_cache.get(model_path, grid)
 
-        prob, dist = predict_tiled(
-            image,
-            session,
-            input_name=input_name,
-            output_names=output_names,
-            grid=grid,
-            input_layout=input_layout,
-            prob_layout=prob_layout,
-            dist_layout=dist_layout,
-            tile_shape=tile_shape,
-            overlap=overlap,
-            div_by=div_by,
-        )
+        try:
+            prob, dist = predict_tiled(
+                image,
+                session,
+                input_name=input_name,
+                output_names=output_names,
+                grid=grid,
+                input_layout=input_layout,
+                prob_layout=prob_layout,
+                dist_layout=dist_layout,
+                tile_shape=tile_shape,
+                overlap=overlap,
+                div_by=div_by,
+            )
+        except Exception:
+            if "CoreMLExecutionProvider" not in session.get_providers():
+                raise
+            session = self._get_session(
+                image.ndim, providers_override=["CPUExecutionProvider"]
+            )
+            prob, dist = predict_tiled(
+                image,
+                session,
+                input_name=input_name,
+                output_names=output_names,
+                grid=grid,
+                input_layout=input_layout,
+                prob_layout=prob_layout,
+                dist_layout=dist_layout,
+                tile_shape=tile_shape,
+                overlap=overlap,
+                div_by=div_by,
+            )
 
         prob_thresh = float(settings.get("prob_thresh", 0.5))
         nms_thresh = float(settings.get("nms_thresh", 0.4))
@@ -224,14 +244,17 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             return None
         return layer_data_asarray(layer)
 
-    def _get_session(self, ndim: int) -> ort.InferenceSession:
+    def _get_session(
+        self, ndim: int, *, providers_override: list[str] | None = None
+    ) -> ort.InferenceSession:
         """Return (and cache) an ONNX Runtime session for 2D or 3D models."""
         model_path = self._resolve_model_path(ndim)
         session = self._sessions.get(model_path)
-        if session is None:
+        if session is None or providers_override is not None:
+            providers = providers_override or self._preferred_providers()
             session = ort.InferenceSession(
                 str(model_path),
-                providers=self._preferred_providers(),
+                providers=providers,
             )
             self._sessions[model_path] = session
         return session
