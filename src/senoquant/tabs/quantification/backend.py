@@ -20,7 +20,7 @@ class FeatureExportResult:
     feature_id : str
         Stable identifier for the exported feature instance.
     feature_type : str
-        Feature type name used for routing (e.g., ``"Marker"``).
+        Feature type name used for routing (e.g., ``"Markers"``).
     feature_name : str
         Display name provided by the user.
     temp_dir : Path

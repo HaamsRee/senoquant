@@ -14,7 +14,7 @@ from .export import export_marker
 class MarkerFeature(SenoQuantFeature):
     """Marker feature controls."""
 
-    feature_type = "Marker"
+    feature_type = "Markers"
     order = 10
 
     def build(self) -> None:

@@ -35,7 +35,7 @@ class FeatureConfig:
     name : str
         User-facing name for the feature.
     type_name : str
-        Feature type name (e.g., ``"Marker"``).
+        Feature type name (e.g., ``"Markers"``).
     data : FeatureData
         Feature-specific configuration payload.
     """

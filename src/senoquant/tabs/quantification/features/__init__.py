@@ -50,7 +50,7 @@ def get_feature_registry() -> dict[str, type[SenoQuantFeature]]:
     )
 
 FEATURE_DATA_FACTORY: dict[str, type[FeatureData]] = {
-    "Marker": MarkerFeatureData,
+    "Markers": MarkerFeatureData,
     "Spots": SpotsFeatureData,
     "Colocalization": ColocalizationFeatureData,
 }

@@ -88,6 +88,14 @@ def export_marker(
         area_px = _pixel_counts(labels, label_ids)
 
         pixel_sizes = _pixel_sizes(labels_layer, labels.ndim)
+        if pixel_sizes is None:
+            for channel in channels:
+                channel_layer = _find_layer(viewer, channel.channel, "Image")
+                if channel_layer is None:
+                    continue
+                pixel_sizes = _pixel_sizes(channel_layer, labels.ndim)
+                if pixel_sizes is not None:
+                    break
         rows = _initialize_rows(label_ids, centroids, pixel_sizes)
         _add_roi_columns(rows, labels, label_ids, viewer, data.rois, label_name)
         header = list(rows[0].keys()) if rows else []
@@ -256,12 +264,12 @@ def _intensity_sum(
 
 
 def _pixel_volume(layer, ndim: int) -> float:
-    """Compute per-pixel physical volume from bioio metadata.
+    """Compute per-pixel physical volume from layer metadata.
 
     Parameters
     ----------
     layer : object
-        Napari image layer providing BioIO metadata.
+        Napari image layer providing metadata.
     ndim : int
         Dimensionality of the image data.
 
@@ -272,27 +280,12 @@ def _pixel_volume(layer, ndim: int) -> float:
 
     Notes
     -----
-    BioIO with Bio-Formats stores physical pixel sizes in the layer metadata under
-    ``metadata["images"][0].dict()["pixels"]["physical_size_x/y/z"]``.
-    These are assumed to be in micrometers (um). Missing values default
-    to 1.0 so the measurement stays in pixel units.
+    The SenoQuant reader stores physical sizes under
+    ``layer.metadata["physical_pixel_sizes"]`` with keys ``"Z"``, ``"Y"``,
+    and ``"X"`` in micrometers (um). Missing values default to 1.0 so the
+    measurement stays in pixel units.
     """
-    metadata = getattr(layer, "metadata", None)
-    if not isinstance(metadata, dict):
-        return 1.0
-    images = metadata.get("images") if isinstance(metadata, dict) else None
-    if not images:
-        return 1.0
-    image = images[0]
-    try:
-        image_dict = image.dict()
-    except Exception:
-        return 1.0
-    pixels = image_dict.get("pixels", {})
-    size_x = pixels.get("physical_size_x")
-    size_y = pixels.get("physical_size_y")
-    size_z = pixels.get("physical_size_z")
-    pixel_sizes = _pixel_sizes_from_metadata(size_x, size_y, size_z, ndim)
+    pixel_sizes = _pixel_sizes(layer, ndim)
     if pixel_sizes is None:
         return 1.0
     return float(np.prod(pixel_sizes))
@@ -320,12 +313,12 @@ def _safe_float(value) -> float | None:
 
 
 def _pixel_sizes(layer, ndim: int) -> np.ndarray | None:
-    """Return per-axis pixel sizes from BioIO metadata.
+    """Return per-axis pixel sizes from layer metadata.
 
     Parameters
     ----------
     layer : object
-        Napari image layer providing BioIO metadata.
+        Napari image layer providing metadata.
     ndim : int
         Dimensionality of the image data.
 
@@ -333,22 +326,20 @@ def _pixel_sizes(layer, ndim: int) -> np.ndarray | None:
     -------
     numpy.ndarray or None
         Per-axis pixel sizes in micrometers, ordered to match the data axes.
+
+    Notes
+    -----
+    For 2D images the Z size may be ``None`` and is ignored.
     """
     metadata = getattr(layer, "metadata", None)
     if not isinstance(metadata, dict):
         return None
-    images = metadata.get("images") if isinstance(metadata, dict) else None
-    if not images:
+    physical_sizes = metadata.get("physical_pixel_sizes")
+    if not isinstance(physical_sizes, dict):
         return None
-    image = images[0]
-    try:
-        image_dict = image.dict()
-    except Exception:
-        return None
-    pixels = image_dict.get("pixels", {})
-    size_x = pixels.get("physical_size_x")
-    size_y = pixels.get("physical_size_y")
-    size_z = pixels.get("physical_size_z")
+    size_x = physical_sizes.get("X")
+    size_y = physical_sizes.get("Y")
+    size_z = physical_sizes.get("Z")
     return _pixel_sizes_from_metadata(size_x, size_y, size_z, ndim)
 
 
