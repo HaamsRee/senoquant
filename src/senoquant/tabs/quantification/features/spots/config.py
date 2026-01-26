@@ -9,25 +9,51 @@ from ..roi import ROIConfig
 
 
 @dataclass
+class SpotsSegmentationConfig:
+    """Configuration for a segmentation filter entry.
+
+    Attributes
+    ----------
+    label : str
+        Name of the labels layer selected for this segmentation entry.
+    """
+
+    label: str = ""
+
+
+@dataclass
+class SpotsChannelConfig:
+    """Configuration for a spots channel entry.
+
+    Attributes
+    ----------
+    name : str
+        User-friendly label for the channel entry.
+    channel : str
+        Selected image layer name.
+    spots_segmentation : str
+        Labels layer containing the spots segmentation for this channel.
+    """
+
+    name: str = ""
+    channel: str = ""
+    spots_segmentation: str = ""
+
+
+@dataclass
 class SpotsFeatureData(FeatureData):
     """Configuration for spots feature inputs.
 
     Attributes
     ----------
-    labels : str
-        Name of the labels layer containing spot detections.
-    channel : str
-        Name of the image layer the spots were derived from.
-    count_within_segmentation : bool
-        Whether counts are restricted to a segmentation labels layer.
-    segmentation_label : str
-        Labels layer used for segmentation-restricted counting.
+    segmentations : list of SpotsSegmentationConfig
+        Segmentation filters applied to the full set of spots.
+    channels : list of SpotsChannelConfig
+        Channel configurations used for spots measurement.
     rois : list of ROIConfig
         ROI entries applied to this feature.
     """
 
-    labels: str = ""
-    channel: str = ""
-    count_within_segmentation: bool = False
-    segmentation_label: str = ""
+    segmentations: list[SpotsSegmentationConfig] = field(default_factory=list)
+    channels: list[SpotsChannelConfig] = field(default_factory=list)
     rois: list[ROIConfig] = field(default_factory=list)

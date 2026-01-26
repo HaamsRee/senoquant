@@ -1,18 +1,14 @@
 """Spots feature UI."""
 
-from typing import Callable, Optional
+from pathlib import Path
 
-from qtpy.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QFormLayout,
-    QVBoxLayout,
-    QWidget,
-)
+from qtpy.QtWidgets import QDialog, QPushButton
 
-from ..base import RefreshingComboBox, SenoQuantFeature
+from ..base import SenoQuantFeature
 from ..roi import ROISection
 from .config import SpotsFeatureData
+from .dialog import SpotsChannelsDialog
+from .export import export_spots
 
 
 class SpotsFeature(SenoQuantFeature):
@@ -23,20 +19,12 @@ class SpotsFeature(SenoQuantFeature):
 
     def build(self) -> None:
         """Build the spots feature UI."""
+        self._build_channels_section()
         data = self._state.data
         if isinstance(data, SpotsFeatureData):
-            self._build_labels_widget(
-                "Spots",
-                get_value=lambda: data.labels,
-                set_value=lambda text: setattr(data, "labels", text),
-            )
+            roi_section = ROISection(self._tab, self._context, data.rois)
         else:
-            self._build_labels_widget("Spots")
-            data = SpotsFeatureData()
-            self._state.data = data
-        self._build_channel_widget(data)
-        self._build_segmentation_filter(data)
-        roi_section = ROISection(self._tab, self._context, data.rois)
+            roi_section = ROISection(self._tab, self._context, [])
         roi_section.build()
         self._ui["roi_section"] = roi_section
 
@@ -52,182 +40,57 @@ class SpotsFeature(SenoQuantFeature):
         if roi_section is not None:
             roi_section.update_titles()
 
-    def _build_labels_widget(
-        self,
-        label_text: str,
-        get_value: Optional[Callable[[], str]] = None,
-        set_value: Optional[Callable[[str], None]] = None,
-    ) -> None:
-        """Build and attach a labels selection widget.
+    def _build_channels_section(self) -> None:
+        """Build the channels button that opens the popup dialog."""
+        left_dynamic_layout = self._context.left_dynamic_layout
+        button = QPushButton("Add channels")
+        button.clicked.connect(self._open_channels_dialog)
+        left_dynamic_layout.addWidget(button)
+        self._ui["channels_button"] = button
+        self._update_channels_button_label()
 
-        Parameters
-        ----------
-        label_text : str
-            Label shown for the combo box.
-        get_value : callable, optional
-            Getter returning the currently selected label name.
-        set_value : callable, optional
-            Setter called when the selection changes.
-        """
-        labels_form = QFormLayout()
-        labels_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        labels_form.setContentsMargins(0, 0, 0, 0)
-        labels_combo = RefreshingComboBox(
-            refresh_callback=lambda combo_ref=None: self._refresh_labels_combo(
-                labels_combo
-            )
-        )
-        self._tab._configure_combo(labels_combo)
-        if set_value is not None:
-            labels_combo.currentTextChanged.connect(set_value)
-        labels_form.addRow(label_text, labels_combo)
-        labels_widget = QWidget()
-        labels_widget.setLayout(labels_form)
-        self._context.left_dynamic_layout.insertWidget(0, labels_widget)
-        self._ui["labels_widget"] = labels_widget
-        if get_value is not None:
-            current = get_value()
-            if current:
-                labels_combo.setCurrentText(current)
+    def _open_channels_dialog(self) -> None:
+        """Open the channels configuration dialog."""
+        dialog = self._ui.get("channels_dialog")
+        if dialog is None or not isinstance(dialog, QDialog):
+            dialog = SpotsChannelsDialog(self)
+            dialog.accepted.connect(self._update_channels_button_label)
+            self._ui["channels_dialog"] = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
-    def _build_channel_widget(self, data: SpotsFeatureData) -> None:
-        """Build the channel selection widget.
-
-        Parameters
-        ----------
-        data : SpotsFeatureData
-            Feature data storing the selected channel.
-        """
-        channel_form = QFormLayout()
-        channel_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        channel_form.setContentsMargins(0, 0, 0, 0)
-        channel_combo = RefreshingComboBox(
-            refresh_callback=lambda combo_ref=None: self._refresh_image_combo(
-                channel_combo
-            )
-        )
-        self._tab._configure_combo(channel_combo)
-        channel_combo.currentTextChanged.connect(
-            lambda text: setattr(data, "channel", text)
-        )
-        channel_form.addRow("Channel", channel_combo)
-        channel_widget = QWidget()
-        channel_widget.setLayout(channel_form)
-        self._context.left_dynamic_layout.insertWidget(1, channel_widget)
-        if data.channel:
-            channel_combo.setCurrentText(data.channel)
-        self._ui["channel_widget"] = channel_widget
-
-    def _build_segmentation_filter(self, data: SpotsFeatureData) -> None:
-        """Build segmentation filter controls for spot counting.
-
-        Parameters
-        ----------
-        data : SpotsFeatureData
-            Feature data storing segmentation filter selections.
-        """
-        container = QWidget()
-        container_layout = QVBoxLayout()
-        container_layout.setContentsMargins(0, 0, 0, 0)
-        container.setLayout(container_layout)
-
-        checkbox = QCheckBox("Count only within segmentation")
-        checkbox.setChecked(bool(data.count_within_segmentation))
-        checkbox.toggled.connect(
-            lambda checked: self._toggle_segmentation_filter(
-                checked, data, container
-            )
-        )
-        container_layout.addWidget(checkbox)
-
-        form_layout = QFormLayout()
-        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        form_layout.setContentsMargins(0, 0, 0, 0)
-        labels_combo = RefreshingComboBox(
-            refresh_callback=lambda combo_ref=None: self._refresh_labels_combo(
-                labels_combo
-            )
-        )
-        self._tab._configure_combo(labels_combo)
-        labels_combo.currentTextChanged.connect(
-            lambda text: setattr(data, "segmentation_label", text)
-        )
-        form_layout.addRow("Segmentation", labels_combo)
-        labels_widget = QWidget()
-        labels_widget.setLayout(form_layout)
-        labels_widget.setVisible(bool(data.count_within_segmentation))
-        container_layout.addWidget(labels_widget)
-
-        if data.segmentation_label:
-            labels_combo.setCurrentText(data.segmentation_label)
-
-        self._context.left_dynamic_layout.insertWidget(2, container)
-        self._ui["segmentation_filter"] = container
-        self._ui["segmentation_labels_widget"] = labels_widget
-
-    def _toggle_segmentation_filter(
-        self,
-        enabled: bool,
-        data: SpotsFeatureData,
-        container: QWidget,
-    ) -> None:
-        """Toggle segmentation filtering controls.
-
-        Parameters
-        ----------
-        enabled : bool
-            Whether segmentation filtering is enabled.
-        data : SpotsFeatureData
-            Feature data storing segmentation filter state.
-        container : QWidget
-            Parent container holding the segmentation controls.
-        """
-        data.count_within_segmentation = enabled
-        labels_widget = self._ui.get("segmentation_labels_widget")
-        if labels_widget is not None:
-            labels_widget.setVisible(enabled)
-        container.updateGeometry()
-
-    def _refresh_labels_combo(self, combo: QComboBox) -> None:
-        """Refresh the labels combo with available layers.
-
-        Parameters
-        ----------
-        combo : QComboBox
-            Combo box to populate.
-        """
-        current = combo.currentText()
-        combo.clear()
-        viewer = self._tab._viewer
-        if viewer is None:
-            combo.addItem("Select labels")
+    def _update_channels_button_label(self) -> None:
+        """Update the channels button label based on saved data."""
+        button = self._ui.get("channels_button")
+        if button is None:
             return
-        for layer in viewer.layers:
-            if layer.__class__.__name__ == "Labels":
-                combo.addItem(layer.name)
-        if current:
-            index = combo.findText(current)
-            if index != -1:
-                combo.setCurrentIndex(index)
+        data = self._state.data
+        if isinstance(data, SpotsFeatureData) and (
+            data.channels or data.segmentations
+        ):
+            button.setText("Edit channels")
+        else:
+            button.setText("Add channels")
 
-    def _refresh_image_combo(self, combo: QComboBox) -> None:
-        """Refresh the image combo with available layers.
+    def export(self, temp_dir: Path, export_format: str):
+        """Export spots outputs into a temporary directory.
 
         Parameters
         ----------
-        combo : QComboBox
-            Combo box to populate.
+        temp_dir : Path
+            Temporary directory where outputs should be written.
+        export_format : str
+            File format requested by the user (``"csv"`` or ``"xlsx"``).
+
+        Returns
+        -------
+        iterable of Path
+            Paths to files produced by the export routine.
         """
-        current = combo.currentText()
-        combo.clear()
-        viewer = self._tab._viewer
-        if viewer is None:
-            combo.addItem("Select image")
-            return
-        for layer in viewer.layers:
-            if layer.__class__.__name__ == "Image":
-                combo.addItem(layer.name)
-        if current:
-            index = combo.findText(current)
-            if index != -1:
-                combo.setCurrentIndex(index)
+        return export_spots(
+            self._state,
+            temp_dir,
+            viewer=self._tab._viewer,
+            export_format=export_format,
+        )
