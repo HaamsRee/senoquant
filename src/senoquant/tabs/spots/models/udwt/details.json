@@ -1,0 +1,113 @@
+{
+  "name": "udwt",
+  "description": "Undecimated B3-spline wavelet spot detector",
+  "version": "0.1.0",
+  "settings": [
+    {
+      "key": "num_scales",
+      "label": "Number of scales",
+      "type": "int",
+      "min": 1,
+      "max": 5,
+      "default": 3
+    },
+    {
+      "key": "combine_scales",
+      "label": "Union (combine enabled scales)",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "detect_negative",
+      "label": "Detect dark spots",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "force_2d",
+      "label": "Force 2D wavelets for 3D",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "scale_1_enabled",
+      "label": "Enable scale 1",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "scale_1_sensitivity",
+      "label": "Scale 1 sensitivity",
+      "type": "float",
+      "decimals": 1,
+      "min": 1.0,
+      "max": 100.0,
+      "default": 100.0,
+      "enabled_by": "scale_1_enabled"
+    },
+    {
+      "key": "scale_2_enabled",
+      "label": "Enable scale 2",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "scale_2_sensitivity",
+      "label": "Scale 2 sensitivity",
+      "type": "float",
+      "decimals": 1,
+      "min": 1.0,
+      "max": 100.0,
+      "default": 100.0,
+      "enabled_by": "scale_2_enabled"
+    },
+    {
+      "key": "scale_3_enabled",
+      "label": "Enable scale 3",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "scale_3_sensitivity",
+      "label": "Scale 3 sensitivity",
+      "type": "float",
+      "decimals": 1,
+      "min": 1.0,
+      "max": 100.0,
+      "default": 100.0,
+      "enabled_by": "scale_3_enabled"
+    },
+    {
+      "key": "scale_4_enabled",
+      "label": "Enable scale 4",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "scale_4_sensitivity",
+      "label": "Scale 4 sensitivity",
+      "type": "float",
+      "decimals": 1,
+      "min": 1.0,
+      "max": 100.0,
+      "default": 100.0,
+      "enabled_by": "scale_4_enabled"
+    },
+    {
+      "key": "scale_5_enabled",
+      "label": "Enable scale 5",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "scale_5_sensitivity",
+      "label": "Scale 5 sensitivity",
+      "type": "float",
+      "decimals": 1,
+      "min": 1.0,
+      "max": 100.0,
+      "default": 100.0,
+      "enabled_by": "scale_5_enabled"
+    }
+  ]
+}
