@@ -1,29 +1,23 @@
-"""UDWT B3-spline wavelet spot detector.
+"""
+UDWT (a trous) B3-spline wavelet spot detector.
 
-This module implements an undecimated (a trous) B3-spline wavelet spot detector
-for 2D images and 3D volumes.
+Implements the Olivo-Marin (2002) workflow: build a trous smoothing scales,
+compute wavelet planes, WAT-threshold per scale, multiply planes, and label
+connected components. Supports 2D, 3D, and per-slice 2D for 3D stacks.
 
-The core steps are:
-1) Build B3-spline smoothing scales using the a trous algorithm.
-2) Compute wavelet coefficients as differences between successive scales.
-3) Apply a WAT-style threshold per scale (lambda * MAD / sensitivity).
-4) Reconstruct a spot-enhanced image from enabled scales.
-5) Label connected components as detected spots.
-
-Notes
------
-- "combine_scales" corresponds to the union of enabled scales; if False, the
-  reconstruction uses an intersection rule (values must be non-zero across
-  enabled scales).
-- Sensitivity values are expected in percent (0-100), matching the original UI.
+Algorithm (high level)
+----------------------
+1) Build smoothing scales A1..AJ with the dilated B3-spline kernel.
+2) Form wavelet planes Wi = A_{i-1} - Ai.
+3) Apply WAT thresholding per scale (with per-scale sensitivity).
+4) Multiply thresholded planes to form the multiscale product PJ.
+5) Threshold |PJ| with ld and label connected components.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-import math
-
 import numpy as np
 from scipy import ndimage as ndi
 from skimage.measure import label
@@ -36,470 +30,453 @@ BASE_KERNEL = np.array(
     [1.0 / 16.0, 1.0 / 4.0, 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0],
     dtype=np.float32,
 )
+"""numpy.ndarray
+Base 1D B3-spline smoothing kernel (separable).
+
+Shape
+-----
+(5,)
+"""
+
 MAX_SCALES = 5
-EPS = 1e-6
+"""int
+Maximum number of a trous scales.
+"""
+
+EPS = 1e-12
+"""float
+Small epsilon to avoid zero thresholds.
+"""
 
 
 @dataclass(frozen=True)
-class _ScaleConfig:
-    """Container for scale configuration.
-
-    Attributes
-    ----------
-    enabled : bool
-        Whether the scale participates in reconstruction.
-    sensitivity : float
-        Scale sensitivity in percent (0-100). Higher values preserve more
-        coefficients by lowering the WAT threshold.
-    """
-
-    enabled: bool
-    sensitivity: float
-
-
-def _min_size(num_scales: int) -> int:
-    """Return the minimum image size required for a given number of scales.
+class _Params:
+    """Internal parameter bundle.
 
     Parameters
     ----------
     num_scales : int
-        Number of wavelet scales.
+        Number of a trous scales (J), derived from enabled scales.
+    ld : float
+        Threshold on the multiscale product magnitude. Higher values reduce
+        detections (more conservative).
+    force_2d : bool
+        For 3D inputs, apply the 2D detector per slice (ignore Z correlations).
+    scale_enabled : tuple[bool, ...]
+        Per-scale enable flags for scales 1..MAX_SCALES (non-contiguous ok).
+    scale_sensitivity : tuple[float, ...]
+        Per-scale sensitivity for scales 1..MAX_SCALES (higher is more permissive).
+    """
+
+    num_scales: int = 3
+    ld: float = 1.0
+    force_2d: bool = False
+    scale_enabled: tuple[bool, ...] = (True, True, True)
+    scale_sensitivity: tuple[float, ...] = (100.0, 100.0, 100.0)
+
+
+def _min_size(num_scales: int) -> int:
+    """Minimum size per dimension for the requested number of scales.
+
+    Parameters
+    ----------
+    num_scales : int
+        Number of a trous scales (J).
 
     Returns
     -------
     int
-        Minimum size required along each dimension.
+        Minimum required size along each dimension.
     """
-
+    # 5 + 4*2^(J-1)
     return 5 + (2 ** (num_scales - 1)) * 4
 
 
 def _ensure_min_size(shape: tuple[int, ...], num_scales: int) -> None:
-    """Validate that all dimensions satisfy the minimum size requirement.
+    """Raise if any dimension is too small for the requested scales.
 
     Parameters
     ----------
     shape : tuple[int, ...]
         Image shape (2D or 3D).
     num_scales : int
-        Number of wavelet scales.
-
-    Raises
-    ------
-    ValueError
-        If any dimension is too small for the requested scales.
+        Number of a trous scales (J).
     """
-
     min_size = _min_size(num_scales)
     if any(dim < min_size for dim in shape):
         raise ValueError(
-            f"UDWT needs each dimension >= {min_size} for {num_scales} scales."
+            f"UDWT à trous requires each dimension >= {min_size} "
+            f"for {num_scales} scales (got shape={shape})."
         )
-
-
-def _lambda_threshold(num_pixels: int, scale_index: int) -> float:
-    """Compute the scale-dependent lambda threshold term.
-
-    Parameters
-    ----------
-    num_pixels : int
-        Number of pixels in a 2D slice (Y * X).
-    scale_index : int
-        Zero-based scale index.
-
-    Returns
-    -------
-    float
-        Lambda term used by the WAT threshold.
-    """
-
-    ratio = num_pixels / float(1 << (2 * (scale_index + 1)))
-    if ratio <= 1.0:
-        return 0.0
-    return math.sqrt(2.0 * math.log(ratio))
 
 
 @lru_cache(maxsize=None)
 def _b3_kernel(step: int) -> np.ndarray:
-    """Return the a trous B3-spline kernel for a given step size.
+    """Return the dilated 1D B3-spline kernel for the given step.
 
     Parameters
     ----------
     step : int
-        Step between non-zero kernel taps (2**(scale-1)).
+        Step between non-zero taps (2**(j-1) for scale j).
 
     Returns
     -------
     numpy.ndarray
-        1D convolution kernel.
-
-    Raises
-    ------
-    ValueError
-        If ``step`` is not positive.
+        1D kernel of length 1 + 4*step (float32).
     """
-
     if step <= 0:
         raise ValueError("UDWT step must be positive.")
     if step == 1:
         return BASE_KERNEL
     kernel = np.zeros(1 + 4 * step, dtype=np.float32)
-    # Insert zeros between taps for the a trous scaling.
     kernel[::step] = BASE_KERNEL
     return kernel
 
 
-def _b3_spline_scales(image: np.ndarray, num_scales: int) -> list[np.ndarray]:
-    """Compute B3-spline smoothing scales using the a trous algorithm.
+def _atrous_smoothing_scales(image: np.ndarray, J: int) -> list[np.ndarray]:
+    """Compute a trous smoothing scales A1..AJ for a 2D/3D array.
 
     Parameters
     ----------
     image : numpy.ndarray
-        Input image (2D or 3D) as float32.
-    num_scales : int
+        Input 2D or 3D array.
+    J : int
         Number of scales to compute.
 
     Returns
     -------
     list[numpy.ndarray]
-        Smoothed images for each scale, ordered from finest to coarsest.
+        Smoothed arrays A1..AJ (float32), same shape as image.
     """
-
-    scales = []
+    scales: list[np.ndarray] = []
     current = image.astype(np.float32, copy=False)
-    for scale in range(1, num_scales + 1):
-        step = 2 ** (scale - 1)
+
+    for j in range(1, J + 1):
+        step = 2 ** (j - 1)
         kernel = _b3_kernel(step)
+
         filtered = current
-        # Convolve along each axis with mirror padding to match UDWT behavior.
         for axis in range(current.ndim):
             filtered = ndi.convolve1d(filtered, kernel, axis=axis, mode="mirror")
-        scales.append(filtered)
+
+        scales.append(filtered.astype(np.float32, copy=False))
         current = filtered
+
     return scales
 
 
-def _b3_wavelet_coefficients(
-    original: np.ndarray, scales: list[np.ndarray]
-) -> list[np.ndarray]:
-    """Compute wavelet coefficients from smoothing scales.
+def _wavelet_planes(A0: np.ndarray, scales: list[np.ndarray]) -> list[np.ndarray]:
+    """Compute detail planes Wi = A_{i-1} - Ai.
 
     Parameters
     ----------
-    original : numpy.ndarray
-        Original image (2D or 3D).
+    A0 : numpy.ndarray
+        Original image.
     scales : list[numpy.ndarray]
-        Smoothing scales from :func:`_b3_spline_scales`.
+        Smoothing scales A1..AJ.
 
     Returns
     -------
     list[numpy.ndarray]
-        Wavelet coefficients for each scale plus the residual scale.
+        Detail planes W1..WJ (float32), same shape as A0.
     """
-
-    coeffs = []
-    prev = original
-    for scale in scales:
-        coeffs.append(prev - scale)
-        prev = scale
-    coeffs.append(scales[-1])
-    return coeffs
+    W: list[np.ndarray] = []
+    prev = A0.astype(np.float32, copy=False)
+    for Ai in scales:
+        W.append((prev - Ai).astype(np.float32, copy=False))
+        prev = Ai
+    return W
 
 
-def _apply_wat_threshold(
-    coeff: np.ndarray,
-    scale_index: int,
-    sensitivity: float,
-    num_pixels: int,
+def _lambda_coeffs(num_scales: int, width: int, height: int) -> np.ndarray:
+    """Compute WAT scale-dependent lambda coefficients."""
+    lambdac = np.empty(num_scales + 2, dtype=np.float32)
+    for i in range(num_scales + 2):
+        denom = 1 << (2 * i)
+        val = (width * height) / denom
+        lambdac[i] = np.sqrt(2 * np.log(val)) if val > 0 else 0.0
+    return lambdac
+
+
+def _mean_abs_dev(data: np.ndarray, axis=None, keepdims: bool = False) -> np.ndarray:
+    """Mean absolute deviation from the mean."""
+    mean = data.mean(axis=axis, keepdims=True)
+    return np.mean(np.abs(data - mean), axis=axis, keepdims=keepdims)
+
+
+def _wat_threshold_inplace(
+    Wi: np.ndarray, scale_index: int, lambdac: np.ndarray, sensitivity: float
 ) -> None:
-    """Apply WAT thresholding to wavelet coefficients in-place.
+    """Apply WAT thresholding in-place for a single scale."""
+    dcoeff = max(sensitivity / 100.0, EPS)
+    if Wi.ndim == 2:
+        mad = _mean_abs_dev(Wi, axis=None, keepdims=False)
+        coeff_thr = (lambdac[scale_index + 1] * mad) / dcoeff
+        if coeff_thr <= EPS:
+            return
+        Wi[Wi < coeff_thr] = 0.0
+        return
+
+    mad = _mean_abs_dev(Wi, axis=(1, 2), keepdims=True)
+    coeff_thr = (lambdac[scale_index + 1] * mad) / dcoeff
+    Wi[Wi < coeff_thr] = 0.0
+
+
+def _multiscale_product(W_planes: list[np.ndarray]) -> np.ndarray:
+    """Multiply thresholded planes to form the multiscale product image.
 
     Parameters
     ----------
-    coeff : numpy.ndarray
-        Wavelet coefficient array (2D or 3D).
-    scale_index : int
-        Zero-based scale index for lambda selection.
-    sensitivity : float
-        Sensitivity in percent (0-100). Higher values retain more coefficients.
-    num_pixels : int
-        Number of pixels per 2D slice (Y * X).
-    """
-
-    if sensitivity <= 0:
-        coeff[:] = 0
-        return
-    dcoeff = max(sensitivity, EPS) / 100.0
-    lambdac = _lambda_threshold(num_pixels, scale_index)
-    if lambdac <= 0:
-        return
-
-    if coeff.ndim == 2:
-        # Global MAD for 2D.
-        mean_val = coeff.mean(dtype=np.float32)
-        mad = np.mean(np.abs(coeff - mean_val))
-        threshold = (lambdac * mad) / dcoeff
-        coeff[coeff < threshold] = 0
-        return
-
-    # Per-slice MAD for 3D (shape: Z x (Y*X)).
-    flat = coeff.reshape(coeff.shape[0], -1)
-    mean_val = flat.mean(axis=1, keepdims=True)
-    mad = np.mean(np.abs(flat - mean_val), axis=1)
-    threshold = (lambdac * mad) / dcoeff
-    flat[flat < threshold[:, None]] = 0
-    coeff[:] = flat.reshape(coeff.shape)
-
-
-def _reconstruct(
-    coeffs: list[np.ndarray],
-    enabled_indices: list[int],
-    combine_scales: bool,
-) -> np.ndarray:
-    """Reconstruct a spot-enhanced image from enabled wavelet scales.
-
-    Parameters
-    ----------
-    coeffs : list[numpy.ndarray]
-        Wavelet coefficients for each scale plus residual.
-    enabled_indices : list[int]
-        Indices of enabled scales.
-    combine_scales : bool
-        If True, use union of enabled scales; if False, enforce intersection
-        (all enabled scales must be non-zero at a voxel).
+    W_planes : list[numpy.ndarray]
+        Thresholded wavelet planes, all the same shape.
 
     Returns
     -------
     numpy.ndarray
-        Reconstructed image emphasizing candidate spots.
+        Multiscale product image (float32).
     """
-
-    if not enabled_indices:
-        return np.zeros_like(coeffs[0])
-    stacked = np.stack([coeffs[i] for i in enabled_indices], axis=0)
-    output = np.sum(stacked, axis=0)
-    if not combine_scales:
-        # Intersection: zero out any voxel missing a contribution.
-        zero_mask = np.any(stacked == 0, axis=0)
-        output[zero_mask] = 0
-    return output
+    if not W_planes:
+        raise ValueError("W_planes must be a non-empty list.")
+    P = np.ones_like(W_planes[0], dtype=np.float32)
+    for Wi in W_planes:
+        P *= Wi.astype(np.float32, copy=False)
+    return P
 
 
-def _detect_2d(
-    image: np.ndarray,
-    configs: list[_ScaleConfig],
-    combine_scales: bool,
-    detect_negative: bool,
-) -> np.ndarray:
-    """Detect spots in a 2D image using UDWT + WAT thresholding.
+def _detect_from_product(P: np.ndarray, ld: float) -> np.ndarray:
+    """Binary mask where |P| > ld.
+
+    Parameters
+    ----------
+    P : numpy.ndarray
+        Multiscale product image.
+    ld : float
+        Detection threshold on |P|.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask of detections.
+    """
+    return np.abs(P) > ld
+
+
+def _detect_2d(image: np.ndarray, params: _Params) -> np.ndarray:
+    """Detect spots in a 2D image and return labeled instances.
 
     Parameters
     ----------
     image : numpy.ndarray
-        Input 2D image.
-    configs : list[_ScaleConfig]
-        Scale enablement and sensitivity configuration.
-    combine_scales : bool
-        Whether to union enabled scales (True) or intersect them (False).
-    detect_negative : bool
-        If True, invert coefficients to detect dark spots.
+        Input 2D image (Y, X).
+    params : _Params
+        Detector parameters.
 
     Returns
     -------
     numpy.ndarray
-        Labeled mask of detected spots (int32).
+        Labeled instance mask (int32), background 0.
     """
+    if params.scale_enabled:
+        num_scales = max(
+            (i + 1 for i, enabled in enumerate(params.scale_enabled) if enabled),
+            default=1,
+        )
+    else:
+        num_scales = max(1, params.num_scales)
 
-    _ensure_min_size(image.shape, len(configs))
-    scales = _b3_spline_scales(image, len(configs))
-    coeffs = _b3_wavelet_coefficients(image, scales)
-    num_pixels = image.shape[0] * image.shape[1]
+    _ensure_min_size(image.shape, num_scales)
 
-    enabled_indices: list[int] = []
-    for idx, config in enumerate(configs):
-        if not config.enabled:
-            coeffs[idx][:] = 0
-            continue
-        enabled_indices.append(idx)
-        if detect_negative:
-            coeffs[idx] *= -1
-        _apply_wat_threshold(coeffs[idx], idx, config.sensitivity, num_pixels)
+    scales = _atrous_smoothing_scales(image, num_scales)
+    W = _wavelet_planes(image, scales)
+    lambdac = _lambda_coeffs(num_scales, image.shape[1], image.shape[0])
 
-    coeffs[-1][:] = 0
-    reconstruction = _reconstruct(coeffs, enabled_indices, combine_scales)
-    binary = reconstruction > 0
+    enabled_indices = [
+        i for i, enabled in enumerate(params.scale_enabled) if enabled and i < len(W)
+    ]
+    if not enabled_indices:
+        return np.zeros(image.shape, dtype=np.int32)
+
+    enabled_planes: list[np.ndarray] = []
+    for i in enabled_indices:
+        sensitivity = (
+            params.scale_sensitivity[i]
+            if i < len(params.scale_sensitivity)
+            else 100.0
+        )
+        _wat_threshold_inplace(W[i], i, lambdac, sensitivity)
+        enabled_planes.append(W[i])
+
+    P = _multiscale_product(enabled_planes)
+    binary = _detect_from_product(P, params.ld)
     return label(binary, connectivity=2).astype(np.int32, copy=False)
 
 
-def _detect_2d_stack(
-    stack: np.ndarray,
-    configs: list[_ScaleConfig],
-    combine_scales: bool,
-    detect_negative: bool,
-) -> np.ndarray:
-    """Detect spots per-slice in a 3D stack using 2D UDWT.
+def _detect_2d_stack(stack: np.ndarray, params: _Params) -> np.ndarray:
+    """Apply the 2D detector per Z-slice and keep labels unique.
 
     Parameters
     ----------
     stack : numpy.ndarray
         Input 3D stack (Z, Y, X).
-    configs : list[_ScaleConfig]
-        Scale enablement and sensitivity configuration.
-    combine_scales : bool
-        Whether to union enabled scales (True) or intersect them (False).
-    detect_negative : bool
-        If True, invert coefficients to detect dark spots.
+    params : _Params
+        Detector parameters.
 
     Returns
     -------
     numpy.ndarray
-        3D labeled mask with unique IDs across slices.
+        Labeled mask for each slice (int32).
     """
-
     labels = np.zeros(stack.shape, dtype=np.int32)
     next_label = 1
+
     for z in range(stack.shape[0]):
-        slice_labels = _detect_2d(
-            stack[z], configs, combine_scales, detect_negative
-        )
-        if slice_labels.max() > 0:
-            # Offset labels so IDs remain unique across slices.
+        slice_labels = _detect_2d(stack[z], params)
+        m = int(slice_labels.max())
+        if m > 0:
             slice_labels = slice_labels + (next_label - 1)
-            next_label = int(slice_labels.max()) + 1
+            next_label += m
         labels[z] = slice_labels
+
     return labels
 
 
-def _detect_3d(
-    image: np.ndarray,
-    configs: list[_ScaleConfig],
-    combine_scales: bool,
-    detect_negative: bool,
-) -> np.ndarray:
-    """Detect spots in a 3D volume using 3D UDWT.
+def _detect_3d(volume: np.ndarray, params: _Params) -> np.ndarray:
+    """Detect spots in a 3D volume using the direct 3D extension.
 
     Parameters
     ----------
-    image : numpy.ndarray
+    volume : numpy.ndarray
         Input 3D volume (Z, Y, X).
-    configs : list[_ScaleConfig]
-        Scale enablement and sensitivity configuration.
-    combine_scales : bool
-        Whether to union enabled scales (True) or intersect them (False).
-    detect_negative : bool
-        If True, invert coefficients to detect dark spots.
+    params : _Params
+        Detector parameters.
 
     Returns
     -------
     numpy.ndarray
-        3D labeled mask (int32).
+        Labeled instance mask (int32).
     """
+    if params.scale_enabled:
+        num_scales = max(
+            (i + 1 for i, enabled in enumerate(params.scale_enabled) if enabled),
+            default=1,
+        )
+    else:
+        num_scales = max(1, params.num_scales)
 
-    _ensure_min_size(image.shape, len(configs))
-    scales = _b3_spline_scales(image, len(configs))
-    coeffs = _b3_wavelet_coefficients(image, scales)
-    num_pixels = image.shape[1] * image.shape[2]
+    _ensure_min_size(volume.shape, num_scales)
 
-    enabled_indices: list[int] = []
-    for idx, config in enumerate(configs):
-        if not config.enabled:
-            coeffs[idx][:] = 0
-            continue
-        enabled_indices.append(idx)
-        if detect_negative:
-            coeffs[idx] *= -1
-        _apply_wat_threshold(coeffs[idx], idx, config.sensitivity, num_pixels)
+    scales = _atrous_smoothing_scales(volume, num_scales)
+    W = _wavelet_planes(volume, scales)
+    lambdac = _lambda_coeffs(num_scales, volume.shape[2], volume.shape[1])
 
-    coeffs[-1][:] = 0
-    reconstruction = _reconstruct(coeffs, enabled_indices, combine_scales)
-    binary = reconstruction > 0
+    enabled_indices = [
+        i for i, enabled in enumerate(params.scale_enabled) if enabled and i < len(W)
+    ]
+    if not enabled_indices:
+        return np.zeros(volume.shape, dtype=np.int32)
+
+    enabled_planes: list[np.ndarray] = []
+    for i in enabled_indices:
+        sensitivity = (
+            params.scale_sensitivity[i]
+            if i < len(params.scale_sensitivity)
+            else 100.0
+        )
+        _wat_threshold_inplace(W[i], i, lambdac, sensitivity)
+        enabled_planes.append(W[i])
+
+    P = _multiscale_product(enabled_planes)
+    binary = _detect_from_product(P, params.ld)
     return label(binary, connectivity=3).astype(np.int32, copy=False)
 
 
 class UDWTDetector(SenoQuantSpotDetector):
     """Undecimated B3-spline wavelet spot detector.
 
-    Notes
-    -----
-    - Supports 2D images and 3D stacks.
-    - 3D detection can be forced to 2D per-slice processing.
-    - Output is a labeled mask suitable for napari ``Labels`` layers.
+    Settings: ld, force_2d, scale_*_enabled, scale_*_sensitivity.
+
+    Higher ld yields fewer detections (stricter thresholds).
+    Higher sensitivity yields more detections on that scale.
     """
 
     def __init__(self, models_root=None) -> None:
-        """Initialize the detector wrapper.
+        """Initialize the detector.
 
         Parameters
         ----------
         models_root : pathlib.Path or None, optional
-            Root folder for detector resources, by default None.
+            Root folder for detector resources (unused).
         """
-
         super().__init__("udwt", models_root=models_root)
 
     def run(self, **kwargs) -> dict:
-        """Run the UDWT detector and return instance labels.
+        """Run the detector on a napari Image layer.
 
         Parameters
         ----------
         **kwargs
             layer : napari.layers.Image or None
-                Image layer used for spot detection.
-            settings : dict
-                Detector settings keyed by the details.json schema.
+                Image layer (single-channel).
+            settings : dict, optional
+                Keys:
+                - ld (float): higher is stricter final detection threshold
+                - force_2d (bool): for 3D, detect per slice (ignores Z context)
+                - scale_N_enabled (bool): include scale N in the product
+                - scale_N_sensitivity (float): higher is more permissive
 
         Returns
         -------
         dict
-            Dictionary containing ``mask`` with instance labels. ``points`` is
-            reserved for future extensions.
-
-        Raises
-        ------
-        ValueError
-            If the input is RGB or has unsupported dimensions.
+            Output with keys "mask" (labeled int32 or None) and "points" (None).
         """
-
         layer = kwargs.get("layer")
         if layer is None:
             return {"mask": None, "points": None}
-        if getattr(layer, "rgb", False):
-            raise ValueError("UDWT requires single-channel images.")
 
-        settings = kwargs.get("settings", {})
-        num_scales = int(settings.get("num_scales", 3))
-        num_scales = max(1, min(MAX_SCALES, num_scales))
-        # "combine_scales" matches the union/combination option in the UI.
-        combine_scales = bool(settings.get("combine_scales", False))
-        detect_negative = bool(settings.get("detect_negative", False))
+        if getattr(layer, "rgb", False):
+            raise ValueError("UDWT requires single-channel images (rgb=False).")
+
+        settings = kwargs.get("settings", {}) or {}
+
+        ld = float(settings.get("ld", 1.0))
         force_2d = bool(settings.get("force_2d", False))
 
-        configs: list[_ScaleConfig] = []
-        for idx in range(1, MAX_SCALES + 1):
-            enabled = bool(settings.get(f"scale_{idx}_enabled", idx <= num_scales))
-            sensitivity = float(
-                settings.get(f"scale_{idx}_sensitivity", 100.0)
-            )
-            sensitivity = max(0.0, min(100.0, sensitivity))
-            configs.append(_ScaleConfig(enabled=enabled, sensitivity=sensitivity))
-        configs = configs[:num_scales]
+        default_enabled = (True, True, True, False, False)
+        enabled_all: list[bool] = []
+        sensitivity_all: list[float] = []
+        for i in range(MAX_SCALES):
+            enabled_key = f"scale_{i + 1}_enabled"
+            sens_key = f"scale_{i + 1}_sensitivity"
+            enabled_val = bool(settings.get(enabled_key, default_enabled[i]))
+            sens_val = float(settings.get(sens_key, 100.0))
+            sens_val = max(1.0, min(100.0, sens_val))
+            enabled_all.append(enabled_val)
+            sensitivity_all.append(sens_val)
+
+        if any(enabled_all):
+            num_scales = max(i + 1 for i, enabled in enumerate(enabled_all) if enabled)
+        else:
+            num_scales = 1
+
+        params = _Params(
+            num_scales=num_scales,
+            ld=ld,
+            force_2d=force_2d,
+            scale_enabled=tuple(enabled_all),
+            scale_sensitivity=tuple(sensitivity_all),
+        )
 
         data = layer_data_asarray(layer)
         if data.ndim not in (2, 3):
             raise ValueError("UDWT expects 2D images or 3D stacks.")
 
         image = np.asarray(data, dtype=np.float32)
+
         if image.ndim == 2:
-            labels = _detect_2d(
-                image, configs, combine_scales, detect_negative
-            )
-            return {"mask": labels}
+            return {"mask": _detect_2d(image, params), "points": None}
 
-        if force_2d:
-            labels = _detect_2d_stack(
-                image, configs, combine_scales, detect_negative
-            )
-            return {"mask": labels}
+        # 3D input
+        if params.force_2d:
+            return {"mask": _detect_2d_stack(image, params), "points": None}
 
-        labels = _detect_3d(image, configs, combine_scales, detect_negative)
-        return {"mask": labels}
+        return {"mask": _detect_3d(image, params), "points": None}

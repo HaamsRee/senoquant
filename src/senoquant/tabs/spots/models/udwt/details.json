@@ -4,24 +4,13 @@
   "version": "0.1.0",
   "settings": [
     {
-      "key": "num_scales",
-      "label": "Number of scales",
-      "type": "int",
-      "min": 1,
-      "max": 5,
-      "default": 3
-    },
-    {
-      "key": "combine_scales",
-      "label": "Union (combine enabled scales)",
-      "type": "bool",
-      "default": false
-    },
-    {
-      "key": "detect_negative",
-      "label": "Detect dark spots",
-      "type": "bool",
-      "default": false
+      "key": "ld",
+      "label": "Product threshold (ld)",
+      "type": "float",
+      "decimals": 2,
+      "min": 0.0,
+      "max": 10.0,
+      "default": 1.0
     },
     {
       "key": "force_2d",
