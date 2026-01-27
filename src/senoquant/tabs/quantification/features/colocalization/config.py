@@ -14,11 +14,8 @@ class ColocalizationFeatureData(FeatureData):
 
     Attributes
     ----------
-    labels_a_id : str or None
-        Feature id for the first spots feature.
-    labels_b_id : str or None
-        Feature id for the second spots feature.
+    spots_feature_id : str or None
+        Feature id for the spots feature used for colocalization.
     """
 
-    labels_a_id: Optional[str] = None
-    labels_b_id: Optional[str] = None
+    spots_feature_id: Optional[str] = None

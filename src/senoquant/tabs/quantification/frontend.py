@@ -20,6 +20,7 @@ from qtpy.QtWidgets import (
 
 from .backend import QuantificationBackend
 from .features import FeatureConfig, build_feature_data, get_feature_registry
+from .features.base import RefreshingComboBox
 
 
 @dataclass
@@ -251,7 +252,9 @@ class QuantificationTab(QWidget):
         name_input.setMinimumWidth(180)
         name_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        type_combo = QComboBox()
+        type_combo = RefreshingComboBox(
+            refresh_callback=self._notify_features_changed
+        )
         type_combo.addItems(self._feature_types())
         self._configure_combo(type_combo)
 

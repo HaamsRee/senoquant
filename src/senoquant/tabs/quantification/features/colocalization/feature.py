@@ -3,6 +3,7 @@
 from qtpy.QtWidgets import QComboBox, QFormLayout
 
 from ..base import SenoQuantFeature
+from ..spots.config import SpotsFeatureData
 from .config import ColocalizationFeatureData
 
 
@@ -18,21 +19,14 @@ class ColocalizationFeature(SenoQuantFeature):
         left_dynamic_layout = self._context.left_dynamic_layout
         form_layout = QFormLayout()
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        coloc_a = QComboBox()
-        coloc_b = QComboBox()
-        self._tab._configure_combo(coloc_a)
-        self._tab._configure_combo(coloc_b)
-        coloc_a.currentIndexChanged.connect(
-            lambda _index: self._on_combo_changed("labels_a_id", coloc_a)
+        spots_combo = QComboBox()
+        self._tab._configure_combo(spots_combo)
+        spots_combo.currentIndexChanged.connect(
+            lambda _index: self._on_combo_changed(spots_combo)
         )
-        coloc_b.currentIndexChanged.connect(
-            lambda _index: self._on_combo_changed("labels_b_id", coloc_b)
-        )
-        form_layout.addRow("Labels A", coloc_a)
-        form_layout.addRow("Labels B", coloc_b)
+        form_layout.addRow("Spots feature", spots_combo)
         left_dynamic_layout.addLayout(form_layout)
-        self._ui["coloc_a_combo"] = coloc_a
-        self._ui["coloc_b_combo"] = coloc_b
+        self._ui["spots_combo"] = spots_combo
         self.on_features_changed(self._tab._feature_configs)
 
     def on_features_changed(self, configs: list) -> None:
@@ -48,7 +42,7 @@ class ColocalizationFeature(SenoQuantFeature):
 
     @classmethod
     def update_type_options(cls, tab, configs: list) -> None:
-        """Enable/disable colocalization based on spot feature count.
+        """Enable/disable colocalization based on eligible spots features.
 
         Parameters
         ----------
@@ -58,7 +52,7 @@ class ColocalizationFeature(SenoQuantFeature):
             Current feature contexts.
         """
         choices = cls._spot_feature_choices(configs)
-        allow_coloc = len(choices) >= 2
+        allow_coloc = len(choices) >= 1
         for config in configs:
             combo = config.type_combo
             idx = combo.findText(cls.feature_type)
@@ -79,18 +73,24 @@ class ColocalizationFeature(SenoQuantFeature):
         Returns
         -------
         list of tuple[str, str]
-            Display labels and feature ids for spot features.
+            Display labels and feature ids for spot features with >2 channels.
         """
         choices = []
         for index, config in enumerate(configs, start=0):
-            if config.state.type_name == cls.spot_feature_type:
-                name = config.state.name.strip()
-                label = name if name else f"Feature {index}"
-                choices.append((f"{index}: {label}", config.state.feature_id))
+            if config.state.type_name != cls.spot_feature_type:
+                continue
+            data = config.state.data
+            if not isinstance(data, SpotsFeatureData):
+                continue
+            if len(data.channels) < 2:
+                continue
+            name = config.state.name.strip()
+            label = name if name else f"Feature {index}"
+            choices.append((label, config.state.feature_id))
         return choices
 
     def _update_choices(self, choices: list[tuple[str, str]]) -> None:
-        """Populate colocalization combo boxes with new choices.
+        """Populate colocalization combo box with new choices.
 
         Parameters
         ----------
@@ -100,70 +100,25 @@ class ColocalizationFeature(SenoQuantFeature):
         data = self._state.data
         if not isinstance(data, ColocalizationFeatureData):
             return
-        combos = []
-        for key in ("coloc_a_combo", "coloc_b_combo"):
-            combo = self._ui.get(key)
-            if combo is None:
-                continue
-            combos.append(combo)
-            current_id = (
-                data.labels_a_id if key == "coloc_a_combo" else data.labels_b_id
-            )
-            combo.clear()
-            if choices:
-                for label, feature_id in choices:
-                    combo.addItem(label, feature_id)
-            else:
-                combo.addItem("No spots features")
-            if current_id:
-                index = combo.findData(current_id)
-                if index != -1:
-                    combo.setCurrentIndex(index)
-        if len(choices) >= 2 and len(combos) == 2:
-            a_combo, b_combo = combos
-            if a_combo.currentData() == b_combo.currentData():
-                a_combo.setCurrentIndex(0)
-                b_combo.setCurrentIndex(1)
-        if len(combos) == 2:
-            a_combo, b_combo = combos
-            data.labels_a_id = a_combo.currentData()
-            data.labels_b_id = b_combo.currentData()
-        self._sync_choices()
-
-    def _sync_choices(self) -> None:
-        """Ensure colocalization combos cannot select the same feature."""
-        coloc_a = self._ui.get("coloc_a_combo")
-        coloc_b = self._ui.get("coloc_b_combo")
-        if coloc_a is None or coloc_b is None:
+        combo = self._ui.get("spots_combo")
+        if combo is None:
             return
-        self._disable_combo_choice(coloc_a, coloc_b.currentData())
-        self._disable_combo_choice(coloc_b, coloc_a.currentData())
+        current_id = data.spots_feature_id
+        combo.clear()
+        if choices:
+            for label, feature_id in choices:
+                combo.addItem(label, feature_id)
+        else:
+            combo.addItem("No spots features with >2 channels")
+        if current_id:
+            index = combo.findData(current_id)
+            if index != -1:
+                combo.setCurrentIndex(index)
+        data.spots_feature_id = combo.currentData()
 
-    def _on_combo_changed(self, key: str, combo: QComboBox) -> None:
-        """Store selected combo data and resync unique choices."""
+    def _on_combo_changed(self, combo: QComboBox) -> None:
+        """Store selected combo data."""
         data = self._state.data
         if not isinstance(data, ColocalizationFeatureData):
             return
-        value = combo.currentData()
-        if key == "labels_a_id":
-            data.labels_a_id = value
-        else:
-            data.labels_b_id = value
-        self._sync_choices()
-
-    def _disable_combo_choice(self, combo: QComboBox, value) -> None:
-        """Disable a combo-box option that matches the provided value.
-
-        Parameters
-        ----------
-        combo : QComboBox
-            Combo box to update.
-        value : object
-            Option value to disable.
-        """
-        model = combo.model()
-        for index in range(combo.count()):
-            item = model.item(index)
-            if item is None:
-                continue
-            item.setEnabled(combo.itemData(index) != value)
+        data.spots_feature_id = combo.currentData()
