@@ -76,6 +76,7 @@ def export_spots(
     if not isinstance(data, SpotsFeatureData) or viewer is None:
         return []
 
+    # Normalize format and pre-filter channel configs.
     export_format = (export_format or "csv").lower()
     outputs: list[Path] = []
     channels = [
@@ -83,9 +84,11 @@ def export_spots(
         for channel in data.channels
         if channel.channel and channel.spots_segmentation
     ]
+    # Require both segmentations and channels to export anything.
     if not data.segmentations or not channels:
         return []
 
+    # Use the first valid channel layer to derive physical units when possible.
     first_channel_layer = None
     for channel in channels:
         first_channel_layer = _find_layer(viewer, channel.channel, "Image")
@@ -93,6 +96,7 @@ def export_spots(
             break
 
     for index, segmentation in enumerate(data.segmentations, start=0):
+        # Resolve the cell segmentation labels layer.
         label_name = segmentation.label.strip()
         if not label_name:
             continue
@@ -103,16 +107,19 @@ def export_spots(
         if cell_labels.size == 0:
             continue
 
+        # Compute per-cell morphology from the segmentation.
         cell_ids, cell_centroids = _compute_centroids(cell_labels)
         if cell_ids.size == 0:
             continue
 
+        # Derive physical pixel sizes from metadata if available.
         cell_pixel_sizes = _pixel_sizes(labels_layer, cell_labels.ndim)
         if cell_pixel_sizes is None and first_channel_layer is not None:
             cell_pixel_sizes = _pixel_sizes(
                 first_channel_layer, cell_labels.ndim
             )
 
+        # Seed the cell table with morphology and ROI membership columns.
         cell_rows = _initialize_rows(
             cell_ids, cell_centroids, cell_pixel_sizes
         )
@@ -126,6 +133,7 @@ def export_spots(
         )
         cell_header = list(cell_rows[0].keys()) if cell_rows else []
 
+        # Prepare containers and ROI masks for the spots table.
         spot_rows: list[dict[str, object]] = []
         spot_header: list[str] = []
         spot_table_pixel_sizes = None
@@ -138,6 +146,7 @@ def export_spots(
         )
 
         for channel in channels:
+            # Resolve channel image and its spots segmentation labels.
             channel_label = _channel_label(channel)
             channel_layer = _find_layer(viewer, channel.channel, "Image")
             spots_layer = _find_layer(
@@ -160,6 +169,7 @@ def export_spots(
                 )
                 continue
 
+            # Compute spot centroids and skip if no spots exist.
             spot_ids, spot_centroids = _compute_centroids(spots_labels)
             if spot_ids.size == 0:
                 _append_cell_metrics(
@@ -171,6 +181,7 @@ def export_spots(
                 )
                 continue
 
+            # Compute spot sizes and per-spot mean intensity.
             spot_area_px = _pixel_counts(spots_labels, spot_ids)
             spot_mean_intensity = None
             if channel_layer is not None:
@@ -193,6 +204,7 @@ def export_spots(
                     spot_area_px.shape, np.nan, dtype=float
                 )
 
+            # Assign each spot to a cell id via its centroid location.
             cell_ids_for_spots = _spot_cell_ids_from_centroids(
                 cell_labels, spot_centroids
             )
@@ -203,6 +215,7 @@ def export_spots(
             valid_areas = spot_area_px[valid_mask]
             valid_means = spot_mean_intensity[valid_mask]
 
+            # Aggregate per-cell spot counts and mean intensities.
             cell_counts, cell_means = _cell_spot_metrics(
                 valid_cell_ids, valid_means, int(cell_labels.max())
             )
@@ -214,6 +227,7 @@ def export_spots(
                 cell_header,
             )
 
+            # Append spot rows for this channel (with ROI membership).
             spot_pixel_sizes = spot_table_pixel_sizes
             spot_rows_for_channel = _spot_rows(
                 valid_spot_ids,
@@ -230,6 +244,7 @@ def export_spots(
                     spot_header = list(spot_rows_for_channel[0].keys())
                 spot_rows.extend(spot_rows_for_channel)
 
+        # Emit cells and spots tables for the segmentation.
         file_stem = _sanitize_name(label_name or f"segmentation_{index}")
         if cell_rows:
             cell_path = temp_dir / f"{file_stem}_cells.{export_format}"
