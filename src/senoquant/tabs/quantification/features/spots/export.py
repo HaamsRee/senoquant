@@ -73,12 +73,19 @@ def export_spots(
       colocalization columns are appended to both tables.
     - Physical units are derived from ``layer.metadata["physical_pixel_sizes"]``
       when available (same convention as the markers export).
+
+    Workflow summary
+    ----------------
+    1. Resolve the requested cell segmentation and compute cell morphology.
+    2. Build per-channel spot exports (counts, mean intensity, spot rows).
+    3. Optionally compute colocalization adjacency and append columns.
+    4. Write ``*_cells`` and ``*_spots`` outputs for each segmentation.
     """
     data = feature.data
     if not isinstance(data, SpotsFeatureData) or viewer is None:
         return []
 
-    # Normalize format and pre-filter channel configs.
+    # --- Normalize inputs and pre-filter channel configs ---
     export_format = (export_format or "csv").lower()
     outputs: list[Path] = []
     channels = [
@@ -90,7 +97,7 @@ def export_spots(
     if not data.segmentations or not channels:
         return []
 
-    # Use the first valid channel layer to derive physical units when possible.
+    # --- Resolve a reference channel for physical pixel sizes ---
     first_channel_layer = None
     for channel in channels:
         first_channel_layer = _find_layer(viewer, channel.channel, "Image")
@@ -98,7 +105,7 @@ def export_spots(
             break
 
     for index, segmentation in enumerate(data.segmentations, start=0):
-        # Resolve the cell segmentation labels layer.
+        # --- Resolve the cell segmentation labels layer ---
         label_name = segmentation.label.strip()
         if not label_name:
             continue
@@ -109,19 +116,19 @@ def export_spots(
         if cell_labels.size == 0:
             continue
 
-        # Compute per-cell morphology from the segmentation.
+        # --- Compute per-cell morphology from the segmentation ---
         cell_ids, cell_centroids = _compute_centroids(cell_labels)
         if cell_ids.size == 0:
             continue
 
-        # Derive physical pixel sizes from metadata if available.
+        # --- Derive physical pixel sizes from metadata if available ---
         cell_pixel_sizes = _pixel_sizes(labels_layer, cell_labels.ndim)
         if cell_pixel_sizes is None and first_channel_layer is not None:
             cell_pixel_sizes = _pixel_sizes(
                 first_channel_layer, cell_labels.ndim
             )
 
-        # Seed the cell table with morphology and ROI membership columns.
+        # --- Seed the cell table with morphology and ROI membership columns ---
         cell_rows = _initialize_rows(
             cell_ids, cell_centroids, cell_pixel_sizes
         )
@@ -135,7 +142,7 @@ def export_spots(
         )
         cell_header = list(cell_rows[0].keys()) if cell_rows else []
 
-        # Prepare containers and ROI masks for the spots table.
+        # --- Prepare containers and ROI masks for the spots table ---
         spot_rows: list[dict[str, object]] = []
         spot_header: list[str] = []
         spot_table_pixel_sizes = None
@@ -147,184 +154,45 @@ def export_spots(
             viewer, data.rois, label_name, cell_labels.shape
         )
 
-        channel_entries: list[dict[str, object]] = []
-        for channel in channels:
-            channel_label = _channel_label(channel)
-            channel_layer = _find_layer(viewer, channel.channel, "Image")
-            spots_layer = _find_layer(
-                viewer, channel.spots_segmentation, "Labels"
-            )
-            if spots_layer is None:
-                warnings.warn(
-                    "Spots export: spots segmentation layer "
-                    f"'{channel.spots_segmentation}' not found.",
-                    RuntimeWarning,
-                )
-                continue
-            spots_labels = layer_data_asarray(spots_layer)
-            if spots_labels.shape != cell_labels.shape:
-                warnings.warn(
-                    "Spots export: segmentation shape mismatch for "
-                    f"'{label_name}' vs '{channel.spots_segmentation}'. "
-                    "Skipping this channel for the segmentation.",
-                    RuntimeWarning,
-                )
-                continue
-            channel_entries.append(
-                {
-                    "channel_label": channel_label,
-                    "channel_layer": channel_layer,
-                    "spots_labels": spots_labels,
-                }
-            )
-
+        # --- Resolve per-channel label layers before heavy computation ---
+        channel_entries = _build_channel_entries(
+            viewer, channels, cell_labels.shape, label_name
+        )
         adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
         if data.export_colocalization and len(channel_entries) >= 2:
-            for idx_a, entry_a in enumerate(channel_entries):
-                labels_a = entry_a["spots_labels"]
-                for idx_b in range(idx_a + 1, len(channel_entries)):
-                    labels_b = channel_entries[idx_b]["spots_labels"]
-                    mask = (labels_a > 0) & (labels_b > 0)
-                    if not np.any(mask):
-                        continue
-                    pairs = np.column_stack(
-                        (labels_a[mask], labels_b[mask])
-                    )
-                    unique_pairs = np.unique(pairs, axis=0)
-                    for spot_a, spot_b in unique_pairs:
-                        key_a = (idx_a, int(spot_a))
-                        key_b = (idx_b, int(spot_b))
-                        adjacency.setdefault(key_a, set()).add(key_b)
-                        adjacency.setdefault(key_b, set()).add(key_a)
+            adjacency = _build_colocalization_adjacency(channel_entries)
 
+        # --- Compute per-channel cell metrics + per-spot rows ---
         spot_lookup: dict[tuple[int, int], dict[str, object]] = {}
-
-        for idx, entry in enumerate(channel_entries):
-            channel_label = entry["channel_label"]
-            channel_layer = entry["channel_layer"]
-            spots_labels = entry["spots_labels"]
-
-            # Compute spot centroids and skip if no spots exist.
-            spot_ids, spot_centroids = _compute_centroids(spots_labels)
-            if spot_ids.size == 0:
-                _append_cell_metrics(
-                    cell_rows,
-                    np.zeros_like(cell_ids, dtype=int),
-                    np.full_like(cell_ids, np.nan, dtype=float),
-                    channel_label,
-                    cell_header,
-                )
-                continue
-
-            # Compute spot sizes and per-spot mean intensity.
-            spot_area_px = _pixel_counts(spots_labels, spot_ids)
-            spot_mean_intensity = None
-            if channel_layer is not None:
-                image = layer_data_asarray(channel_layer)
-                if image.shape != spots_labels.shape:
-                    warnings.warn(
-                        "Spots export: image/spot shape mismatch for "
-                        f"'{channel_label}'. Spot intensity values "
-                        "will be empty.",
-                        RuntimeWarning,
-                    )
-                else:
-                    raw_sum = _intensity_sum(spots_labels, image, spot_ids)
-                    spot_mean_intensity = _safe_divide(
-                        raw_sum, spot_area_px
-                    )
-            if spot_mean_intensity is None:
-                spot_mean_intensity = np.full(
-                    spot_area_px.shape, np.nan, dtype=float
-                )
-
-            # Assign each spot to a cell id via its centroid location.
-            cell_ids_for_spots = _spot_cell_ids_from_centroids(
-                cell_labels, spot_centroids
-            )
-            valid_mask = cell_ids_for_spots > 0
-            valid_cell_ids = cell_ids_for_spots[valid_mask]
-            valid_spot_ids = spot_ids[valid_mask]
-            valid_centroids = spot_centroids[valid_mask]
-            valid_areas = spot_area_px[valid_mask]
-            valid_means = spot_mean_intensity[valid_mask]
-
-            # Aggregate per-cell spot counts and mean intensities.
-            cell_counts, cell_means = _cell_spot_metrics(
-                valid_cell_ids, valid_means, int(cell_labels.max())
-            )
-            _append_cell_metrics(
-                cell_rows,
-                cell_counts[cell_ids],
-                cell_means[cell_ids],
-                channel_label,
+        for channel_index, entry in enumerate(channel_entries):
+            _append_channel_exports(
+                channel_index,
+                entry,
+                cell_labels,
+                cell_ids,
                 cell_header,
-            )
-
-            # Append spot rows for this channel (with ROI membership).
-            spot_pixel_sizes = spot_table_pixel_sizes
-            spot_rows_for_channel = _spot_rows(
-                valid_spot_ids,
-                valid_cell_ids,
-                valid_centroids,
-                valid_areas,
-                valid_means,
-                channel_label,
-                spot_pixel_sizes,
+                cell_rows,
+                spot_rows,
+                spot_header,
+                spot_lookup,
+                spot_table_pixel_sizes,
                 spot_roi_columns,
             )
-            if spot_rows_for_channel:
-                if not spot_header:
-                    spot_header = list(spot_rows_for_channel[0].keys())
-                for row, spot_id, cell_id in zip(
-                    spot_rows_for_channel, valid_spot_ids, valid_cell_ids
-                ):
-                    spot_lookup[(idx, int(spot_id))] = {
-                        "row": row,
-                        "cell_id": int(cell_id),
-                    }
-                spot_rows.extend(spot_rows_for_channel)
 
+        # --- Apply colocalization columns (if requested) ---
         if data.export_colocalization:
-            channel_labels = [
-                entry["channel_label"] for entry in channel_entries
-            ]
-            for key, info in spot_lookup.items():
-                others = adjacency.get(key, set())
-                names: list[str] = []
-                for other in others:
-                    if other not in spot_lookup:
-                        continue
-                    other_label = channel_labels[other[0]]
-                    names.append(f"{other_label}:{other[1]}")
-                info["row"]["colocalizes_with"] = (
-                    ";".join(sorted(set(names))) if names else ""
-                )
-
-            colocalization_key = "colocalization_event_count"
-            event_counts = np.zeros(
-                int(cell_labels.max()) + 1, dtype=int
+            _apply_colocalization_columns(
+                cell_rows,
+                cell_ids,
+                cell_header,
+                spot_rows,
+                spot_lookup,
+                adjacency,
+                channel_entries,
+                int(cell_labels.max()),
             )
-            seen_pairs: set[tuple[tuple[int, int], tuple[int, int]]] = set()
-            for key, others in adjacency.items():
-                if key not in spot_lookup:
-                    continue
-                for other in others:
-                    if other not in spot_lookup:
-                        continue
-                    pair = (key, other) if key < other else (other, key)
-                    if pair in seen_pairs:
-                        continue
-                    seen_pairs.add(pair)
-                    cell_id_a = spot_lookup[key]["cell_id"]
-                    cell_id_b = spot_lookup[other]["cell_id"]
-                    if cell_id_a > 0 and cell_id_a == cell_id_b:
-                        event_counts[cell_id_a] += 1
-            for row, cell_id in zip(cell_rows, cell_ids):
-                row[colocalization_key] = int(event_counts[cell_id])
-            cell_header.append(colocalization_key)
 
-        # Emit cells and spots tables for the segmentation.
+        # --- Emit cells and spots tables for the segmentation ---
         file_stem = _sanitize_name(label_name or f"segmentation_{index}")
         if cell_rows:
             cell_path = temp_dir / f"{file_stem}_cells.{export_format}"
@@ -344,6 +212,309 @@ def export_spots(
         outputs.append(spot_path)
 
     return outputs
+
+
+def _build_channel_entries(
+    viewer: object,
+    channels: list,
+    cell_shape: tuple[int, ...],
+    label_name: str,
+) -> list[dict[str, object]]:
+    """Resolve channel layers into export-ready entries.
+
+    Parameters
+    ----------
+    viewer : object
+        Napari viewer instance used to resolve layers.
+    channels : list
+        Spots channel configurations (image + labels names).
+    cell_shape : tuple of int
+        Shape of the cell segmentation labels for validation.
+    label_name : str
+        Cell labels layer name (for warning context).
+
+    Returns
+    -------
+    list of dict
+        Each entry includes:
+        - ``channel_label`` : str
+            Display label for the channel.
+        - ``channel_layer`` : object or None
+            Image layer for intensity calculation.
+        - ``spots_labels`` : numpy.ndarray
+            Spots segmentation labels aligned to ``cell_shape``.
+
+    Notes
+    -----
+    Channels are filtered out when their segmentation layer is missing or
+    the segmentation does not match the cell labels shape.
+    """
+    entries: list[dict[str, object]] = []
+    for channel in channels:
+        # Resolve channel display label and layer references.
+        channel_label = _channel_label(channel)
+        channel_layer = _find_layer(viewer, channel.channel, "Image")
+        spots_layer = _find_layer(viewer, channel.spots_segmentation, "Labels")
+        if spots_layer is None:
+            warnings.warn(
+                "Spots export: spots segmentation layer "
+                f"'{channel.spots_segmentation}' not found.",
+                RuntimeWarning,
+            )
+            continue
+        spots_labels = layer_data_asarray(spots_layer)
+        if spots_labels.shape != cell_shape:
+            warnings.warn(
+                "Spots export: segmentation shape mismatch for "
+                f"'{label_name}' vs '{channel.spots_segmentation}'. "
+                "Skipping this channel for the segmentation.",
+                RuntimeWarning,
+            )
+            continue
+        entries.append(
+            {
+                "channel_label": channel_label,
+                "channel_layer": channel_layer,
+                "spots_labels": spots_labels,
+            }
+        )
+    return entries
+
+
+def _append_channel_exports(
+    channel_index: int,
+    entry: dict[str, object],
+    cell_labels: np.ndarray,
+    cell_ids: np.ndarray,
+    cell_header: list[str],
+    cell_rows: list[dict[str, object]],
+    spot_rows: list[dict[str, object]],
+    spot_header: list[str],
+    spot_lookup: dict[tuple[int, int], dict[str, object]],
+    spot_table_pixel_sizes: np.ndarray | None,
+    spot_roi_columns: list[tuple[str, np.ndarray]],
+) -> None:
+    """Compute and append per-channel cell/spot metrics.
+
+    Parameters
+    ----------
+    channel_index : int
+        Index of the channel in the resolved channel list.
+    entry : dict
+        Channel entry from :func:`_build_channel_entries`.
+    cell_labels : numpy.ndarray
+        Cell segmentation labels array.
+    cell_ids : numpy.ndarray
+        Cell ids derived from the segmentation.
+    cell_header : list of str
+        Header list for the cells table, updated in-place.
+    cell_rows : list of dict
+        Cell rows updated in-place.
+    spot_rows : list of dict
+        Spot rows appended to in-place.
+    spot_header : list of str
+        Spot header list updated in-place.
+    spot_lookup : dict
+        Mapping from ``(channel_index, spot_id)`` to row metadata.
+    spot_table_pixel_sizes : numpy.ndarray or None
+        Pixel sizes to use for spot physical units.
+    spot_roi_columns : list of tuple
+        ROI masks for spot ROI membership columns.
+    """
+    channel_label = entry["channel_label"]
+    channel_layer = entry["channel_layer"]
+    spots_labels = entry["spots_labels"]
+
+    # Compute spot centroids in the channel segmentation.
+    spot_ids, spot_centroids = _compute_centroids(spots_labels)
+    if spot_ids.size == 0:
+        # No spots -> still emit per-cell count/mean columns with zeros/nans.
+        _append_cell_metrics(
+            cell_rows,
+            np.zeros_like(cell_ids, dtype=int),
+            np.full_like(cell_ids, np.nan, dtype=float),
+            channel_label,
+            cell_header,
+        )
+        return
+
+    # Spot areas (pixels) and mean intensity (per spot).
+    spot_area_px = _pixel_counts(spots_labels, spot_ids)
+    spot_mean_intensity = None
+    if channel_layer is not None:
+        image = layer_data_asarray(channel_layer)
+        if image.shape != spots_labels.shape:
+            warnings.warn(
+                "Spots export: image/spot shape mismatch for "
+                f"'{channel_label}'. Spot intensity values will be empty.",
+                RuntimeWarning,
+            )
+        else:
+            raw_sum = _intensity_sum(spots_labels, image, spot_ids)
+            spot_mean_intensity = _safe_divide(raw_sum, spot_area_px)
+    if spot_mean_intensity is None:
+        spot_mean_intensity = np.full(spot_area_px.shape, np.nan, dtype=float)
+
+    # Assign spots to cells using the centroid location.
+    cell_ids_for_spots = _spot_cell_ids_from_centroids(
+        cell_labels, spot_centroids
+    )
+    valid_mask = cell_ids_for_spots > 0
+    valid_cell_ids = cell_ids_for_spots[valid_mask]
+    valid_spot_ids = spot_ids[valid_mask]
+    valid_centroids = spot_centroids[valid_mask]
+    valid_areas = spot_area_px[valid_mask]
+    valid_means = spot_mean_intensity[valid_mask]
+
+    # Aggregate per-cell metrics and append columns to the cell table.
+    cell_counts, cell_means = _cell_spot_metrics(
+        valid_cell_ids, valid_means, int(cell_labels.max())
+    )
+    _append_cell_metrics(
+        cell_rows,
+        cell_counts[cell_ids],
+        cell_means[cell_ids],
+        channel_label,
+        cell_header,
+    )
+
+    # Append per-spot rows for this channel, preserving ROI membership.
+    spot_rows_for_channel = _spot_rows(
+        valid_spot_ids,
+        valid_cell_ids,
+        valid_centroids,
+        valid_areas,
+        valid_means,
+        channel_label,
+        spot_table_pixel_sizes,
+        spot_roi_columns,
+    )
+    if spot_rows_for_channel:
+        if not spot_header:
+            spot_header.extend(list(spot_rows_for_channel[0].keys()))
+        for row, spot_id, cell_id in zip(
+            spot_rows_for_channel, valid_spot_ids, valid_cell_ids
+        ):
+            spot_lookup[(channel_index, int(spot_id))] = {
+                "row": row,
+                "cell_id": int(cell_id),
+            }
+        spot_rows.extend(spot_rows_for_channel)
+
+
+def _build_colocalization_adjacency(
+    channel_entries: list[dict[str, object]]
+) -> dict[tuple[int, int], set[tuple[int, int]]]:
+    """Build adjacency between overlapping spots across channels.
+
+    Parameters
+    ----------
+    channel_entries : list of dict
+        Channel entries with ``spots_labels`` arrays.
+
+    Returns
+    -------
+    dict
+        Mapping of ``(channel_index, spot_id)`` to a set of overlapping
+        ``(channel_index, spot_id)`` pairs.
+
+    Notes
+    -----
+    Two spots are considered colocalized when their label masks overlap.
+    """
+    adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
+    for idx_a, entry_a in enumerate(channel_entries):
+        labels_a = entry_a["spots_labels"]
+        for idx_b in range(idx_a + 1, len(channel_entries)):
+            labels_b = channel_entries[idx_b]["spots_labels"]
+            mask = (labels_a > 0) & (labels_b > 0)
+            if not np.any(mask):
+                continue
+            pairs = np.column_stack((labels_a[mask], labels_b[mask]))
+            unique_pairs = np.unique(pairs, axis=0)
+            for spot_a, spot_b in unique_pairs:
+                key_a = (idx_a, int(spot_a))
+                key_b = (idx_b, int(spot_b))
+                adjacency.setdefault(key_a, set()).add(key_b)
+                adjacency.setdefault(key_b, set()).add(key_a)
+    return adjacency
+
+
+def _apply_colocalization_columns(
+    cell_rows: list[dict[str, object]],
+    cell_ids: np.ndarray,
+    cell_header: list[str],
+    spot_rows: list[dict[str, object]],
+    spot_lookup: dict[tuple[int, int], dict[str, object]],
+    adjacency: dict[tuple[int, int], set[tuple[int, int]]],
+    channel_entries: list[dict[str, object]],
+    max_cell_id: int,
+) -> None:
+    """Append colocalization columns to cell and spot rows.
+
+    Parameters
+    ----------
+    cell_rows : list of dict
+        Cell rows updated in-place.
+    cell_ids : numpy.ndarray
+        Cell id array aligned to ``cell_rows``.
+    cell_header : list of str
+        Cell header updated in-place.
+    spot_rows : list of dict
+        Spot rows updated in-place.
+    spot_lookup : dict
+        Mapping from ``(channel_index, spot_id)`` to spot row and cell id.
+    adjacency : dict
+        Colocalization adjacency built by
+        :func:`_build_colocalization_adjacency`.
+    channel_entries : list of dict
+        Channel entries used to map channel indices to labels.
+    max_cell_id : int
+        Maximum cell id in the segmentation, used to size count arrays.
+
+    Notes
+    -----
+    ``colocalizes_with`` is a semicolon-delimited list of
+    ``"<channel_label>:<spot_id>"`` entries.
+    ``colocalization_event_count`` counts unique overlapping spot pairs
+    within the same cell.
+    """
+    channel_labels = [entry["channel_label"] for entry in channel_entries]
+    for key, info in spot_lookup.items():
+        others = adjacency.get(key, set())
+        names: list[str] = []
+        for other in others:
+            if other not in spot_lookup:
+                continue
+            other_label = channel_labels[other[0]]
+            names.append(f"{other_label}:{other[1]}")
+        info["row"]["colocalizes_with"] = (
+            ";".join(sorted(set(names))) if names else ""
+        )
+    for row in spot_rows:
+        row.setdefault("colocalizes_with", "")
+
+    colocalization_key = "colocalization_event_count"
+    event_counts = np.zeros(max_cell_id + 1, dtype=int)
+    seen_pairs: set[tuple[tuple[int, int], tuple[int, int]]] = set()
+    for key, others in adjacency.items():
+        if key not in spot_lookup:
+            continue
+        for other in others:
+            if other not in spot_lookup:
+                continue
+            pair = (key, other) if key < other else (other, key)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            cell_id_a = spot_lookup[key]["cell_id"]
+            cell_id_b = spot_lookup[other]["cell_id"]
+            if cell_id_a > 0 and cell_id_a == cell_id_b:
+                event_counts[cell_id_a] += 1
+    for row, cell_id in zip(cell_rows, cell_ids):
+        row[colocalization_key] = int(event_counts[cell_id])
+    if colocalization_key not in cell_header:
+        cell_header.append(colocalization_key)
 
 
 def _find_layer(viewer, name: str, layer_type: str):
@@ -640,9 +811,9 @@ def _add_roi_columns(
         roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
-            prefix = "excluded_from"
+            prefix = "excluded_from_roi"
         else:
-            prefix = "included_in"
+            prefix = "included_in_roi"
         column = f"{prefix}_{_sanitize_name(roi_name)}"
         for row, value in zip(rows, included):
             row[column] = int(value)
@@ -936,9 +1107,9 @@ def _spot_roi_columns(
         roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
-            prefix = "excluded_from"
+            prefix = "excluded_from_roi"
         else:
-            prefix = "included_in"
+            prefix = "included_in_roi"
         column = f"{prefix}_{_sanitize_name(roi_name)}"
         columns.append((column, mask))
     return columns
