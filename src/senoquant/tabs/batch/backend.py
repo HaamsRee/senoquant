@@ -1,4 +1,26 @@
-"""Backend logic for batch processing workflows."""
+"""Batch processing backend.
+
+This module coordinates per-image batch processing for segmentation,
+spot detection, and quantification. It provides a single entry point
+(`BatchBackend.run_job`) that consumes a :class:`BatchJobConfig` and
+produces a :class:`BatchSummary` describing outputs and errors.
+
+The batch run flow is:
+
+1. Normalize input extensions and discover files.
+2. Resolve channel mapping for named channels.
+3. For each file (and each scene, if enabled):
+   a. Optionally run nuclear segmentation.
+   b. Optionally run cytoplasmic segmentation.
+   c. Optionally run spot detection for selected channels.
+   d. Optionally run quantification using a temporary viewer shim.
+4. Persist mask outputs and quantification results.
+
+Notes
+-----
+This backend is intentionally UI-agnostic. UI widgets build a
+``BatchJobConfig`` and pass it here for execution.
+"""
 
 from __future__ import annotations
 
@@ -29,7 +51,19 @@ from .io import (
 
 @dataclass(slots=True)
 class BatchItemResult:
-    """Result metadata for a single processed image."""
+    """Result metadata for a single processed image.
+
+    Attributes
+    ----------
+    path : Path
+        Input file path.
+    scene_id : str or None
+        Scene identifier for multi-scene files.
+    outputs : dict of str to Path
+        Mapping of output labels to written files.
+    errors : list of str
+        Collected error messages for this item.
+    """
 
     path: Path
     scene_id: str | None
@@ -39,7 +73,23 @@ class BatchItemResult:
 
 @dataclass(slots=True)
 class BatchSummary:
-    """Aggregated results for a batch run."""
+    """Aggregated results for a batch run.
+
+    Attributes
+    ----------
+    input_root : Path
+        Root input directory.
+    output_root : Path
+        Root output directory.
+    processed : int
+        Number of successfully processed items.
+    skipped : int
+        Number of skipped items.
+    failed : int
+        Number of failed items.
+    results : list of BatchItemResult
+        Per-item metadata for the run.
+    """
 
     input_root: Path
     output_root: Path
@@ -57,11 +107,33 @@ class BatchBackend:
         segmentation_backend: SegmentationBackend | None = None,
         spots_backend: SpotsBackend | None = None,
     ) -> None:
+        """Initialize the backend.
+
+        Parameters
+        ----------
+        segmentation_backend : SegmentationBackend or None, optional
+            Backend used to resolve segmentation models. A default
+            instance is created when omitted.
+        spots_backend : SpotsBackend or None, optional
+            Backend used to resolve spot detection models. A default
+            instance is created when omitted.
+        """
         self._segmentation_backend = segmentation_backend or SegmentationBackend()
         self._spots_backend = spots_backend or SpotsBackend()
 
     def run_job(self, job: BatchJobConfig) -> BatchSummary:
-        """Run a batch job using a BatchJobConfig."""
+        """Run a batch job using a configuration object.
+
+        Parameters
+        ----------
+        job : BatchJobConfig
+            Fully-populated batch configuration.
+
+        Returns
+        -------
+        BatchSummary
+            Summary of the batch run (counts + per-item metadata).
+        """
         return self.process_folder(
             job.input_path,
             job.output_path,
@@ -110,7 +182,58 @@ class BatchBackend:
         overwrite: bool = False,
         process_all_scenes: bool = False,
     ) -> BatchSummary:
-        """Run batch processing on a folder of images."""
+        """Run batch processing on a folder of images.
+
+        Parameters
+        ----------
+        input_path : str
+            Folder containing input images.
+        output_path : str
+            Folder where outputs should be written.
+        channel_map : iterable of BatchChannelConfig or dict, optional
+            Mapping from channel names to indices.
+        nuclear_model : str or None, optional
+            Segmentation model name for nuclei.
+        nuclear_channel : str or int or None, optional
+            Channel selection for nuclei.
+        nuclear_settings : dict or None, optional
+            Model settings for nuclear segmentation.
+        cyto_model : str or None, optional
+            Segmentation model name for cytoplasm.
+        cyto_channel : str or int or None, optional
+            Channel selection for cytoplasm.
+        cyto_nuclear_channel : str or int or None, optional
+            Optional nuclear channel used by cytoplasmic models.
+        cyto_settings : dict or None, optional
+            Model settings for cytoplasmic segmentation.
+        spot_detector : str or None, optional
+            Spot detection model name.
+        spot_channels : iterable of str or int or None, optional
+            Channels used for spot detection.
+        spot_settings : dict or None, optional
+            Detector settings.
+        quantification_features : iterable of object or None, optional
+            Quantification feature contexts (UI-generated).
+        quantification_format : str, optional
+            Output format for quantification (``"csv"`` or ``"xlsx"``).
+        quantification_tab : object or None, optional
+            Quantification tab instance for viewer wiring.
+        extensions : iterable of str or None, optional
+            File extensions to include.
+        include_subfolders : bool, optional
+            Whether to recurse into subfolders.
+        output_format : str, optional
+            Mask output format (``"tif"`` or ``"npy"``).
+        overwrite : bool, optional
+            Whether to overwrite existing output folders.
+        process_all_scenes : bool, optional
+            Whether to process all scenes in multi-scene files.
+
+        Returns
+        -------
+        BatchSummary
+            Summary of the batch run.
+        """
         input_root = Path(input_path).expanduser()
         output_root = Path(output_path).expanduser()
         output_root.mkdir(parents=True, exist_ok=True)
@@ -141,6 +264,7 @@ class BatchBackend:
                 results=[],
             )
 
+        # Iterate over files and (optionally) scene variants.
         for path in files:
             scenes = self._iter_scenes(path, process_all_scenes)
             for scene_id in scenes:
@@ -154,6 +278,7 @@ class BatchBackend:
                         results.append(item_result)
                         continue
 
+                    # Collect labels for later quantification.
                     labels_data: dict[str, np.ndarray] = {}
                     labels_meta: dict[str, dict] = {}
 
@@ -313,6 +438,18 @@ class BatchBackend:
 def _normalize_channel_map(
     channel_map: Iterable[BatchChannelConfig | dict] | None,
 ) -> list[BatchChannelConfig]:
+    """Normalize channel mapping payloads into config objects.
+
+    Parameters
+    ----------
+    channel_map : iterable of BatchChannelConfig or dict or None
+        Channel mapping definitions from the UI or JSON payload.
+
+    Returns
+    -------
+    list of BatchChannelConfig
+        Normalized channel mapping list.
+    """
     if channel_map is None:
         return []
     normalized: list[BatchChannelConfig] = []
@@ -337,6 +474,24 @@ def _resolve_output_dir(
     scene_id: str | None,
     overwrite: bool,
 ) -> Path | None:
+    """Resolve (and optionally create) the output directory for a run.
+
+    Parameters
+    ----------
+    output_root : Path
+        Root output folder.
+    path : Path
+        Input file path.
+    scene_id : str or None
+        Optional scene identifier.
+    overwrite : bool
+        Whether to overwrite existing folders.
+
+    Returns
+    -------
+    Path or None
+        Output directory path, or None when skipped.
+    """
     base_name = basename_for_path(path)
     output_dir = output_root / base_name
     if scene_id:
@@ -354,6 +509,26 @@ def _build_viewer_for_quantification(
     labels_data: dict[str, np.ndarray],
     labels_meta: dict[str, dict],
 ) -> BatchViewer:
+    """Build a minimal viewer shim for quantification exports.
+
+    Parameters
+    ----------
+    path : Path
+        Input file path.
+    scene_id : str or None
+        Optional scene identifier.
+    channel_map : list of BatchChannelConfig
+        Channel mapping definitions used to load images.
+    labels_data : dict of str to numpy.ndarray
+        Generated label masks keyed by label name.
+    labels_meta : dict of str to dict
+        Metadata associated with each labels layer.
+
+    Returns
+    -------
+    BatchViewer
+        Viewer shim with Image/Labels layers.
+    """
     layers: list[object] = []
     for channel in channel_map:
         image, metadata = load_channel_data(path, channel.index, scene_id)
@@ -371,6 +546,17 @@ def _apply_quantification_viewer(
     quantification_tab: object | None,
     viewer: BatchViewer,
 ) -> None:
+    """Attach a batch viewer to quantification handlers.
+
+    Parameters
+    ----------
+    features : iterable of object
+        Feature UI contexts (from QuantificationTab).
+    quantification_tab : object or None
+        Quantification tab instance (optional).
+    viewer : BatchViewer
+        Viewer shim with layers to expose to feature handlers.
+    """
     if quantification_tab is not None:
         setattr(quantification_tab, "_viewer", viewer)
     for context in features:

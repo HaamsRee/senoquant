@@ -1,4 +1,7 @@
-"""Batch tab modules."""
+"""Batch tab modules.
+
+Exports the Batch UI widget and configuration/backend helpers.
+"""
 
 from .backend import BatchBackend
 from .config import BatchChannelConfig, BatchJobConfig

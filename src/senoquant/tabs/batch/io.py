@@ -1,4 +1,9 @@
-"""I/O helpers for batch processing."""
+"""I/O helpers for batch processing.
+
+This module provides filesystem and image-loading utilities used by the
+batch backend. Functions are intentionally stateless and easy to mock in
+tests.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,18 @@ from .config import BatchChannelConfig
 
 
 def normalize_extensions(extensions: Iterable[str] | None) -> set[str] | None:
-    """Normalize extension list to lowercase with leading dots."""
+    """Normalize extension list to lowercase with leading dots.
+
+    Parameters
+    ----------
+    extensions : iterable of str or None
+        Raw extension strings (with or without dots).
+
+    Returns
+    -------
+    set of str or None
+        Normalized extensions or None when no filtering is requested.
+    """
     if extensions is None:
         return None
     normalized = set()
@@ -31,7 +47,22 @@ def normalize_extensions(extensions: Iterable[str] | None) -> set[str] | None:
 def iter_input_files(
     root: Path, extensions: set[str] | None, include_subfolders: bool
 ) -> Iterable[Path]:
-    """Yield input files from a root folder."""
+    """Yield input files from a root folder.
+
+    Parameters
+    ----------
+    root : Path
+        Directory to scan.
+    extensions : set of str or None
+        Allowed file extensions. None disables filtering.
+    include_subfolders : bool
+        Whether to scan subfolders recursively.
+
+    Yields
+    ------
+    Path
+        File paths that match the extension criteria.
+    """
     if not root.exists():
         return
     iterator = root.rglob("*") if include_subfolders else root.iterdir()
@@ -47,7 +78,18 @@ def iter_input_files(
 
 
 def basename_for_path(path: Path) -> str:
-    """Return a filesystem-friendly base name for a file path."""
+    """Return a filesystem-friendly base name for a file path.
+
+    Parameters
+    ----------
+    path : Path
+        Input file path.
+
+    Returns
+    -------
+    str
+        Base name with common microscopy extensions removed.
+    """
     name = path.name
     lowered = name.lower()
     for ext in (".ome.tiff", ".ome.tif", ".tiff", ".tif"):
@@ -59,7 +101,18 @@ def basename_for_path(path: Path) -> str:
 
 
 def safe_scene_dir(scene_id: str) -> str:
-    """Return a sanitized scene identifier for folder naming."""
+    """Return a sanitized scene identifier for folder naming.
+
+    Parameters
+    ----------
+    scene_id : str
+        Scene identifier from BioIO.
+
+    Returns
+    -------
+    str
+        Filesystem-safe scene folder name.
+    """
     safe = scene_id.strip().replace("/", "_").replace("\\", "_")
     return safe or "scene"
 
@@ -67,7 +120,24 @@ def safe_scene_dir(scene_id: str) -> str:
 def write_array(
     output_dir: Path, name: str, data: np.ndarray, output_format: str
 ) -> Path:
-    """Write an array to disk in the requested format."""
+    """Write an array to disk in the requested format.
+
+    Parameters
+    ----------
+    output_dir : Path
+        Destination folder.
+    name : str
+        Base name for the output file.
+    data : numpy.ndarray
+        Array data to serialize.
+    output_format : str
+        Output format (``"tif"`` or ``"npy"``).
+
+    Returns
+    -------
+    Path
+        Path to the written file.
+    """
     output_format = output_format.lower().strip()
     if output_format == "npy":
         path = output_dir / f"{name}.npy"
@@ -90,6 +160,25 @@ def resolve_channel_index(
     choice: str | int | None,
     channel_map: list[BatchChannelConfig],
 ) -> int:
+    """Resolve a channel selection into a numeric index.
+
+    Parameters
+    ----------
+    choice : str or int or None
+        Channel selection from the UI (name or index).
+    channel_map : list of BatchChannelConfig
+        Mapping from names to indices.
+
+    Returns
+    -------
+    int
+        Resolved channel index.
+
+    Raises
+    ------
+    ValueError
+        If the selection is missing or unknown.
+    """
     if isinstance(choice, int):
         return choice
     if choice is None:
@@ -109,6 +198,20 @@ def spot_label_name(
     choice: str | int,
     channel_map: list[BatchChannelConfig],
 ) -> str:
+    """Build the output label name for a spot channel.
+
+    Parameters
+    ----------
+    choice : str or int
+        Channel selection.
+    channel_map : list of BatchChannelConfig
+        Channel mapping list for name lookup.
+
+    Returns
+    -------
+    str
+        Standardized spot label name.
+    """
     if isinstance(choice, int):
         name = str(choice)
     else:
@@ -123,6 +226,7 @@ def spot_label_name(
 
 
 def sanitize_label(name: str) -> str:
+    """Sanitize a label name for filesystem use."""
     safe = []
     for char in name.strip():
         if char.isalnum():
@@ -138,7 +242,22 @@ def load_channel_data(
     channel_index: int,
     scene_id: str | None,
 ) -> tuple[np.ndarray | None, dict]:
-    """Load a single-channel image array for the given path."""
+    """Load a single-channel image array for the given path.
+
+    Parameters
+    ----------
+    path : Path
+        Input file path.
+    channel_index : int
+        Channel index to extract.
+    scene_id : str or None
+        Optional scene identifier.
+
+    Returns
+    -------
+    tuple of (numpy.ndarray or None, dict)
+        The extracted image data and metadata.
+    """
     image = reader_core._open_bioimage(str(path))
     try:
         if scene_id:
@@ -180,7 +299,18 @@ def load_channel_data(
 
 
 def list_scenes(path: Path) -> list[str]:
-    """Return scene identifiers for a BioIO image path."""
+    """Return scene identifiers for a BioIO image path.
+
+    Parameters
+    ----------
+    path : Path
+        Input file path.
+
+    Returns
+    -------
+    list of str
+        Scene identifiers, or an empty list if unavailable.
+    """
     try:
         image = reader_core._open_bioimage(str(path))
     except Exception:

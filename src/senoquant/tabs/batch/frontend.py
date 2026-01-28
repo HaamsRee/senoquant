@@ -1,4 +1,9 @@
-"""Frontend widget for the Batch tab."""
+"""Frontend widget for the Batch tab.
+
+This module defines the Qt UI for configuring and running batch processing.
+The UI builds a :class:`BatchJobConfig`, then delegates execution to the
+batch backend in a background thread.
+"""
 
 from __future__ import annotations
 
@@ -54,10 +59,20 @@ class RefreshingComboBox(QComboBox):
     """Combo box that refreshes its items when opened."""
 
     def __init__(self, refresh_callback=None, parent=None) -> None:
+        """Initialize the combo box.
+
+        Parameters
+        ----------
+        refresh_callback : callable or None, optional
+            Callable invoked before the popup opens.
+        parent : QWidget or None, optional
+            Parent widget.
+        """
         super().__init__(parent)
         self._refresh_callback = refresh_callback
 
     def showPopup(self) -> None:
+        """Invoke the refresh callback before showing the popup."""
         if self._refresh_callback is not None:
             self._refresh_callback()
         super().showPopup()
@@ -71,6 +86,15 @@ class BatchTab(QWidget):
         backend: BatchBackend | None = None,
         napari_viewer=None,
     ) -> None:
+        """Initialize the Batch tab UI.
+
+        Parameters
+        ----------
+        backend : BatchBackend or None, optional
+            Backend instance used to execute batch runs.
+        napari_viewer : object or None, optional
+            Napari viewer instance for populating layer choices.
+        """
         super().__init__()
         self._viewer = napari_viewer
         self._segmentation_backend = SegmentationBackend()
@@ -134,14 +158,17 @@ class BatchTab(QWidget):
         self._update_processing_state()
 
     def showEvent(self, event) -> None:
+        """Re-apply scroll sizing when the widget is shown."""
         super().showEvent(event)
         self._apply_scroll_height()
 
     def resizeEvent(self, event) -> None:
+        """Re-apply scroll sizing when the widget is resized."""
         super().resizeEvent(event)
         self._apply_scroll_height()
 
     def _make_input_section(self) -> QGroupBox:
+        """Build the input configuration section."""
         section = QGroupBox("Input")
         section_layout = QVBoxLayout()
         form_layout = QFormLayout()
@@ -189,6 +216,7 @@ class BatchTab(QWidget):
         return section
 
     def _apply_scroll_height(self) -> None:
+        """Pin scroll area height to 75% of the parent widget."""
         parent = self.parentWidget()
         if parent is None:
             return
@@ -198,6 +226,7 @@ class BatchTab(QWidget):
             self._scroll_area.setMaximumHeight(height)
 
     def _make_channel_section(self) -> QGroupBox:
+        """Build the channel mapping section."""
         section = QGroupBox("Channels")
         section_layout = QVBoxLayout()
 
@@ -219,6 +248,7 @@ class BatchTab(QWidget):
         return section
 
     def _make_segmentation_section(self) -> QGroupBox:
+        """Build the segmentation configuration section."""
         section = QGroupBox("Segmentation")
         section_layout = QVBoxLayout()
 
@@ -276,6 +306,7 @@ class BatchTab(QWidget):
         return section
 
     def _make_spots_section(self) -> QGroupBox:
+        """Build the spot detection configuration section."""
         section = QGroupBox("Spot detection")
         section_layout = QVBoxLayout()
         form_layout = QFormLayout()
@@ -316,6 +347,7 @@ class BatchTab(QWidget):
         return section
 
     def _make_quantification_section(self) -> QGroupBox:
+        """Build the quantification configuration section."""
         section = QGroupBox("Quantification")
         section_layout = QVBoxLayout()
         self._quant_enabled = QCheckBox("Run quantification")
@@ -335,6 +367,7 @@ class BatchTab(QWidget):
         return section
 
     def _make_output_section(self) -> QGroupBox:
+        """Build the output configuration section."""
         section = QGroupBox("Output")
         section_layout = QVBoxLayout()
         form_layout = QFormLayout()
@@ -369,16 +402,19 @@ class BatchTab(QWidget):
         return section
 
     def _select_input_path(self) -> None:
+        """Open a folder picker for the input path."""
         path = QFileDialog.getExistingDirectory(self, "Select input folder")
         if path:
             self._input_path.setText(path)
 
     def _select_output_path(self) -> None:
+        """Open a folder picker for the output path."""
         path = QFileDialog.getExistingDirectory(self, "Select output folder")
         if path:
             self._output_path.setText(path)
 
     def _refresh_segmentation_models(self) -> None:
+        """Refresh available nuclear segmentation models."""
         names = self._segmentation_backend.list_model_names(task="nuclear")
         self._nuclear_model_combo.clear()
         if names:
@@ -390,6 +426,7 @@ class BatchTab(QWidget):
         self._update_nuclear_settings()
 
     def _refresh_cyto_models(self) -> None:
+        """Refresh available cytoplasmic segmentation models."""
         names = self._segmentation_backend.list_model_names(task="cytoplasmic")
         self._cyto_model_combo.clear()
         if names:
@@ -401,6 +438,7 @@ class BatchTab(QWidget):
         self._update_cyto_settings()
 
     def _refresh_detectors(self) -> None:
+        """Refresh available spot detectors."""
         names = self._spots_backend.list_detector_names()
         self._spot_detector_combo.clear()
         if names:
@@ -412,6 +450,7 @@ class BatchTab(QWidget):
         self._update_spot_settings()
 
     def _add_spot_channel_row(self) -> None:
+        """Add a new spot-channel row to the UI."""
         if not hasattr(self, "_spot_channels_layout"):
             return
         row_widget = QWidget()
@@ -432,6 +471,7 @@ class BatchTab(QWidget):
         self._refresh_spot_channel_choices()
 
     def _remove_spot_channel_row(self, row: dict) -> None:
+        """Remove a spot-channel row from the UI."""
         widget = row.get("widget")
         if widget is not None:
             widget.setParent(None)
@@ -440,6 +480,7 @@ class BatchTab(QWidget):
         self._refresh_spot_channel_choices()
 
     def _refresh_spot_channel_choices(self) -> None:
+        """Refresh spot-channel combo options based on channel map."""
         if not hasattr(self, "_spot_channels_layout"):
             return
         names = [config.name for config in self._channel_configs] or ["0"]
@@ -457,6 +498,13 @@ class BatchTab(QWidget):
         self._refresh_config_viewer()
 
     def _add_channel_row(self, config: BatchChannelConfig | None = None) -> None:
+        """Add a channel mapping row.
+
+        Parameters
+        ----------
+        config : BatchChannelConfig or None, optional
+            Pre-populated channel config. When None, a default row is created.
+        """
         if isinstance(config, bool):
             config = None
         if config is None:
@@ -495,6 +543,7 @@ class BatchTab(QWidget):
         self._sync_channel_map()
 
     def _remove_channel_row(self, row: dict) -> None:
+        """Remove a channel mapping row."""
         widget = row.get("widget")
         if widget is not None:
             widget.setParent(None)
@@ -503,6 +552,7 @@ class BatchTab(QWidget):
         self._sync_channel_map()
 
     def _sync_channel_map(self) -> None:
+        """Sync UI channel rows into BatchChannelConfig objects."""
         configs: list[BatchChannelConfig] = []
         for row in self._channel_rows:
             name = row["name"].text().strip()
@@ -517,6 +567,7 @@ class BatchTab(QWidget):
         self._refresh_config_viewer()
 
     def _refresh_channel_choices(self) -> None:
+        """Refresh combo boxes that depend on channel mapping."""
         names = [config.name for config in self._channel_configs]
         combos = []
         for attr in (
@@ -537,8 +588,10 @@ class BatchTab(QWidget):
                     combo.setCurrentIndex(index)
 
     def _refresh_config_viewer(self) -> None:
+        """Refresh the quantification preview viewer shim."""
         layers: list[object] = []
         for config in self._channel_configs:
+            # Add placeholder image layers so quantification UI can list names.
             layers.append(Image(None, config.name))
         if getattr(self, "_nuclear_enabled", None) is not None and self._nuclear_enabled.isChecked():
             layers.append(Labels(None, "nuclear_labels"))
@@ -550,6 +603,7 @@ class BatchTab(QWidget):
         self._config_viewer.set_layers(layers)
 
     def _update_nuclear_settings(self) -> None:
+        """Refresh nuclear model settings from the selected model."""
         model_name = self._nuclear_model_combo.currentText()
         self._nuclear_settings_widgets.clear()
         self._nuclear_settings_meta.clear()
@@ -564,6 +618,7 @@ class BatchTab(QWidget):
         self._nuclear_settings_values = _defaults_from_settings(settings)
 
     def _update_cyto_settings(self) -> None:
+        """Refresh cytoplasmic model settings from the selected model."""
         model_name = self._cyto_model_combo.currentText()
         self._cyto_settings_widgets.clear()
         self._cyto_settings_meta.clear()
@@ -580,6 +635,7 @@ class BatchTab(QWidget):
         self._cyto_nuclear_combo.setEnabled(not optional)
 
     def _update_spot_settings(self) -> None:
+        """Refresh spot detector settings from the selected detector."""
         detector_name = self._spot_detector_combo.currentText()
         self._spot_settings_widgets.clear()
         self._spot_settings_meta.clear()
@@ -594,6 +650,13 @@ class BatchTab(QWidget):
         self._spot_settings_values = _defaults_from_settings(settings)
 
     def _open_settings_dialog(self, kind: str) -> None:
+        """Open a settings dialog for model/detector configuration.
+
+        Parameters
+        ----------
+        kind : {"nuclear", "cyto", "spot"}
+            Settings group to edit.
+        """
         if kind == "nuclear":
             title = "Nuclear settings"
             settings = list(self._nuclear_settings_list)
@@ -661,6 +724,7 @@ class BatchTab(QWidget):
         values.update(self._collect_settings(widgets))
 
     def _apply_setting_dependencies(self, settings_widgets: dict, settings_meta: dict) -> None:
+        """Enable/disable settings based on dependency metadata."""
         for key, setting in settings_meta.items():
             widget = settings_widgets.get(key)
             if widget is None:
@@ -678,6 +742,7 @@ class BatchTab(QWidget):
 
     @staticmethod
     def _collect_settings(settings_widgets: dict) -> dict:
+        """Collect values from settings widgets into a dictionary."""
         values = {}
         for key, widget in settings_widgets.items():
             if hasattr(widget, "value"):
@@ -687,6 +752,7 @@ class BatchTab(QWidget):
         return values
 
     def _update_processing_state(self) -> None:
+        """Enable/disable UI sections based on checkbox states."""
         nuclear_enabled = self._nuclear_enabled.isChecked()
         cyto_enabled = self._cyto_enabled.isChecked()
         spot_enabled = self._spots_enabled.isChecked()
@@ -708,6 +774,7 @@ class BatchTab(QWidget):
         self._refresh_config_viewer()
 
     def _run_batch(self) -> None:
+        """Validate inputs and launch the batch job."""
         input_path = self._input_path.text().strip()
         if not input_path:
             self._notify("Select an input folder.")
@@ -777,6 +844,7 @@ class BatchTab(QWidget):
         )
 
     def _build_job_config(self) -> BatchJobConfig:
+        """Build a BatchJobConfig from the current UI state."""
         nuclear_settings = (
             self._collect_settings(self._nuclear_settings_widgets)
             if self._nuclear_settings_widgets
@@ -842,6 +910,7 @@ class BatchTab(QWidget):
         )
 
     def _apply_job_config(self, job: BatchJobConfig) -> None:
+        """Populate the UI from a BatchJobConfig."""
         self._refresh_segmentation_models()
         self._refresh_cyto_models()
         self._refresh_detectors()
@@ -887,6 +956,7 @@ class BatchTab(QWidget):
         self._refresh_config_viewer()
 
     def _save_profile(self) -> None:
+        """Save the current configuration to a JSON profile."""
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Save batch profile",
@@ -900,6 +970,7 @@ class BatchTab(QWidget):
         self._notify(f"Saved profile to {path}")
 
     def _load_profile(self) -> None:
+        """Load a configuration from a JSON profile."""
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Load batch profile",
@@ -913,6 +984,7 @@ class BatchTab(QWidget):
         self._notify(f"Loaded profile from {path}")
 
     def _clear_channel_rows(self) -> None:
+        """Remove all channel rows from the UI."""
         for row in list(self._channel_rows):
             widget = row.get("widget")
             if widget is not None:
@@ -921,6 +993,7 @@ class BatchTab(QWidget):
         self._channel_configs = []
 
     def _clear_spot_channel_rows(self) -> None:
+        """Remove all spot channel rows from the UI."""
         for row in list(self._spot_channel_rows):
             widget = row.get("widget")
             if widget is not None:
@@ -929,6 +1002,7 @@ class BatchTab(QWidget):
 
     @staticmethod
     def _set_combo_value(combo: QComboBox, value: str) -> None:
+        """Set a combo box value if the item exists."""
         if not value:
             return
         index = combo.findText(value)
@@ -943,6 +1017,7 @@ class BatchTab(QWidget):
         run_callable,
         on_success,
     ) -> None:
+        """Start a background thread to execute the batch job."""
         run_button.setEnabled(False)
         run_button.setText("Running...")
         self._status_label.setText("Running batch...")
@@ -971,6 +1046,7 @@ class BatchTab(QWidget):
         thread: QThread,
         worker: QObject,
     ) -> None:
+        """Restore UI state and clean up worker threads."""
         run_button.setEnabled(True)
         run_button.setText(run_text)
         self._status_label.setText("Ready")
@@ -982,6 +1058,7 @@ class BatchTab(QWidget):
             pass
 
     def _handle_batch_complete(self, summary) -> None:
+        """Handle successful completion of a batch run."""
         message = (
             f"Batch complete: {summary.processed} processed, "
             f"{summary.failed} failed, {summary.skipped} skipped."
@@ -989,6 +1066,7 @@ class BatchTab(QWidget):
         self._notify(message)
 
     def _notify(self, message: str) -> None:
+        """Send a user-visible notification and update the status label."""
         if (
             show_console_notification is not None
             and Notification is not None
@@ -1007,10 +1085,18 @@ class _RunWorker(QObject):
     failed = Signal(str)
 
     def __init__(self, run_callable) -> None:
+        """Initialize the worker.
+
+        Parameters
+        ----------
+        run_callable : callable
+            Callable invoked on the worker thread.
+        """
         super().__init__()
         self._run_callable = run_callable
 
     def run(self) -> None:
+        """Execute the job and emit result or error."""
         try:
             result = self._run_callable()
         except Exception as exc:  # pragma: no cover - runtime error path
@@ -1020,6 +1106,7 @@ class _RunWorker(QObject):
 
 
 def _defaults_from_settings(settings: list[dict]) -> dict[str, object]:
+    """Extract default values from a list of model settings."""
     values: dict[str, object] = {}
     for setting in settings:
         key = setting.get("key") or setting.get("label") or "Setting"
@@ -1028,6 +1115,7 @@ def _defaults_from_settings(settings: list[dict]) -> dict[str, object]:
 
 
 def _spot_label_names(rows: list[dict]) -> list[str]:
+    """Build label layer names for spot channels."""
     labels: list[str] = []
     for row in rows:
         combo = row.get("combo")
@@ -1041,6 +1129,7 @@ def _spot_label_names(rows: list[dict]) -> list[str]:
 
 
 def _sanitize_label(name: str) -> str:
+    """Sanitize a label name for display and export."""
     safe = []
     for char in name.strip():
         if char.isalnum():

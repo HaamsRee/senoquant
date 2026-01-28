@@ -1,4 +1,9 @@
-"""Batch job configuration and serialization helpers."""
+"""Batch job configuration and serialization helpers.
+
+This module defines dataclasses used to capture batch settings from the UI
+and persist them to JSON. The serialization format keeps feature configs
+portable across sessions and mirrors the Quantification tab structures.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +28,15 @@ from senoquant.tabs.quantification.features.roi import ROIConfig
 
 @dataclass(slots=True)
 class BatchChannelConfig:
-    """Channel mapping configuration."""
+    """Channel mapping configuration.
+
+    Attributes
+    ----------
+    name : str
+        User-facing channel name (used in UI and exports).
+    index : int
+        Zero-based channel index in the input image.
+    """
 
     name: str
     index: int
@@ -31,6 +44,7 @@ class BatchChannelConfig:
 
 @dataclass(slots=True)
 class BatchSegmentationConfig:
+    """Segmentation configuration for a single task."""
     enabled: bool = False
     model: str = ""
     channel: str = ""
@@ -39,6 +53,7 @@ class BatchSegmentationConfig:
 
 @dataclass(slots=True)
 class BatchCytoplasmicConfig:
+    """Cytoplasmic segmentation configuration."""
     enabled: bool = False
     model: str = ""
     channel: str = ""
@@ -48,6 +63,7 @@ class BatchCytoplasmicConfig:
 
 @dataclass(slots=True)
 class BatchSpotsConfig:
+    """Spot detection configuration."""
     enabled: bool = False
     detector: str = ""
     channels: list[str] = field(default_factory=list)
@@ -56,6 +72,7 @@ class BatchSpotsConfig:
 
 @dataclass(slots=True)
 class BatchQuantificationConfig:
+    """Quantification configuration."""
     enabled: bool = False
     format: str = "xlsx"
     features: list[FeatureConfig] = field(default_factory=list)
@@ -63,6 +80,11 @@ class BatchQuantificationConfig:
 
 @dataclass(slots=True)
 class BatchJobConfig:
+    """Top-level batch configuration.
+
+    This structure is the single payload passed from the UI to the backend.
+    It is also the serialized representation used in batch profiles.
+    """
     input_path: str = ""
     output_path: str = ""
     extensions: list[str] = field(default_factory=list)
@@ -77,6 +99,13 @@ class BatchJobConfig:
     quantification: BatchQuantificationConfig = field(default_factory=BatchQuantificationConfig)
 
     def to_dict(self) -> dict:
+        """Serialize the job config to a JSON-friendly dictionary.
+
+        Returns
+        -------
+        dict
+            JSON-compatible representation of the batch config.
+        """
         payload = asdict(self)
         payload["quantification"]["features"] = [
             _serialize_feature(feature)
@@ -86,6 +115,18 @@ class BatchJobConfig:
 
     @classmethod
     def from_dict(cls, payload: dict) -> "BatchJobConfig":
+        """Hydrate a job config from a JSON payload.
+
+        Parameters
+        ----------
+        payload : dict
+            JSON-compatible representation of the batch config.
+
+        Returns
+        -------
+        BatchJobConfig
+            Parsed configuration instance.
+        """
         channel_map = [
             BatchChannelConfig(**item)
             for item in payload.get("channel_map", [])
@@ -125,17 +166,37 @@ class BatchJobConfig:
         )
 
     def save(self, path: str) -> None:
+        """Persist the configuration to disk.
+
+        Parameters
+        ----------
+        path : str
+            Destination file path for the JSON profile.
+        """
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(self.to_dict(), handle, indent=2)
 
     @classmethod
     def load(cls, path: str) -> "BatchJobConfig":
+        """Load a configuration from disk.
+
+        Parameters
+        ----------
+        path : str
+            Source JSON profile file.
+
+        Returns
+        -------
+        BatchJobConfig
+            Loaded configuration instance.
+        """
         with open(path, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
         return cls.from_dict(payload)
 
 
 def _serialize_feature(feature: FeatureConfig) -> dict:
+    """Serialize a Quantification feature into a JSON payload."""
     return {
         "feature_id": feature.feature_id,
         "name": feature.name,
@@ -145,6 +206,7 @@ def _serialize_feature(feature: FeatureConfig) -> dict:
 
 
 def _serialize_feature_data(data_obj: object) -> dict:
+    """Serialize feature-specific data payloads."""
     if isinstance(data_obj, MarkerFeatureData):
         return {
             "type": "Markers",
@@ -159,6 +221,7 @@ def _serialize_feature_data(data_obj: object) -> dict:
 
 
 def _deserialize_feature(payload: dict) -> FeatureConfig:
+    """Deserialize a feature payload into a FeatureConfig."""
     feature_id = payload.get("feature_id", "")
     name = payload.get("name", "")
     type_name = payload.get("type_name", "")
@@ -176,6 +239,7 @@ def _deserialize_feature(payload: dict) -> FeatureConfig:
 
 
 def _deserialize_feature_data(data_type: str, payload: dict):
+    """Deserialize feature payloads into feature data objects."""
     if data_type == "Markers":
         return MarkerFeatureData(
             segmentations=[
