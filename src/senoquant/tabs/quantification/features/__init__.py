@@ -7,7 +7,6 @@ import pkgutil
 from typing import Iterable
 
 from .base import FeatureConfig, FeatureData, SenoQuantFeature
-from .colocalization.config import ColocalizationFeatureData
 from .marker.config import MarkerFeatureData
 from .spots.config import SpotsFeatureData
 
@@ -52,7 +51,6 @@ def get_feature_registry() -> dict[str, type[SenoQuantFeature]]:
 FEATURE_DATA_FACTORY: dict[str, type[FeatureData]] = {
     "Markers": MarkerFeatureData,
     "Spots": SpotsFeatureData,
-    "Colocalization": ColocalizationFeatureData,
 }
 
 

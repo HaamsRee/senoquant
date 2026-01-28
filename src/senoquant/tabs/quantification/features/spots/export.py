@@ -69,6 +69,8 @@ def export_spots(
     - Spot intensities are computed from the channel image referenced by
       each channel config. Missing or mismatched images result in ``NaN``
       mean intensities for those spots.
+    - When ``export_colocalization`` is enabled on the feature, additional
+      colocalization columns are appended to both tables.
     - Physical units are derived from ``layer.metadata["physical_pixel_sizes"]``
       when available (same convention as the markers export).
     """
@@ -145,8 +147,8 @@ def export_spots(
             viewer, data.rois, label_name, cell_labels.shape
         )
 
+        channel_entries: list[dict[str, object]] = []
         for channel in channels:
-            # Resolve channel image and its spots segmentation labels.
             channel_label = _channel_label(channel)
             channel_layer = _find_layer(viewer, channel.channel, "Image")
             spots_layer = _find_layer(
@@ -168,6 +170,39 @@ def export_spots(
                     RuntimeWarning,
                 )
                 continue
+            channel_entries.append(
+                {
+                    "channel_label": channel_label,
+                    "channel_layer": channel_layer,
+                    "spots_labels": spots_labels,
+                }
+            )
+
+        adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
+        if data.export_colocalization and len(channel_entries) >= 2:
+            for idx_a, entry_a in enumerate(channel_entries):
+                labels_a = entry_a["spots_labels"]
+                for idx_b in range(idx_a + 1, len(channel_entries)):
+                    labels_b = channel_entries[idx_b]["spots_labels"]
+                    mask = (labels_a > 0) & (labels_b > 0)
+                    if not np.any(mask):
+                        continue
+                    pairs = np.column_stack(
+                        (labels_a[mask], labels_b[mask])
+                    )
+                    unique_pairs = np.unique(pairs, axis=0)
+                    for spot_a, spot_b in unique_pairs:
+                        key_a = (idx_a, int(spot_a))
+                        key_b = (idx_b, int(spot_b))
+                        adjacency.setdefault(key_a, set()).add(key_b)
+                        adjacency.setdefault(key_b, set()).add(key_a)
+
+        spot_lookup: dict[tuple[int, int], dict[str, object]] = {}
+
+        for idx, entry in enumerate(channel_entries):
+            channel_label = entry["channel_label"]
+            channel_layer = entry["channel_layer"]
+            spots_labels = entry["spots_labels"]
 
             # Compute spot centroids and skip if no spots exist.
             spot_ids, spot_centroids = _compute_centroids(spots_labels)
@@ -189,9 +224,8 @@ def export_spots(
                 if image.shape != spots_labels.shape:
                     warnings.warn(
                         "Spots export: image/spot shape mismatch for "
-                        f"'{channel.channel}' vs "
-                        f"'{channel.spots_segmentation}'. "
-                        "Spot intensity values will be empty.",
+                        f"'{channel_label}'. Spot intensity values "
+                        "will be empty.",
                         RuntimeWarning,
                     )
                 else:
@@ -242,7 +276,53 @@ def export_spots(
             if spot_rows_for_channel:
                 if not spot_header:
                     spot_header = list(spot_rows_for_channel[0].keys())
+                for row, spot_id, cell_id in zip(
+                    spot_rows_for_channel, valid_spot_ids, valid_cell_ids
+                ):
+                    spot_lookup[(idx, int(spot_id))] = {
+                        "row": row,
+                        "cell_id": int(cell_id),
+                    }
                 spot_rows.extend(spot_rows_for_channel)
+
+        if data.export_colocalization:
+            channel_labels = [
+                entry["channel_label"] for entry in channel_entries
+            ]
+            for key, info in spot_lookup.items():
+                others = adjacency.get(key, set())
+                names: list[str] = []
+                for other in others:
+                    if other not in spot_lookup:
+                        continue
+                    other_label = channel_labels[other[0]]
+                    names.append(f"{other_label}:{other[1]}")
+                info["row"]["colocalizes_with"] = (
+                    ";".join(sorted(set(names))) if names else ""
+                )
+
+            colocalization_key = "colocalization_event_count"
+            event_counts = np.zeros(
+                int(cell_labels.max()) + 1, dtype=int
+            )
+            seen_pairs: set[tuple[tuple[int, int], tuple[int, int]]] = set()
+            for key, others in adjacency.items():
+                if key not in spot_lookup:
+                    continue
+                for other in others:
+                    if other not in spot_lookup:
+                        continue
+                    pair = (key, other) if key < other else (other, key)
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+                    cell_id_a = spot_lookup[key]["cell_id"]
+                    cell_id_b = spot_lookup[other]["cell_id"]
+                    if cell_id_a > 0 and cell_id_a == cell_id_b:
+                        event_counts[cell_id_a] += 1
+            for row, cell_id in zip(cell_rows, cell_ids):
+                row[colocalization_key] = int(event_counts[cell_id])
+            cell_header.append(colocalization_key)
 
         # Emit cells and spots tables for the segmentation.
         file_stem = _sanitize_name(label_name or f"segmentation_{index}")
@@ -254,6 +334,11 @@ def export_spots(
             spot_header = _spot_header(
                 cell_labels.ndim, spot_table_pixel_sizes, spot_roi_columns
             )
+        if data.export_colocalization:
+            if "colocalizes_with" not in spot_header:
+                spot_header.append("colocalizes_with")
+            for row in spot_rows:
+                row.setdefault("colocalizes_with", "")
         spot_path = temp_dir / f"{file_stem}_spots.{export_format}"
         _write_table(spot_path, spot_header, spot_rows, export_format)
         outputs.append(spot_path)

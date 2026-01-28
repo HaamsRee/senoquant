@@ -52,8 +52,11 @@ class SpotsFeatureData(FeatureData):
         Channel configurations used for spots measurement.
     rois : list of ROIConfig
         ROI entries applied to this feature.
+    export_colocalization : bool
+        Whether to include colocalization columns in the export.
     """
 
     segmentations: list[SpotsSegmentationConfig] = field(default_factory=list)
     channels: list[SpotsChannelConfig] = field(default_factory=list)
     rois: list[ROIConfig] = field(default_factory=list)
+    export_colocalization: bool = False

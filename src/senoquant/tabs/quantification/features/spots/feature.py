@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from qtpy.QtWidgets import QDialog, QPushButton
+from qtpy.QtWidgets import QCheckBox, QDialog, QPushButton
 
 from ..base import SenoQuantFeature
 from ..roi import ROISection
@@ -46,8 +46,23 @@ class SpotsFeature(SenoQuantFeature):
         button = QPushButton("Add channels")
         button.clicked.connect(self._open_channels_dialog)
         left_dynamic_layout.addWidget(button)
+        data = self._state.data
+        checkbox = QCheckBox("Export colocalization")
+        checkbox.setChecked(
+            isinstance(data, SpotsFeatureData) and data.export_colocalization
+        )
+        checkbox.toggled.connect(self._set_export_colocalization)
+        left_dynamic_layout.addWidget(checkbox)
         self._ui["channels_button"] = button
+        self._ui["colocalization_checkbox"] = checkbox
         self._update_channels_button_label()
+
+    def _set_export_colocalization(self, checked: bool) -> None:
+        """Store colocalization export preference."""
+        data = self._state.data
+        if not isinstance(data, SpotsFeatureData):
+            return
+        data.export_colocalization = checked
 
     def _open_channels_dialog(self) -> None:
         """Open the channels configuration dialog."""
