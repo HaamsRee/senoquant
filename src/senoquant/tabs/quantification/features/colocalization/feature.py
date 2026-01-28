@@ -1,10 +1,13 @@
 """Colocalization feature UI."""
 
+from pathlib import Path
+
 from qtpy.QtWidgets import QComboBox, QFormLayout
 
 from ..base import SenoQuantFeature
 from ..spots.config import SpotsFeatureData
 from .config import ColocalizationFeatureData
+from .export import export_colocalization
 
 
 class ColocalizationFeature(SenoQuantFeature):
@@ -28,6 +31,33 @@ class ColocalizationFeature(SenoQuantFeature):
         left_dynamic_layout.addLayout(form_layout)
         self._ui["spots_combo"] = spots_combo
         self.on_features_changed(self._tab._feature_configs)
+
+    def export(self, temp_dir: Path, export_format: str):
+        """Export colocalization outputs into a temporary directory."""
+        data = self._state.data
+        if not isinstance(data, ColocalizationFeatureData):
+            return []
+        spots_feature_id = data.spots_feature_id
+        if not spots_feature_id:
+            return []
+        spots_context = next(
+            (
+                context
+                for context in self._tab._feature_configs
+                if context.state.feature_id == spots_feature_id
+                and context.state.type_name == self.spot_feature_type
+            ),
+            None,
+        )
+        if spots_context is None:
+            return []
+        return export_colocalization(
+            self._state,
+            spots_context.state,
+            temp_dir,
+            viewer=self._tab._viewer,
+            export_format=export_format,
+        )
 
     def on_features_changed(self, configs: list) -> None:
         """Refresh colocalization options when feature list changes.
