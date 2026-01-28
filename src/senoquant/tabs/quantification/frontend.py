@@ -54,6 +54,9 @@ class QuantificationTab(QWidget):
         *,
         show_output_section: bool = True,
         show_process_button: bool = True,
+        enable_rois: bool = True,
+        show_right_column: bool = True,
+        enable_thresholds: bool = True,
     ) -> None:
         """Initialize the quantification tab UI.
 
@@ -67,10 +70,19 @@ class QuantificationTab(QWidget):
             Whether to show the output configuration controls.
         show_process_button : bool, optional
             Whether to show the process button.
+        enable_rois : bool, optional
+            Whether to show ROI configuration controls within features.
+        show_right_column : bool, optional
+            Whether to show the right-hand feature column.
+        enable_thresholds : bool, optional
+            Whether to show threshold controls within features.
         """
         super().__init__()
         self._backend = backend or QuantificationBackend()
         self._viewer = napari_viewer
+        self._enable_rois = enable_rois
+        self._show_right_column = show_right_column
+        self._enable_thresholds = enable_thresholds
         self._feature_configs: list[FeatureUIContext] = []
         self._feature_registry = get_feature_registry()
         self._features_watch_timer: QTimer | None = None
@@ -227,6 +239,8 @@ class QuantificationTab(QWidget):
 
     def _add_feature_row(self, state: FeatureConfig | None = None) -> None:
         """Add a new feature input row."""
+        if isinstance(state, bool):
+            state = None
         index = len(self._feature_configs)
         feature_section = QGroupBox(f"Feature {index}")
         feature_section.setFlat(True)
@@ -303,7 +317,8 @@ class QuantificationTab(QWidget):
         self._right_container = right_container
 
         content_layout.addWidget(left_container, 3)
-        content_layout.addWidget(right_container, 2)
+        if self._show_right_column:
+            content_layout.addWidget(right_container, 2)
         section_layout.addLayout(content_layout)
         self._apply_features_layout()
         feature_section.setLayout(section_layout)

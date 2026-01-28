@@ -20,5 +20,6 @@ def layer_data_asarray(layer, *, squeeze: bool = True) -> np.ndarray:
     numpy.ndarray
         Array representation of the layer data.
     """
-    data = np.asarray(layer.data)
+    data = getattr(layer, "data", None)
+    data = np.asarray(data)
     return np.squeeze(data) if squeeze else data

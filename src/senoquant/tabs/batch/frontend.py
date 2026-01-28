@@ -112,6 +112,8 @@ class BatchTab(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(content)
+        self._scroll_area = scroll
+        self._apply_scroll_height()
         layout.addWidget(scroll)
 
         self._run_button = QPushButton("Run batch")
@@ -130,6 +132,14 @@ class BatchTab(QWidget):
         self._refresh_channel_choices()
         self._refresh_spot_channel_choices()
         self._update_processing_state()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._apply_scroll_height()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._apply_scroll_height()
 
     def _make_input_section(self) -> QGroupBox:
         section = QGroupBox("Input")
@@ -177,6 +187,15 @@ class BatchTab(QWidget):
         section_layout.addLayout(form_layout)
         section.setLayout(section_layout)
         return section
+
+    def _apply_scroll_height(self) -> None:
+        parent = self.parentWidget()
+        if parent is None:
+            return
+        height = int(parent.height() * 0.75)
+        if hasattr(self, "_scroll_area") and self._scroll_area is not None:
+            self._scroll_area.setMinimumHeight(height)
+            self._scroll_area.setMaximumHeight(height)
 
     def _make_channel_section(self) -> QGroupBox:
         section = QGroupBox("Channels")
@@ -306,6 +325,9 @@ class BatchTab(QWidget):
             napari_viewer=self._config_viewer,
             show_output_section=False,
             show_process_button=False,
+            enable_rois=False,
+            show_right_column=False,
+            enable_thresholds=False,
         )
         section_layout.addWidget(self._quant_enabled)
         section_layout.addWidget(self._quant_tab)

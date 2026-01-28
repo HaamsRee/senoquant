@@ -6,7 +6,6 @@ from typing import Iterable
 
 import numpy as np
 
-
 class Image:
     """Lightweight image layer placeholder."""
 
@@ -17,8 +16,6 @@ class Image:
         metadata: dict | None = None,
         rgb: bool = False,
     ) -> None:
-        if data is None:
-            data = np.zeros((1, 1), dtype=np.float32)
         self.data = data
         self.name = name
         self.metadata = metadata or {}
@@ -34,8 +31,6 @@ class Labels:
         name: str,
         metadata: dict | None = None,
     ) -> None:
-        if data is None:
-            data = np.zeros((1, 1), dtype=np.int32)
         self.data = data
         self.name = name
         self.metadata = metadata or {}

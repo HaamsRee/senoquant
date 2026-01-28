@@ -21,12 +21,13 @@ class SpotsFeature(SenoQuantFeature):
         """Build the spots feature UI."""
         self._build_channels_section()
         data = self._state.data
-        if isinstance(data, SpotsFeatureData):
-            roi_section = ROISection(self._tab, self._context, data.rois)
-        else:
-            roi_section = ROISection(self._tab, self._context, [])
-        roi_section.build()
-        self._ui["roi_section"] = roi_section
+        if getattr(self._tab, "_enable_rois", True):
+            if isinstance(data, SpotsFeatureData):
+                roi_section = ROISection(self._tab, self._context, data.rois)
+            else:
+                roi_section = ROISection(self._tab, self._context, [])
+            roi_section.build()
+            self._ui["roi_section"] = roi_section
 
     def on_features_changed(self, configs: list) -> None:
         """Update ROI titles when feature ordering changes.

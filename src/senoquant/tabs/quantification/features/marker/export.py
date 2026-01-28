@@ -29,6 +29,7 @@ def export_marker(
     temp_dir: Path,
     viewer=None,
     export_format: str = "csv",
+    enable_thresholds: bool = True,
 ) -> Iterable[Path]:
     """Export marker feature outputs into a temporary directory.
 
@@ -42,6 +43,8 @@ def export_marker(
         Napari viewer instance used to resolve layers by name.
     export_format : str, optional
         File format for exports (``"csv"`` or ``"xlsx"``).
+    enable_thresholds : bool, optional
+        Whether thresholded outputs should be computed.
 
     Returns
     -------
@@ -67,9 +70,10 @@ def export_marker(
     if not data.segmentations or not channels:
         return []
 
-    metadata_path = _write_threshold_metadata(temp_dir, channels)
-    if metadata_path is not None:
-        outputs.append(metadata_path)
+    if enable_thresholds:
+        metadata_path = _write_threshold_metadata(temp_dir, channels)
+        if metadata_path is not None:
+            outputs.append(metadata_path)
 
     for index, segmentation in enumerate(data.segmentations, start=0):
         label_name = segmentation.label.strip()
@@ -118,12 +122,19 @@ def export_marker(
             mean_intensity = _safe_divide(raw_sum, area_px)
             pixel_volume = _pixel_volume(channel_layer, labels.ndim)
             integrated = mean_intensity * (area_px * pixel_volume)
-            thresh_mean, thresh_raw, thresh_integrated = _apply_threshold(
-                mean_intensity,
-                raw_sum,
-                integrated,
-                channel,
-            )
+            if enable_thresholds:
+                thresh_mean, thresh_raw, thresh_integrated = _apply_threshold(
+                    mean_intensity,
+                    raw_sum,
+                    integrated,
+                    channel,
+                )
+            else:
+                thresh_mean, thresh_raw, thresh_integrated = (
+                    mean_intensity,
+                    raw_sum,
+                    integrated,
+                )
             prefix = _channel_prefix(channel)
             for row, mean_val, raw_val, int_val in zip(
                 rows, mean_intensity, raw_sum, integrated
@@ -131,7 +142,7 @@ def export_marker(
                 row[f"{prefix}_mean_intensity"] = float(mean_val)
                 row[f"{prefix}_integrated_intensity"] = float(int_val)
                 row[f"{prefix}_raw_integrated_intensity"] = float(raw_val)
-            if getattr(channel, "threshold_enabled", False):
+            if enable_thresholds and getattr(channel, "threshold_enabled", False):
                 for row, mean_val, raw_val, int_val in zip(
                     rows, thresh_mean, thresh_raw, thresh_integrated
                 ):
@@ -152,7 +163,7 @@ def export_marker(
                         f"{prefix}_raw_integrated_intensity",
                     ]
                 )
-                if getattr(channel, "threshold_enabled", False):
+                if enable_thresholds and getattr(channel, "threshold_enabled", False):
                     header.extend(
                         [
                             f"{prefix}_mean_intensity_thresholded",

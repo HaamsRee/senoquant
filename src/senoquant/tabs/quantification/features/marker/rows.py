@@ -141,6 +141,7 @@ class MarkerChannelRow(QGroupBox):
         self._tab = dialog._tab
         self.data = data
         self._threshold_updating = False
+        self._thresholds_enabled = getattr(self._tab, "_enable_thresholds", True)
 
         self.setFlat(True)
         self.setStyleSheet(
@@ -255,6 +256,13 @@ class MarkerChannelRow(QGroupBox):
         self._threshold_min_bound: float | None = None
         self._threshold_max_bound: float | None = None
 
+        if not self._thresholds_enabled:
+            threshold_checkbox.setVisible(False)
+            threshold_container.setVisible(False)
+            auto_threshold_container.setVisible(False)
+            threshold_checkbox.setEnabled(False)
+            auto_threshold_button.setEnabled(False)
+
         self._restore_state()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
@@ -293,6 +301,36 @@ class MarkerChannelRow(QGroupBox):
         enabled = bool(self.data.threshold_enabled)
         self._threshold_checkbox.setChecked(enabled)
         self._on_channel_changed(self._channel_combo.currentText())
+        if not self._thresholds_enabled:
+            self._set_data("threshold_enabled", False)
+            self._set_data("threshold_method", "Manual")
+            self._set_data("threshold_min", None)
+            self._set_data("threshold_max", None)
+
+    def _layer_has_data(self, layer) -> bool:
+        data = getattr(layer, "data", None)
+        if data is None:
+            return False
+        try:
+            array = np.asarray(data)
+        except Exception:
+            return False
+        if array.size == 0:
+            return False
+        if array.dtype == object and array.size == 1 and array.flat[0] is None:
+            return False
+        return True
+
+    def _disable_threshold_controls(self) -> None:
+        self._threshold_min_bound = None
+        self._threshold_max_bound = None
+        self._threshold_checkbox.blockSignals(True)
+        self._threshold_checkbox.setChecked(False)
+        self._threshold_checkbox.blockSignals(False)
+        self._set_data("threshold_enabled", False)
+        self._threshold_checkbox.setEnabled(False)
+        self._auto_threshold_button.setEnabled(False)
+        self._set_threshold_controls(False)
 
     def _on_channel_changed(self, text: str | None = None) -> None:
         """Update threshold controls when channel selection changes.
@@ -305,11 +343,12 @@ class MarkerChannelRow(QGroupBox):
         if text is None:
             text = self._channel_combo.currentText()
         self._set_data("channel", text)
+        if not self._thresholds_enabled:
+            self._disable_threshold_controls()
+            return
         layer = self._feature._get_image_layer_by_name(text)
-        if layer is None:
-            self._threshold_checkbox.setChecked(False)
-            self._threshold_checkbox.setEnabled(False)
-            self._set_threshold_controls(False)
+        if layer is None or not self._layer_has_data(layer):
+            self._disable_threshold_controls()
             return
         self._threshold_checkbox.setEnabled(True)
         self._set_threshold_range(
@@ -328,6 +367,8 @@ class MarkerChannelRow(QGroupBox):
         enabled : bool
             Whether threshold controls should be enabled.
         """
+        if not self._thresholds_enabled:
+            return
         self._set_data("threshold_enabled", enabled)
         self._set_threshold_controls(enabled)
 
@@ -339,6 +380,8 @@ class MarkerChannelRow(QGroupBox):
         enabled : bool
             Whether to show threshold controls.
         """
+        if not self._thresholds_enabled:
+            enabled = False
         self._threshold_slider.setEnabled(enabled)
         self._threshold_slider.setVisible(enabled)
         self._threshold_min_spin.setEnabled(enabled)
@@ -352,6 +395,8 @@ class MarkerChannelRow(QGroupBox):
 
     def _on_threshold_method_changed(self, text: str) -> None:
         """Handle changes to the thresholding method selection."""
+        if not self._thresholds_enabled:
+            return
         self._set_data("threshold_method", text)
         if text == "Manual":
             self._auto_threshold_button.setEnabled(False)
@@ -420,10 +465,12 @@ class MarkerChannelRow(QGroupBox):
 
     def _run_auto_threshold(self) -> None:
         """Compute an automatic threshold and update the range controls."""
+        if not self._thresholds_enabled:
+            return
         layer = self._feature._get_image_layer_by_name(
             self._channel_combo.currentText()
         )
-        if layer is None:
+        if layer is None or not self._layer_has_data(layer):
             return
         method = self._auto_threshold_combo.currentText() or "Otsu"
         if method == "Manual":
@@ -467,6 +514,8 @@ class MarkerChannelRow(QGroupBox):
 
     def _ensure_manual_threshold_mode(self) -> None:
         """Switch to manual mode after user-adjusted threshold changes."""
+        if not self._thresholds_enabled:
+            return
         if not self._threshold_checkbox.isChecked():
             return
         if self._auto_thresholding:
@@ -551,6 +600,9 @@ class MarkerChannelRow(QGroupBox):
             Spin box that displays the maximum threshold value.
         """
         if not hasattr(slider, "setMinimum"):
+            return
+        if not self._layer_has_data(layer):
+            self._disable_threshold_controls()
             return
         min_val, max_val = self._get_threshold_bounds(layer)
         if hasattr(slider, "setRange"):
