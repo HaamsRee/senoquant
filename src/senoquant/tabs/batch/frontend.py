@@ -8,13 +8,16 @@ from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QDialog,
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSpinBox,
     QVBoxLayout,
@@ -33,6 +36,16 @@ except Exception:  # pragma: no cover - optional import for runtime
     NotificationSeverity = None
 
 from .backend import BatchBackend
+from .config import (
+    BatchChannelConfig,
+    BatchCytoplasmicConfig,
+    BatchJobConfig,
+    BatchQuantificationConfig,
+    BatchSegmentationConfig,
+    BatchSpotsConfig,
+)
+from .layers import BatchViewer, Image, Labels
+from ..quantification.frontend import QuantificationTab
 from ..segmentation.backend import SegmentationBackend
 from ..spots.backend import SpotsBackend
 
@@ -67,11 +80,39 @@ class BatchTab(QWidget):
             spots_backend=self._spots_backend,
         )
         self._active_workers: list[tuple[QThread, QObject]] = []
+        self._channel_rows: list[dict] = []
+        self._channel_configs: list[BatchChannelConfig] = []
+        self._spot_channel_rows: list[dict] = []
+        self._nuclear_settings_widgets: dict[str, object] = {}
+        self._nuclear_settings_meta: dict[str, dict] = {}
+        self._nuclear_settings_values: dict[str, object] = {}
+        self._nuclear_settings_list: list[dict] = []
+        self._cyto_settings_widgets: dict[str, object] = {}
+        self._cyto_settings_meta: dict[str, dict] = {}
+        self._cyto_settings_values: dict[str, object] = {}
+        self._cyto_settings_list: list[dict] = []
+        self._spot_settings_widgets: dict[str, object] = {}
+        self._spot_settings_meta: dict[str, dict] = {}
+        self._spot_settings_values: dict[str, object] = {}
+        self._spot_settings_list: list[dict] = []
+        self._config_viewer = BatchViewer()
 
         layout = QVBoxLayout()
-        layout.addWidget(self._make_input_section())
-        layout.addWidget(self._make_processing_section())
-        layout.addWidget(self._make_output_section())
+        content = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.addWidget(self._make_input_section())
+        content_layout.addWidget(self._make_channel_section())
+        content_layout.addWidget(self._make_segmentation_section())
+        content_layout.addWidget(self._make_spots_section())
+        content_layout.addWidget(self._make_quantification_section())
+        content_layout.addWidget(self._make_output_section())
+        content_layout.addStretch(1)
+        content.setLayout(content_layout)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
 
         self._run_button = QPushButton("Run batch")
         self._run_button.clicked.connect(self._run_batch)
@@ -84,7 +125,10 @@ class BatchTab(QWidget):
         self.setLayout(layout)
 
         self._refresh_segmentation_models()
+        self._refresh_cyto_models()
         self._refresh_detectors()
+        self._refresh_channel_choices()
+        self._refresh_spot_channel_choices()
         self._update_processing_state()
 
     def _make_input_section(self) -> QGroupBox:
@@ -113,30 +157,110 @@ class BatchTab(QWidget):
         self._include_subfolders = QCheckBox("Include subfolders")
         self._process_scenes = QCheckBox("Process all scenes")
 
+        profile_row = QHBoxLayout()
+        profile_row.setContentsMargins(0, 0, 0, 0)
+        load_button = QPushButton("Load profile")
+        load_button.clicked.connect(self._load_profile)
+        save_button = QPushButton("Save profile")
+        save_button.clicked.connect(self._save_profile)
+        profile_row.addWidget(load_button)
+        profile_row.addWidget(save_button)
+        profile_widget = QWidget()
+        profile_widget.setLayout(profile_row)
+
         form_layout.addRow("Input folder", input_widget)
         form_layout.addRow("Extensions", self._extensions)
         form_layout.addRow("", self._include_subfolders)
         form_layout.addRow("", self._process_scenes)
+        form_layout.addRow("Profiles", profile_widget)
 
         section_layout.addLayout(form_layout)
         section.setLayout(section_layout)
         return section
 
-    def _make_processing_section(self) -> QGroupBox:
-        section = QGroupBox("Processing")
+    def _make_channel_section(self) -> QGroupBox:
+        section = QGroupBox("Channels")
+        section_layout = QVBoxLayout()
+
+        self._channels_container = QWidget()
+        self._channels_layout = QVBoxLayout()
+        self._channels_layout.setContentsMargins(0, 0, 0, 0)
+        self._channels_layout.setSpacing(6)
+        self._channels_container.setLayout(self._channels_layout)
+
+        add_button = QPushButton("Add channel")
+        add_button.clicked.connect(self._add_channel_row)
+
+        section_layout.addWidget(self._channels_container)
+        section_layout.addWidget(add_button)
+        section.setLayout(section_layout)
+
+        if not self._channel_rows:
+            self._add_channel_row()
+        return section
+
+    def _make_segmentation_section(self) -> QGroupBox:
+        section = QGroupBox("Segmentation")
+        section_layout = QVBoxLayout()
+
+        nuclear_layout = QFormLayout()
+        nuclear_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        self._nuclear_enabled = QCheckBox("Run nuclear segmentation")
+        self._nuclear_enabled.setChecked(True)
+        self._nuclear_enabled.toggled.connect(self._update_processing_state)
+        self._nuclear_model_combo = RefreshingComboBox(
+            refresh_callback=self._refresh_segmentation_models
+        )
+        self._nuclear_channel_combo = QComboBox()
+        nuclear_layout.addRow(self._nuclear_enabled)
+        nuclear_layout.addRow("Nuclear model", self._nuclear_model_combo)
+        nuclear_layout.addRow("Nuclear channel", self._nuclear_channel_combo)
+
+        self._nuclear_settings_button = QPushButton("Edit nuclear settings")
+        self._nuclear_settings_button.clicked.connect(
+            lambda: self._open_settings_dialog("nuclear")
+        )
+
+        self._nuclear_model_combo.currentTextChanged.connect(
+            lambda _text: self._update_nuclear_settings()
+        )
+
+        cyto_layout = QFormLayout()
+        cyto_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        self._cyto_enabled = QCheckBox("Run cytoplasmic segmentation")
+        self._cyto_enabled.setChecked(False)
+        self._cyto_enabled.toggled.connect(self._update_processing_state)
+        self._cyto_model_combo = RefreshingComboBox(
+            refresh_callback=self._refresh_cyto_models
+        )
+        self._cyto_channel_combo = QComboBox()
+        self._cyto_nuclear_combo = QComboBox()
+        cyto_layout.addRow(self._cyto_enabled)
+        cyto_layout.addRow("Cytoplasmic model", self._cyto_model_combo)
+        cyto_layout.addRow("Cytoplasmic channel", self._cyto_channel_combo)
+        cyto_layout.addRow("Nuclear channel", self._cyto_nuclear_combo)
+
+        self._cyto_settings_button = QPushButton("Edit cytoplasmic settings")
+        self._cyto_settings_button.clicked.connect(
+            lambda: self._open_settings_dialog("cyto")
+        )
+
+        self._cyto_model_combo.currentTextChanged.connect(
+            lambda _text: self._update_cyto_settings()
+        )
+
+        section_layout.addLayout(nuclear_layout)
+        section_layout.addWidget(self._nuclear_settings_button)
+        section_layout.addLayout(cyto_layout)
+        section_layout.addWidget(self._cyto_settings_button)
+        section.setLayout(section_layout)
+        return section
+
+    def _make_spots_section(self) -> QGroupBox:
+        section = QGroupBox("Spot detection")
         section_layout = QVBoxLayout()
         form_layout = QFormLayout()
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-
-        self._segmentation_enabled = QCheckBox("Run segmentation")
-        self._segmentation_enabled.setChecked(True)
-        self._segmentation_enabled.toggled.connect(self._update_processing_state)
-        self._segmentation_model_combo = RefreshingComboBox(
-            refresh_callback=self._refresh_segmentation_models
-        )
-        self._segmentation_channel = QSpinBox()
-        self._segmentation_channel.setMinimum(0)
-        self._segmentation_channel.setMaximum(128)
 
         self._spots_enabled = QCheckBox("Run spot detection")
         self._spots_enabled.setChecked(True)
@@ -144,18 +268,47 @@ class BatchTab(QWidget):
         self._spot_detector_combo = RefreshingComboBox(
             refresh_callback=self._refresh_detectors
         )
-        self._spot_channel = QSpinBox()
-        self._spot_channel.setMinimum(0)
-        self._spot_channel.setMaximum(128)
 
-        form_layout.addRow(self._segmentation_enabled)
-        form_layout.addRow("Segmentation model", self._segmentation_model_combo)
-        form_layout.addRow("Segmentation channel", self._segmentation_channel)
         form_layout.addRow(self._spots_enabled)
         form_layout.addRow("Spot detector", self._spot_detector_combo)
-        form_layout.addRow("Spot channel", self._spot_channel)
+        self._spot_settings_button = QPushButton("Edit spot settings")
+        self._spot_settings_button.clicked.connect(
+            lambda: self._open_settings_dialog("spot")
+        )
+
+        self._spot_channels_container = QWidget()
+        self._spot_channels_layout = QVBoxLayout()
+        self._spot_channels_layout.setContentsMargins(0, 0, 0, 0)
+        self._spot_channels_layout.setSpacing(6)
+        self._spot_channels_container.setLayout(self._spot_channels_layout)
+        add_spot_button = QPushButton("Add spot channel")
+        add_spot_button.clicked.connect(self._add_spot_channel_row)
+
+        self._spot_detector_combo.currentTextChanged.connect(
+            lambda _text: self._update_spot_settings()
+        )
 
         section_layout.addLayout(form_layout)
+        section_layout.addWidget(self._spot_settings_button)
+        section_layout.addWidget(self._spot_channels_container)
+        section_layout.addWidget(add_spot_button)
+        section.setLayout(section_layout)
+        self._refresh_spot_channel_choices()
+        return section
+
+    def _make_quantification_section(self) -> QGroupBox:
+        section = QGroupBox("Quantification")
+        section_layout = QVBoxLayout()
+        self._quant_enabled = QCheckBox("Run quantification")
+        self._quant_enabled.setChecked(True)
+        self._quant_enabled.toggled.connect(self._update_processing_state)
+        self._quant_tab = QuantificationTab(
+            napari_viewer=self._config_viewer,
+            show_output_section=False,
+            show_process_button=False,
+        )
+        section_layout.addWidget(self._quant_enabled)
+        section_layout.addWidget(self._quant_tab)
         section.setLayout(section_layout)
         return section
 
@@ -179,10 +332,14 @@ class BatchTab(QWidget):
         self._output_format = QComboBox()
         self._output_format.addItems(["tif", "npy"])
 
+        self._quant_format = QComboBox()
+        self._quant_format.addItems(["xlsx", "csv"])
+
         self._overwrite = QCheckBox("Overwrite existing outputs")
 
         form_layout.addRow("Output folder", output_widget)
         form_layout.addRow("Format", self._output_format)
+        form_layout.addRow("Quantification format", self._quant_format)
         form_layout.addRow("", self._overwrite)
 
         section_layout.addLayout(form_layout)
@@ -201,13 +358,25 @@ class BatchTab(QWidget):
 
     def _refresh_segmentation_models(self) -> None:
         names = self._segmentation_backend.list_model_names(task="nuclear")
-        self._segmentation_model_combo.clear()
+        self._nuclear_model_combo.clear()
         if names:
-            self._segmentation_model_combo.addItems(names)
-            self._segmentation_model_combo.setEnabled(True)
+            self._nuclear_model_combo.addItems(names)
+            self._nuclear_model_combo.setEnabled(True)
         else:
-            self._segmentation_model_combo.addItem("(no models)")
-            self._segmentation_model_combo.setEnabled(False)
+            self._nuclear_model_combo.addItem("(no models)")
+            self._nuclear_model_combo.setEnabled(False)
+        self._update_nuclear_settings()
+
+    def _refresh_cyto_models(self) -> None:
+        names = self._segmentation_backend.list_model_names(task="cytoplasmic")
+        self._cyto_model_combo.clear()
+        if names:
+            self._cyto_model_combo.addItems(names)
+            self._cyto_model_combo.setEnabled(True)
+        else:
+            self._cyto_model_combo.addItem("(no models)")
+            self._cyto_model_combo.setEnabled(False)
+        self._update_cyto_settings()
 
     def _refresh_detectors(self) -> None:
         names = self._spots_backend.list_detector_names()
@@ -218,22 +387,303 @@ class BatchTab(QWidget):
         else:
             self._spot_detector_combo.addItem("(no detectors)")
             self._spot_detector_combo.setEnabled(False)
+        self._update_spot_settings()
+
+    def _add_spot_channel_row(self) -> None:
+        if not hasattr(self, "_spot_channels_layout"):
+            return
+        row_widget = QWidget()
+        row_layout = QHBoxLayout()
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        combo = QComboBox()
+        delete_button = QPushButton("Delete")
+        row_layout.addWidget(combo)
+        row_layout.addWidget(delete_button)
+        row_widget.setLayout(row_layout)
+
+        row = {"widget": row_widget, "combo": combo}
+        self._spot_channel_rows.append(row)
+        self._spot_channels_layout.addWidget(row_widget)
+
+        delete_button.clicked.connect(lambda: self._remove_spot_channel_row(row))
+        combo.currentTextChanged.connect(self._refresh_config_viewer)
+        self._refresh_spot_channel_choices()
+
+    def _remove_spot_channel_row(self, row: dict) -> None:
+        widget = row.get("widget")
+        if widget is not None:
+            widget.setParent(None)
+        if row in self._spot_channel_rows:
+            self._spot_channel_rows.remove(row)
+        self._refresh_spot_channel_choices()
+
+    def _refresh_spot_channel_choices(self) -> None:
+        if not hasattr(self, "_spot_channels_layout"):
+            return
+        names = [config.name for config in self._channel_configs] or ["0"]
+        for row in self._spot_channel_rows:
+            combo = row["combo"]
+            current = combo.currentText()
+            combo.clear()
+            combo.addItems(names)
+            if current:
+                index = combo.findText(current)
+                if index != -1:
+                    combo.setCurrentIndex(index)
+        if not self._spot_channel_rows:
+            self._add_spot_channel_row()
+        self._refresh_config_viewer()
+
+    def _add_channel_row(self, config: BatchChannelConfig | None = None) -> None:
+        if isinstance(config, bool):
+            config = None
+        if config is None:
+            config = BatchChannelConfig(name="", index=len(self._channel_rows))
+
+        row_widget = QWidget()
+        row_layout = QHBoxLayout()
+        row_layout.setContentsMargins(0, 0, 0, 0)
+
+        name_input = QLineEdit()
+        name_input.setPlaceholderText("Channel name")
+        name_input.setText(config.name)
+        index_input = QSpinBox()
+        index_input.setMinimum(0)
+        index_input.setMaximum(4096)
+        index_input.setValue(config.index)
+        delete_button = QPushButton("Delete")
+
+        row_layout.addWidget(name_input)
+        row_layout.addWidget(index_input)
+        row_layout.addWidget(delete_button)
+        row_widget.setLayout(row_layout)
+
+        row = {
+            "widget": row_widget,
+            "name": name_input,
+            "index": index_input,
+        }
+        self._channel_rows.append(row)
+        self._channels_layout.addWidget(row_widget)
+
+        name_input.textChanged.connect(self._sync_channel_map)
+        index_input.valueChanged.connect(self._sync_channel_map)
+        delete_button.clicked.connect(lambda: self._remove_channel_row(row))
+
+        self._sync_channel_map()
+
+    def _remove_channel_row(self, row: dict) -> None:
+        widget = row.get("widget")
+        if widget is not None:
+            widget.setParent(None)
+        if row in self._channel_rows:
+            self._channel_rows.remove(row)
+        self._sync_channel_map()
+
+    def _sync_channel_map(self) -> None:
+        configs: list[BatchChannelConfig] = []
+        for row in self._channel_rows:
+            name = row["name"].text().strip()
+            index = row["index"].value()
+            if not name:
+                name = f"{index}"
+            configs.append(BatchChannelConfig(name=name, index=index))
+        self._channel_configs = configs
+        self._refresh_channel_choices()
+        if hasattr(self, "_spot_channels_layout"):
+            self._refresh_spot_channel_choices()
+        self._refresh_config_viewer()
+
+    def _refresh_channel_choices(self) -> None:
+        names = [config.name for config in self._channel_configs]
+        combos = []
+        for attr in (
+            "_nuclear_channel_combo",
+            "_cyto_channel_combo",
+            "_cyto_nuclear_combo",
+        ):
+            combo = getattr(self, attr, None)
+            if combo is not None:
+                combos.append(combo)
+        for combo in combos:
+            current = combo.currentText()
+            combo.clear()
+            combo.addItems(names or ["0"])
+            if current:
+                index = combo.findText(current)
+                if index != -1:
+                    combo.setCurrentIndex(index)
+
+    def _refresh_config_viewer(self) -> None:
+        layers: list[object] = []
+        for config in self._channel_configs:
+            layers.append(Image(None, config.name))
+        if getattr(self, "_nuclear_enabled", None) is not None and self._nuclear_enabled.isChecked():
+            layers.append(Labels(None, "nuclear_labels"))
+        if getattr(self, "_cyto_enabled", None) is not None and self._cyto_enabled.isChecked():
+            layers.append(Labels(None, "cyto_labels"))
+        if getattr(self, "_spots_enabled", None) is not None and self._spots_enabled.isChecked():
+            for label_name in _spot_label_names(self._spot_channel_rows):
+                layers.append(Labels(None, label_name))
+        self._config_viewer.set_layers(layers)
+
+    def _update_nuclear_settings(self) -> None:
+        model_name = self._nuclear_model_combo.currentText()
+        self._nuclear_settings_widgets.clear()
+        self._nuclear_settings_meta.clear()
+        if not model_name or model_name.startswith("("):
+            return
+        model = self._segmentation_backend.get_model(model_name)
+        settings = model.list_settings()
+        self._nuclear_settings_list = list(settings)
+        self._nuclear_settings_meta = {
+            item.get("key", item.get("label", "")): item for item in settings
+        }
+        self._nuclear_settings_values = _defaults_from_settings(settings)
+
+    def _update_cyto_settings(self) -> None:
+        model_name = self._cyto_model_combo.currentText()
+        self._cyto_settings_widgets.clear()
+        self._cyto_settings_meta.clear()
+        if not model_name or model_name.startswith("("):
+            return
+        model = self._segmentation_backend.get_model(model_name)
+        settings = model.list_settings()
+        self._cyto_settings_list = list(settings)
+        self._cyto_settings_meta = {
+            item.get("key", item.get("label", "")): item for item in settings
+        }
+        self._cyto_settings_values = _defaults_from_settings(settings)
+        optional = model.cytoplasmic_nuclear_optional()
+        self._cyto_nuclear_combo.setEnabled(not optional)
+
+    def _update_spot_settings(self) -> None:
+        detector_name = self._spot_detector_combo.currentText()
+        self._spot_settings_widgets.clear()
+        self._spot_settings_meta.clear()
+        if not detector_name or detector_name.startswith("("):
+            return
+        detector = self._spots_backend.get_detector(detector_name)
+        settings = detector.list_settings()
+        self._spot_settings_list = list(settings)
+        self._spot_settings_meta = {
+            item.get("key", item.get("label", "")): item for item in settings
+        }
+        self._spot_settings_values = _defaults_from_settings(settings)
+
+    def _open_settings_dialog(self, kind: str) -> None:
+        if kind == "nuclear":
+            title = "Nuclear settings"
+            settings = list(self._nuclear_settings_list)
+            widgets = self._nuclear_settings_widgets
+            values = self._nuclear_settings_values
+            meta = self._nuclear_settings_meta
+        elif kind == "cyto":
+            title = "Cytoplasmic settings"
+            settings = list(self._cyto_settings_list)
+            widgets = self._cyto_settings_widgets
+            values = self._cyto_settings_values
+            meta = self._cyto_settings_meta
+        else:
+            title = "Spot settings"
+            settings = list(self._spot_settings_list)
+            widgets = self._spot_settings_widgets
+            values = self._spot_settings_values
+            meta = self._spot_settings_meta
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog_layout = QVBoxLayout()
+        form_layout = QFormLayout()
+        widgets.clear()
+        for setting in settings:
+            setting_type = setting.get("type")
+            label = setting.get("label", setting.get("key", "Setting"))
+            key = setting.get("key", label)
+            default = setting.get("default", 0)
+            if setting_type == "float":
+                widget = QDoubleSpinBox()
+                decimals = int(setting.get("decimals", 1))
+                widget.setDecimals(decimals)
+                widget.setRange(
+                    float(setting.get("min", 0.0)),
+                    float(setting.get("max", 1.0)),
+                )
+                widget.setSingleStep(0.1)
+                widget.setValue(float(values.get(key, default)))
+            elif setting_type == "int":
+                widget = QSpinBox()
+                widget.setRange(
+                    int(setting.get("min", 0)),
+                    int(setting.get("max", 100)),
+                )
+                widget.setSingleStep(1)
+                widget.setValue(int(values.get(key, default)))
+            elif setting_type == "bool":
+                widget = QCheckBox()
+                widget.setChecked(bool(values.get(key, default)))
+                widget.toggled.connect(
+                    lambda _checked, m=widgets, meta_ref=meta: self._apply_setting_dependencies(m, meta_ref)
+                )
+            else:
+                widget = QLabel("Unsupported setting type")
+            widgets[key] = widget
+            form_layout.addRow(label, widget)
+        dialog_layout.addLayout(form_layout)
+        self._apply_setting_dependencies(widgets, meta)
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(dialog.accept)
+        dialog_layout.addWidget(close_button)
+        dialog.setLayout(dialog_layout)
+        dialog.exec()
+        values.update(self._collect_settings(widgets))
+
+    def _apply_setting_dependencies(self, settings_widgets: dict, settings_meta: dict) -> None:
+        for key, setting in settings_meta.items():
+            widget = settings_widgets.get(key)
+            if widget is None:
+                continue
+            enabled_by = setting.get("enabled_by")
+            disabled_by = setting.get("disabled_by")
+            if enabled_by:
+                controller = settings_widgets.get(enabled_by)
+                if isinstance(controller, QCheckBox):
+                    widget.setEnabled(controller.isChecked())
+            if disabled_by:
+                controller = settings_widgets.get(disabled_by)
+                if isinstance(controller, QCheckBox):
+                    widget.setEnabled(not controller.isChecked())
+
+    @staticmethod
+    def _collect_settings(settings_widgets: dict) -> dict:
+        values = {}
+        for key, widget in settings_widgets.items():
+            if hasattr(widget, "value"):
+                values[key] = widget.value()
+            elif isinstance(widget, QCheckBox):
+                values[key] = widget.isChecked()
+        return values
 
     def _update_processing_state(self) -> None:
-        seg_enabled = self._segmentation_enabled.isChecked()
+        nuclear_enabled = self._nuclear_enabled.isChecked()
+        cyto_enabled = self._cyto_enabled.isChecked()
         spot_enabled = self._spots_enabled.isChecked()
-        seg_available = (
-            seg_enabled
-            and not self._segmentation_model_combo.currentText().startswith("(")
-        )
-        spot_available = (
-            spot_enabled
-            and not self._spot_detector_combo.currentText().startswith("(")
-        )
-        self._segmentation_model_combo.setEnabled(seg_available)
-        self._segmentation_channel.setEnabled(seg_available)
-        self._spot_detector_combo.setEnabled(spot_available)
-        self._spot_channel.setEnabled(spot_available)
+        self._nuclear_model_combo.setEnabled(nuclear_enabled)
+        self._nuclear_channel_combo.setEnabled(nuclear_enabled)
+        self._nuclear_settings_button.setEnabled(nuclear_enabled)
+        self._cyto_model_combo.setEnabled(cyto_enabled)
+        self._cyto_channel_combo.setEnabled(cyto_enabled)
+        self._cyto_nuclear_combo.setEnabled(cyto_enabled)
+        self._cyto_settings_button.setEnabled(cyto_enabled)
+        self._spot_detector_combo.setEnabled(spot_enabled)
+        self._spot_settings_button.setEnabled(spot_enabled)
+        for row in self._spot_channel_rows:
+            combo = row.get("combo")
+            if combo is not None:
+                combo.setEnabled(spot_enabled)
+        self._quant_tab.setEnabled(self._quant_enabled.isChecked())
+
+        self._refresh_config_viewer()
 
     def _run_batch(self) -> None:
         input_path = self._input_path.text().strip()
@@ -249,11 +699,11 @@ class BatchTab(QWidget):
             output_path = str(Path(input_path) / "batch-output")
             self._output_path.setText(output_path)
 
-        segmentation_model = None
-        if self._segmentation_enabled.isChecked() and self._segmentation_model_combo.isEnabled():
-            segmentation_model = self._segmentation_model_combo.currentText().strip()
-            if segmentation_model.startswith("("):
-                segmentation_model = None
+        nuclear_model = None
+        if self._nuclear_enabled.isChecked() and self._nuclear_model_combo.isEnabled():
+            nuclear_model = self._nuclear_model_combo.currentText().strip()
+            if nuclear_model.startswith("("):
+                nuclear_model = None
 
         spot_detector = None
         if self._spots_enabled.isChecked() and self._spot_detector_combo.isEnabled():
@@ -261,8 +711,24 @@ class BatchTab(QWidget):
             if spot_detector.startswith("("):
                 spot_detector = None
 
-        if not segmentation_model and not spot_detector:
-            self._notify("Enable segmentation and/or spot detection.")
+        cyto_model = None
+        if self._cyto_enabled.isChecked() and self._cyto_model_combo.isEnabled():
+            cyto_model = self._cyto_model_combo.currentText().strip()
+            if cyto_model.startswith("("):
+                cyto_model = None
+
+        quant_features = (
+            list(self._quant_tab._feature_configs)
+            if self._quant_enabled.isChecked()
+            else []
+        )
+        if (
+            not nuclear_model
+            and not cyto_model
+            and not spot_detector
+            and not quant_features
+        ):
+            self._notify("Enable segmentation, spots, or quantification.")
             return
 
         extensions = [
@@ -271,24 +737,181 @@ class BatchTab(QWidget):
             if ext.strip()
         ]
 
+        spot_channels = [
+            row["combo"].currentText().strip()
+            for row in self._spot_channel_rows
+            if row.get("combo") is not None and row["combo"].currentText().strip()
+        ]
+        if self._spots_enabled.isChecked() and not spot_channels:
+            self._notify("Select at least one spot channel.")
+            return
+
+        job = self._build_job_config()
         self._start_background_run(
             run_button=self._run_button,
             run_text="Run batch",
-            run_callable=lambda: self._backend.process_folder(
-                input_path,
-                output_path,
-                segmentation_model=segmentation_model,
-                segmentation_channel=self._segmentation_channel.value(),
-                spot_detector=spot_detector,
-                spot_channel=self._spot_channel.value(),
-                extensions=extensions or None,
-                include_subfolders=self._include_subfolders.isChecked(),
-                output_format=self._output_format.currentText(),
-                overwrite=self._overwrite.isChecked(),
-                process_all_scenes=self._process_scenes.isChecked(),
-            ),
+            run_callable=lambda: self._backend.run_job(job),
             on_success=self._handle_batch_complete,
         )
+
+    def _build_job_config(self) -> BatchJobConfig:
+        nuclear_settings = (
+            self._collect_settings(self._nuclear_settings_widgets)
+            if self._nuclear_settings_widgets
+            else self._nuclear_settings_values
+        )
+        cyto_settings = (
+            self._collect_settings(self._cyto_settings_widgets)
+            if self._cyto_settings_widgets
+            else self._cyto_settings_values
+        )
+        spot_settings = (
+            self._collect_settings(self._spot_settings_widgets)
+            if self._spot_settings_widgets
+            else self._spot_settings_values
+        )
+        spot_channels = [
+            row["combo"].currentText().strip()
+            for row in self._spot_channel_rows
+            if row.get("combo") is not None and row["combo"].currentText().strip()
+        ]
+        quant_features = (
+            [context.state for context in self._quant_tab._feature_configs]
+            if self._quant_enabled.isChecked()
+            else []
+        )
+        return BatchJobConfig(
+            input_path=self._input_path.text().strip(),
+            output_path=self._output_path.text().strip(),
+            extensions=[
+                ext.strip()
+                for ext in self._extensions.text().split(",")
+                if ext.strip()
+            ],
+            include_subfolders=self._include_subfolders.isChecked(),
+            process_all_scenes=self._process_scenes.isChecked(),
+            overwrite=self._overwrite.isChecked(),
+            output_format=self._output_format.currentText(),
+            channel_map=list(self._channel_configs),
+            nuclear=BatchSegmentationConfig(
+                enabled=self._nuclear_enabled.isChecked(),
+                model=self._nuclear_model_combo.currentText(),
+                channel=self._nuclear_channel_combo.currentText(),
+                settings=nuclear_settings,
+            ),
+            cytoplasmic=BatchCytoplasmicConfig(
+                enabled=self._cyto_enabled.isChecked(),
+                model=self._cyto_model_combo.currentText(),
+                channel=self._cyto_channel_combo.currentText(),
+                nuclear_channel=self._cyto_nuclear_combo.currentText(),
+                settings=cyto_settings,
+            ),
+            spots=BatchSpotsConfig(
+                enabled=self._spots_enabled.isChecked(),
+                detector=self._spot_detector_combo.currentText(),
+                channels=spot_channels,
+                settings=spot_settings,
+            ),
+            quantification=BatchQuantificationConfig(
+                enabled=self._quant_enabled.isChecked(),
+                format=self._quant_format.currentText(),
+                features=quant_features,
+            ),
+        )
+
+    def _apply_job_config(self, job: BatchJobConfig) -> None:
+        self._refresh_segmentation_models()
+        self._refresh_cyto_models()
+        self._refresh_detectors()
+        self._input_path.setText(job.input_path)
+        self._output_path.setText(job.output_path)
+        self._extensions.setText(",".join(job.extensions))
+        self._include_subfolders.setChecked(job.include_subfolders)
+        self._process_scenes.setChecked(job.process_all_scenes)
+        self._overwrite.setChecked(job.overwrite)
+        self._output_format.setCurrentText(job.output_format)
+        self._quant_format.setCurrentText(job.quantification.format)
+
+        self._clear_channel_rows()
+        for config in job.channel_map:
+            self._add_channel_row(config)
+
+        self._nuclear_enabled.setChecked(job.nuclear.enabled)
+        self._set_combo_value(self._nuclear_model_combo, job.nuclear.model)
+        self._set_combo_value(self._nuclear_channel_combo, job.nuclear.channel)
+        self._nuclear_settings_values = dict(job.nuclear.settings)
+
+        self._cyto_enabled.setChecked(job.cytoplasmic.enabled)
+        self._set_combo_value(self._cyto_model_combo, job.cytoplasmic.model)
+        self._set_combo_value(self._cyto_channel_combo, job.cytoplasmic.channel)
+        self._set_combo_value(
+            self._cyto_nuclear_combo, job.cytoplasmic.nuclear_channel
+        )
+        self._cyto_settings_values = dict(job.cytoplasmic.settings)
+
+        self._spots_enabled.setChecked(job.spots.enabled)
+        self._set_combo_value(self._spot_detector_combo, job.spots.detector)
+        self._spot_settings_values = dict(job.spots.settings)
+        self._clear_spot_channel_rows()
+        for channel in job.spots.channels:
+            self._add_spot_channel_row()
+            if self._spot_channel_rows:
+                self._set_combo_value(self._spot_channel_rows[-1]["combo"], channel)
+
+        self._quant_enabled.setChecked(job.quantification.enabled)
+        self._quant_tab.load_feature_configs(job.quantification.features)
+        self._refresh_channel_choices()
+        self._refresh_spot_channel_choices()
+        self._refresh_config_viewer()
+
+    def _save_profile(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save batch profile",
+            str(Path.cwd() / "batch-profile.json"),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        job = self._build_job_config()
+        job.save(path)
+        self._notify(f"Saved profile to {path}")
+
+    def _load_profile(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load batch profile",
+            str(Path.cwd()),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        job = BatchJobConfig.load(path)
+        self._apply_job_config(job)
+        self._notify(f"Loaded profile from {path}")
+
+    def _clear_channel_rows(self) -> None:
+        for row in list(self._channel_rows):
+            widget = row.get("widget")
+            if widget is not None:
+                widget.setParent(None)
+        self._channel_rows = []
+        self._channel_configs = []
+
+    def _clear_spot_channel_rows(self) -> None:
+        for row in list(self._spot_channel_rows):
+            widget = row.get("widget")
+            if widget is not None:
+                widget.setParent(None)
+        self._spot_channel_rows = []
+
+    @staticmethod
+    def _set_combo_value(combo: QComboBox, value: str) -> None:
+        if not value:
+            return
+        index = combo.findText(value)
+        if index != -1:
+            combo.setCurrentIndex(index)
 
     def _start_background_run(
         self,
@@ -372,3 +995,35 @@ class _RunWorker(QObject):
             self.failed.emit(str(exc))
             return
         self.finished.emit(result)
+
+
+def _defaults_from_settings(settings: list[dict]) -> dict[str, object]:
+    values: dict[str, object] = {}
+    for setting in settings:
+        key = setting.get("key") or setting.get("label") or "Setting"
+        values[key] = setting.get("default", 0)
+    return values
+
+
+def _spot_label_names(rows: list[dict]) -> list[str]:
+    labels: list[str] = []
+    for row in rows:
+        combo = row.get("combo")
+        if combo is None:
+            continue
+        name = combo.currentText().strip()
+        if not name:
+            continue
+        labels.append(f"spot_labels_{_sanitize_label(name)}")
+    return labels
+
+
+def _sanitize_label(name: str) -> str:
+    safe = []
+    for char in name.strip():
+        if char.isalnum():
+            safe.append(char)
+        else:
+            safe.append("_")
+    result = "".join(safe).strip("_")
+    return result or "spots"

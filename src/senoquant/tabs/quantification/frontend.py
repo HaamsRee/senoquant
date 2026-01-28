@@ -51,6 +51,9 @@ class QuantificationTab(QWidget):
         self,
         backend: QuantificationBackend | None = None,
         napari_viewer=None,
+        *,
+        show_output_section: bool = True,
+        show_process_button: bool = True,
     ) -> None:
         """Initialize the quantification tab UI.
 
@@ -60,6 +63,10 @@ class QuantificationTab(QWidget):
             Backend instance for quantification workflows.
         napari_viewer : object or None
             Napari viewer used to populate layer dropdowns.
+        show_output_section : bool, optional
+            Whether to show the output configuration controls.
+        show_process_button : bool, optional
+            Whether to show the process button.
         """
         super().__init__()
         self._backend = backend or QuantificationBackend()
@@ -71,10 +78,13 @@ class QuantificationTab(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_features_section())
-        layout.addWidget(self._make_output_section())
-        process_button = QPushButton("Process")
-        process_button.clicked.connect(self._process_features)
-        layout.addWidget(process_button)
+        if show_output_section:
+            layout.addWidget(self._make_output_section())
+        if show_process_button:
+            process_button = QPushButton("Process")
+            process_button.clicked.connect(self._process_features)
+            layout.addWidget(process_button)
+            self._process_button = process_button
         layout.addStretch(1)
         self.setLayout(layout)
 
@@ -215,7 +225,7 @@ class QuantificationTab(QWidget):
         super().resizeEvent(event)
         self._apply_features_layout()
 
-    def _add_feature_row(self) -> None:
+    def _add_feature_row(self, state: FeatureConfig | None = None) -> None:
         """Add a new feature input row."""
         index = len(self._feature_configs)
         feature_section = QGroupBox(f"Feature {index}")
@@ -255,7 +265,8 @@ class QuantificationTab(QWidget):
         type_combo = RefreshingComboBox(
             refresh_callback=self._notify_features_changed
         )
-        type_combo.addItems(self._feature_types())
+        feature_types = self._feature_types()
+        type_combo.addItems(feature_types)
         self._configure_combo(type_combo)
 
         form_layout.addRow("Name", name_input)
@@ -301,12 +312,21 @@ class QuantificationTab(QWidget):
         )
 
         self._features_layout.addWidget(feature_section)
-        feature_type = type_combo.currentText()
-        state = FeatureConfig(
-            name="",
-            type_name=feature_type,
-            data=build_feature_data(feature_type),
+        feature_type = (
+            state.type_name
+            if state is not None and state.type_name
+            else type_combo.currentText()
         )
+        if state is None:
+            state = FeatureConfig(
+                name="",
+                type_name=feature_type,
+                data=build_feature_data(feature_type),
+            )
+        if feature_type in feature_types:
+            type_combo.blockSignals(True)
+            type_combo.setCurrentText(feature_type)
+            type_combo.blockSignals(False)
         context = FeatureUIContext(
             state=state,
             section=feature_section,
@@ -317,13 +337,14 @@ class QuantificationTab(QWidget):
             right_layout=right_layout,
         )
         self._feature_configs.append(context)
+        name_input.setText(state.name)
         name_input.textChanged.connect(
             lambda text, ctx=context: self._on_feature_name_changed(ctx, text)
         )
         type_combo.currentTextChanged.connect(
             lambda _text, ctx=context: self._on_feature_type_changed(ctx)
         )
-        self._on_feature_type_changed(context)
+        self._build_feature_handler(context, preserve_data=True)
         self._notify_features_changed()
         self._features_layout.activate()
         QTimer.singleShot(0, self._apply_features_layout)
@@ -336,12 +357,21 @@ class QuantificationTab(QWidget):
         context : FeatureUIContext
             Feature UI context and data.
         """
+        self._build_feature_handler(context, preserve_data=False)
+
+    def _build_feature_handler(
+        self,
+        context: FeatureUIContext,
+        *,
+        preserve_data: bool,
+    ) -> None:
         left_dynamic_layout = context.left_dynamic_layout
         self._clear_layout(left_dynamic_layout)
         self._clear_layout(context.right_layout)
         feature_type = context.type_combo.currentText()
         context.state.type_name = feature_type
-        context.state.data = build_feature_data(feature_type)
+        if not preserve_data:
+            context.state.data = build_feature_data(feature_type)
 
         feature_handler = self._feature_handler_for_type(feature_type, context)
         context.feature_handler = feature_handler
@@ -392,6 +422,16 @@ class QuantificationTab(QWidget):
     def _feature_types(self) -> list[str]:
         """Return the available feature type names."""
         return list(self._feature_registry.keys())
+
+    def load_feature_configs(self, configs: list[FeatureConfig]) -> None:
+        """Replace the current feature list with provided configs."""
+        for context in list(self._feature_configs):
+            self._remove_feature(context.section)
+        if not configs:
+            self._add_feature_row()
+            return
+        for config in configs:
+            self._add_feature_row(config)
 
     def _select_output_path(self) -> None:
         """Open a folder selection dialog for the output path."""

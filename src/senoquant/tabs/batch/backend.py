@@ -8,9 +8,23 @@ from typing import Iterable
 
 import numpy as np
 
-from senoquant.reader import core as reader_core
+from senoquant.tabs.quantification.backend import QuantificationBackend
 from senoquant.tabs.segmentation.backend import SegmentationBackend
 from senoquant.tabs.spots.backend import SpotsBackend
+
+from .config import BatchChannelConfig, BatchJobConfig
+from .layers import BatchViewer, Image, Labels
+from .io import (
+    basename_for_path,
+    iter_input_files,
+    load_channel_data,
+    list_scenes,
+    normalize_extensions,
+    resolve_channel_index,
+    safe_scene_dir,
+    spot_label_name,
+    write_array,
+)
 
 
 @dataclass(slots=True)
@@ -35,14 +49,6 @@ class BatchSummary:
     results: list[BatchItemResult]
 
 
-@dataclass(slots=True)
-class _ArrayLayer:
-    """Minimal layer wrapper for detector/model inputs."""
-
-    data: np.ndarray
-    rgb: bool = False
-
-
 class BatchBackend:
     """Backend for batch segmentation and spot detection workflows."""
 
@@ -54,73 +60,78 @@ class BatchBackend:
         self._segmentation_backend = segmentation_backend or SegmentationBackend()
         self._spots_backend = spots_backend or SpotsBackend()
 
+    def run_job(self, job: BatchJobConfig) -> BatchSummary:
+        """Run a batch job using a BatchJobConfig."""
+        return self.process_folder(
+            job.input_path,
+            job.output_path,
+            channel_map=job.channel_map,
+            nuclear_model=job.nuclear.model if job.nuclear.enabled else None,
+            nuclear_channel=job.nuclear.channel or None,
+            nuclear_settings=job.nuclear.settings,
+            cyto_model=job.cytoplasmic.model if job.cytoplasmic.enabled else None,
+            cyto_channel=job.cytoplasmic.channel or None,
+            cyto_nuclear_channel=job.cytoplasmic.nuclear_channel or None,
+            cyto_settings=job.cytoplasmic.settings,
+            spot_detector=job.spots.detector if job.spots.enabled else None,
+            spot_channels=job.spots.channels,
+            spot_settings=job.spots.settings,
+            quantification_features=job.quantification.features,
+            quantification_format=job.quantification.format,
+            extensions=job.extensions,
+            include_subfolders=job.include_subfolders,
+            output_format=job.output_format,
+            overwrite=job.overwrite,
+            process_all_scenes=job.process_all_scenes,
+        )
+
     def process_folder(
         self,
         input_path: str,
         output_path: str,
         *,
-        segmentation_model: str | None = None,
-        segmentation_channel: int = 0,
-        segmentation_settings: dict | None = None,
+        channel_map: Iterable[BatchChannelConfig | dict] | None = None,
+        nuclear_model: str | None = None,
+        nuclear_channel: str | int | None = None,
+        nuclear_settings: dict | None = None,
+        cyto_model: str | None = None,
+        cyto_channel: str | int | None = None,
+        cyto_nuclear_channel: str | int | None = None,
+        cyto_settings: dict | None = None,
         spot_detector: str | None = None,
-        spot_channel: int = 0,
+        spot_channels: Iterable[str | int] | None = None,
         spot_settings: dict | None = None,
+        quantification_features: Iterable[object] | None = None,
+        quantification_format: str = "xlsx",
+        quantification_tab: object | None = None,
         extensions: Iterable[str] | None = None,
         include_subfolders: bool = False,
         output_format: str = "tif",
         overwrite: bool = False,
         process_all_scenes: bool = False,
     ) -> BatchSummary:
-        """Run batch processing on a folder of images.
-
-        Parameters
-        ----------
-        input_path : str
-            Folder containing input images.
-        output_path : str
-            Folder where outputs should be written.
-        segmentation_model : str or None
-            Segmentation model name to run. When ``None``, segmentation is skipped.
-        segmentation_channel : int
-            Channel index to use for segmentation.
-        segmentation_settings : dict or None
-            Settings dictionary passed to the segmentation model.
-        spot_detector : str or None
-            Spot detector name to run. When ``None``, spot detection is skipped.
-        spot_channel : int
-            Channel index to use for spot detection.
-        spot_settings : dict or None
-            Settings dictionary passed to the spot detector.
-        extensions : iterable of str or None
-            File extensions to include (e.g. [".tif", ".png"]).
-            When ``None``, all files are attempted.
-        include_subfolders : bool
-            Whether to recurse into subfolders.
-        output_format : str
-            Output format for arrays ("tif" or "npy").
-        overwrite : bool
-            Whether to overwrite existing outputs.
-        process_all_scenes : bool
-            Whether to process all scenes in multi-scene images.
-
-        Returns
-        -------
-        BatchSummary
-            Summary of processed files and outputs.
-        """
+        """Run batch processing on a folder of images."""
         input_root = Path(input_path).expanduser()
         output_root = Path(output_path).expanduser()
         output_root.mkdir(parents=True, exist_ok=True)
 
-        normalized_exts = _normalize_extensions(extensions)
-        files = list(_iter_input_files(input_root, normalized_exts, include_subfolders))
+        normalized_exts = normalize_extensions(extensions)
+        files = list(iter_input_files(input_root, normalized_exts, include_subfolders))
 
         results: list[BatchItemResult] = []
         processed = skipped = failed = 0
-        seg_settings = segmentation_settings or {}
+        normalized_channels = _normalize_channel_map(channel_map)
+        nuclear_settings = nuclear_settings or {}
+        cyto_settings = cyto_settings or {}
         spot_settings = spot_settings or {}
+        quant_backend = QuantificationBackend()
 
-        if not segmentation_model and not spot_detector:
+        if (
+            not nuclear_model
+            and not cyto_model
+            and not spot_detector
+            and not quantification_features
+        ):
             return BatchSummary(
                 input_root=input_root,
                 output_root=output_root,
@@ -135,7 +146,7 @@ class BatchBackend:
             for scene_id in scenes:
                 item_result = BatchItemResult(path=path, scene_id=scene_id)
                 try:
-                    output_dir = self._resolve_output_dir(
+                    output_dir = _resolve_output_dir(
                         output_root, path, scene_id, overwrite
                     )
                     if output_dir is None:
@@ -143,52 +154,138 @@ class BatchBackend:
                         results.append(item_result)
                         continue
 
-                    if segmentation_model:
-                        image = self._load_channel_data(
-                            path, segmentation_channel, scene_id
+                    labels_data: dict[str, np.ndarray] = {}
+                    labels_meta: dict[str, dict] = {}
+
+                    if nuclear_model:
+                        channel_idx = resolve_channel_index(
+                            nuclear_channel, normalized_channels
+                        )
+                        image, metadata = load_channel_data(
+                            path, channel_idx, scene_id
                         )
                         if image is None:
-                            raise RuntimeError("Failed to read image data.")
-                        seg_layer = _ArrayLayer(image)
-                        model = self._segmentation_backend.get_model(
-                            segmentation_model
-                        )
+                            raise RuntimeError("Failed to read nuclear image data.")
+                        seg_layer = Image(image, "nuclear", metadata)
+                        model = self._segmentation_backend.get_model(nuclear_model)
                         seg_result = model.run(
                             task="nuclear",
                             layer=seg_layer,
-                            settings=seg_settings,
+                            settings=nuclear_settings,
                         )
                         masks = seg_result.get("masks")
                         if masks is not None:
-                            out_path = _write_array(
+                            out_path = write_array(
                                 output_dir,
                                 "nuclear_labels",
                                 masks,
                                 output_format,
                             )
+                            labels_data["nuclear_labels"] = masks
+                            labels_meta["nuclear_labels"] = metadata
                             item_result.outputs["nuclear_labels"] = out_path
 
-                    if spot_detector:
-                        spot_image = self._load_channel_data(
-                            path, spot_channel, scene_id
+                    if cyto_model:
+                        channel_idx = resolve_channel_index(
+                            cyto_channel, normalized_channels
                         )
-                        if spot_image is None:
-                            raise RuntimeError("Failed to read image data.")
-                        spot_layer = _ArrayLayer(spot_image)
-                        detector = self._spots_backend.get_detector(spot_detector)
-                        spot_result = detector.run(
-                            layer=spot_layer,
-                            settings=spot_settings,
+                        cyto_image, cyto_meta = load_channel_data(
+                            path, channel_idx, scene_id
                         )
-                        mask = spot_result.get("mask")
-                        if mask is not None:
-                            out_path = _write_array(
+                        if cyto_image is None:
+                            raise RuntimeError(
+                                "Failed to read cytoplasmic image data."
+                            )
+                        cyto_layer = Image(cyto_image, "cytoplasmic", cyto_meta)
+                        cyto_nuclear_layer = None
+                        if cyto_nuclear_channel is not None:
+                            nuclear_idx = resolve_channel_index(
+                                cyto_nuclear_channel, normalized_channels
+                            )
+                            nuclear_image, nuclear_meta = load_channel_data(
+                                path, nuclear_idx, scene_id
+                            )
+                            if nuclear_image is None:
+                                raise RuntimeError(
+                                    "Failed to read cytoplasmic nuclear data."
+                                )
+                            cyto_nuclear_layer = Image(
+                                nuclear_image, "nuclear", nuclear_meta
+                            )
+                        model = self._segmentation_backend.get_model(cyto_model)
+                        seg_result = model.run(
+                            task="cytoplasmic",
+                            layer=cyto_layer,
+                            nuclear_layer=cyto_nuclear_layer,
+                            settings=cyto_settings,
+                        )
+                        masks = seg_result.get("masks")
+                        if masks is not None:
+                            out_path = write_array(
                                 output_dir,
-                                "spot_labels",
+                                "cyto_labels",
+                                masks,
+                                output_format,
+                            )
+                            labels_data["cyto_labels"] = masks
+                            labels_meta["cyto_labels"] = cyto_meta
+                            item_result.outputs["cyto_labels"] = out_path
+
+                    if spot_detector:
+                        resolved_spot_channels = list(spot_channels or [])
+                        for channel_choice in resolved_spot_channels:
+                            channel_idx = resolve_channel_index(
+                                channel_choice, normalized_channels
+                            )
+                            spot_image, spot_meta = load_channel_data(
+                                path, channel_idx, scene_id
+                            )
+                            if spot_image is None:
+                                raise RuntimeError(
+                                    "Failed to read spot image data."
+                                )
+                            spot_layer = Image(spot_image, "spots", spot_meta)
+                            detector = self._spots_backend.get_detector(
+                                spot_detector
+                            )
+                            spot_result = detector.run(
+                                layer=spot_layer,
+                                settings=spot_settings,
+                            )
+                            mask = spot_result.get("mask")
+                            if mask is None:
+                                continue
+                            label_name = spot_label_name(
+                                channel_choice, normalized_channels
+                            )
+                            out_path = write_array(
+                                output_dir,
+                                label_name,
                                 mask,
                                 output_format,
                             )
-                            item_result.outputs["spot_labels"] = out_path
+                            labels_data[label_name] = mask
+                            labels_meta[label_name] = spot_meta
+                            item_result.outputs[label_name] = out_path
+
+                    if quantification_features:
+                        viewer = _build_viewer_for_quantification(
+                            path,
+                            scene_id,
+                            normalized_channels,
+                            labels_data,
+                            labels_meta,
+                        )
+                        _apply_quantification_viewer(
+                            quantification_features, quantification_tab, viewer
+                        )
+                        result = quant_backend.process(
+                            quantification_features,
+                            str(output_dir),
+                            "",
+                            quantification_format,
+                        )
+                        item_result.outputs["quantification_root"] = result.output_root
 
                     processed += 1
                 except Exception as exc:
@@ -209,152 +306,77 @@ class BatchBackend:
         """Return a list of scene identifiers to process."""
         if not process_all:
             return [None]
-        try:
-            image = reader_core._open_bioimage(str(path))
-        except Exception:
-            return [None]
-        try:
-            scenes = list(getattr(image, "scenes", []) or [])
-        finally:
-            if hasattr(image, "close"):
-                try:
-                    image.close()
-                except Exception:
-                    pass
+        scenes = list_scenes(path)
         return scenes or [None]
 
-    def _resolve_output_dir(
-        self,
-        output_root: Path,
-        path: Path,
-        scene_id: str | None,
-        overwrite: bool,
-    ) -> Path | None:
-        """Return output directory for a file/scene, or None to skip."""
-        base_name = _basename_for_path(path)
-        output_dir = output_root / base_name
-        if scene_id:
-            output_dir = output_dir / _safe_scene_dir(scene_id)
-        if output_dir.exists() and not overwrite:
-            return None
-        output_dir.mkdir(parents=True, exist_ok=True)
-        return output_dir
 
-    def _load_channel_data(
-        self,
-        path: Path,
-        channel_index: int,
-        scene_id: str | None,
-    ) -> np.ndarray | None:
-        """Load a single-channel image array for the given path."""
-        image = reader_core._open_bioimage(str(path))
-        try:
-            if scene_id:
-                image.set_scene(scene_id)
-            axes_present = reader_core._axes_present(image)
-            dims = getattr(image, "dims", None)
-            c_size = getattr(dims, "C", 1) if "C" in axes_present else 1
-            z_size = getattr(dims, "Z", 1) if "Z" in axes_present else 1
-
-            if c_size > 1:
-                order = "CZYX" if z_size > 1 else "CYX"
-            else:
-                order = "ZYX" if z_size > 1 else "YX"
-
-            kwargs: dict[str, int] = {}
-            if "T" in axes_present and "T" not in order:
-                kwargs["T"] = 0
-            if "C" in axes_present and "C" not in order:
-                kwargs["C"] = 0
-            if "Z" in axes_present and "Z" not in order:
-                kwargs["Z"] = 0
-
-            data = image.get_image_data(order, **kwargs)
-            if c_size > 1:
-                if channel_index >= c_size or channel_index < 0:
-                    raise ValueError(
-                        f"Channel index {channel_index} out of range for {path.name}."
-                    )
-                data = data[channel_index]
-            return np.asarray(data)
-        finally:
-            if hasattr(image, "close"):
-                try:
-                    image.close()
-                except Exception:
-                    pass
+def _normalize_channel_map(
+    channel_map: Iterable[BatchChannelConfig | dict] | None,
+) -> list[BatchChannelConfig]:
+    if channel_map is None:
+        return []
+    normalized: list[BatchChannelConfig] = []
+    for entry in channel_map:
+        if isinstance(entry, BatchChannelConfig):
+            name = entry.name.strip()
+            index = entry.index
+        elif isinstance(entry, dict):
+            name = str(entry.get("name", "")).strip()
+            index = int(entry.get("index", 0))
+        else:
+            continue
+        if not name:
+            name = f"Channel {index}"
+        normalized.append(BatchChannelConfig(name=name, index=index))
+    return normalized
 
 
-def _normalize_extensions(extensions: Iterable[str] | None) -> set[str] | None:
-    """Normalize extension list to lowercase with leading dots."""
-    if extensions is None:
+def _resolve_output_dir(
+    output_root: Path,
+    path: Path,
+    scene_id: str | None,
+    overwrite: bool,
+) -> Path | None:
+    base_name = basename_for_path(path)
+    output_dir = output_root / base_name
+    if scene_id:
+        output_dir = output_dir / safe_scene_dir(scene_id)
+    if output_dir.exists() and not overwrite:
         return None
-    normalized = set()
-    for ext in extensions:
-        if not ext:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+def _build_viewer_for_quantification(
+    path: Path,
+    scene_id: str | None,
+    channel_map: list[BatchChannelConfig],
+    labels_data: dict[str, np.ndarray],
+    labels_meta: dict[str, dict],
+) -> BatchViewer:
+    layers: list[object] = []
+    for channel in channel_map:
+        image, metadata = load_channel_data(path, channel.index, scene_id)
+        if image is None:
             continue
-        cleaned = ext.strip().lower()
-        if not cleaned:
+        layers.append(Image(image, channel.name, metadata))
+    for name, data in labels_data.items():
+        metadata = labels_meta.get(name, {})
+        layers.append(Labels(data, name, metadata))
+    return BatchViewer(layers)
+
+
+def _apply_quantification_viewer(
+    features: Iterable[object],
+    quantification_tab: object | None,
+    viewer: BatchViewer,
+) -> None:
+    if quantification_tab is not None:
+        setattr(quantification_tab, "_viewer", viewer)
+    for context in features:
+        handler = getattr(context, "feature_handler", None)
+        if handler is None:
             continue
-        if not cleaned.startswith("."):
-            cleaned = f".{cleaned}"
-        normalized.add(cleaned)
-    return normalized or None
-
-
-def _iter_input_files(
-    root: Path, extensions: set[str] | None, include_subfolders: bool
-) -> Iterable[Path]:
-    """Yield input files from a root folder."""
-    if not root.exists():
-        return
-    iterator = root.rglob("*") if include_subfolders else root.iterdir()
-    for path in iterator:
-        if not path.is_file():
-            continue
-        if extensions is None:
-            yield path
-            continue
-        name = path.name.lower()
-        if any(name.endswith(ext) for ext in extensions):
-            yield path
-
-
-def _basename_for_path(path: Path) -> str:
-    """Return a filesystem-friendly base name for a file path."""
-    name = path.name
-    lowered = name.lower()
-    for ext in (".ome.tiff", ".ome.tif", ".tiff", ".tif"):
-        if lowered.endswith(ext):
-            return name[: -len(ext)]
-    if "." in name:
-        return name.rsplit(".", 1)[0]
-    return name
-
-
-def _safe_scene_dir(scene_id: str) -> str:
-    """Return a sanitized scene identifier for folder naming."""
-    safe = scene_id.strip().replace("/", "_").replace("\\", "_")
-    return safe or "scene"
-
-
-def _write_array(
-    output_dir: Path, name: str, data: np.ndarray, output_format: str
-) -> Path:
-    """Write an array to disk in the requested format."""
-    output_format = output_format.lower().strip()
-    if output_format == "npy":
-        path = output_dir / f"{name}.npy"
-        np.save(path, data)
-        return path
-
-    path = output_dir / f"{name}.tif"
-    try:
-        import tifffile
-
-        tifffile.imwrite(str(path), data)
-        return path
-    except Exception:
-        fallback = output_dir / f"{name}.npy"
-        np.save(fallback, data)
-        return fallback
+        tab = getattr(handler, "_tab", None)
+        if tab is not None:
+            setattr(tab, "_viewer", viewer)
