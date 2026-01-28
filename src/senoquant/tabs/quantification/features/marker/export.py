@@ -434,9 +434,9 @@ def _add_roi_columns(
         roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
-            prefix = "excluded_from"
+            prefix = "excluded_from_roi"
         else:
-            prefix = "included_in"
+            prefix = "included_in_roi"
         column = f"{prefix}_{_sanitize_name(roi_name)}"
         for row, value in zip(rows, included):
             row[column] = int(value)
