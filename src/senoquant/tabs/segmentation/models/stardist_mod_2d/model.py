@@ -200,7 +200,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         diameter_px = float(settings.get("object_diameter_px", 30.0))
         if diameter_px <= 0:
             raise ValueError("Object diameter (px) must be positive.")
-        scale_factor = 30.0 / diameter_px
+        scale_factor = 17.44 / diameter_px
         if np.isclose(scale_factor, 1.0):
             return image, None
 
