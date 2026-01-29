@@ -304,6 +304,7 @@ class SegmentationTab(QWidget):
             self._nuclear_layer_combo.addItem(name)
             self._cyto_layer_combo.addItem(name)
             self._cyto_nuclear_layer_combo.addItem(name)
+        self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer")
 
         self._restore_combo_selection(self._nuclear_layer_combo, nuclear_current)
         self._restore_combo_selection(self._cyto_layer_combo, cyto_current)
@@ -439,8 +440,10 @@ class SegmentationTab(QWidget):
     def _update_cytoplasmic_run_state(self, model) -> None:
         """Enable/disable cytoplasmic run button based on required inputs."""
         if self._cyto_requires_nuclear(model):
-            has_nuclear = bool(self._cyto_nuclear_layer_combo.currentText())
-            self._cyto_run_button.setEnabled(has_nuclear)
+            nuclear_layer = self._get_layer_by_name(
+                self._cyto_nuclear_layer_combo.currentText()
+            )
+            self._cyto_run_button.setEnabled(nuclear_layer is not None)
         else:
             self._cyto_run_button.setEnabled(True)
 
