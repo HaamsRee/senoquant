@@ -41,9 +41,9 @@ nav:
       - Quantification: user/quantification.md
       - Batch Processing: user/batch.md
       - Settings: user/settings.md
+  - API Reference: developer/api.md
   - Developer Guide:
       - Architecture: developer/architecture.md
-      - API Reference: developer/api.md
       - Models & Detectors: developer/models.md
       - Quantification Features: developer/quantification-features.md
       - Batch Profiles: developer/batch-profiles.md
