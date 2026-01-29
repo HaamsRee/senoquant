@@ -32,11 +32,3 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest -q
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: ${{ always() }}
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
