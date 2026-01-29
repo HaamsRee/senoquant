@@ -41,7 +41,6 @@ nav:
       - Quantification: user/quantification.md
       - Batch Processing: user/batch.md
       - Settings: user/settings.md
-  - API Reference: developer/api.md
   - Developer Guide:
       - Architecture: developer/architecture.md
       - Models & Detectors: developer/models.md
@@ -50,3 +49,5 @@ nav:
       - Packaging & Releases: developer/packaging.md
       - Contributing: developer/contributing.md
       - Repo Map: developer/repo-map.md
+  - API Reference:
+      - Overview: developer/api.md
