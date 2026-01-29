@@ -780,10 +780,14 @@ class BatchTab(QWidget):
         """Collect values from settings widgets into a dictionary."""
         values = {}
         for key, widget in settings_widgets.items():
-            if hasattr(widget, "value"):
-                values[key] = widget.value()
-            elif isinstance(widget, QCheckBox):
-                values[key] = widget.isChecked()
+            try:
+                if hasattr(widget, "value"):
+                    values[key] = widget.value()
+                elif isinstance(widget, QCheckBox):
+                    values[key] = widget.isChecked()
+            except RuntimeError:
+                # Widget was deleted; ignore stale references.
+                continue
         return values
 
     def _update_processing_state(self) -> None:
@@ -871,30 +875,53 @@ class BatchTab(QWidget):
             return
 
         job = self._build_job_config()
+        quant_contexts = (
+            list(self._quant_tab._feature_configs)
+            if self._quant_enabled.isChecked()
+            else []
+        )
         self._start_background_run(
             run_button=self._run_button,
             run_text="Run batch",
-            run_callable=lambda: self._backend.run_job(job),
+            run_callable=lambda: self._backend.process_folder(
+                job.input_path,
+                job.output_path,
+                channel_map=job.channel_map,
+                nuclear_model=job.nuclear.model if job.nuclear.enabled else None,
+                nuclear_channel=job.nuclear.channel or None,
+                nuclear_settings=job.nuclear.settings,
+                cyto_model=job.cytoplasmic.model if job.cytoplasmic.enabled else None,
+                cyto_channel=job.cytoplasmic.channel or None,
+                cyto_nuclear_channel=job.cytoplasmic.nuclear_channel or None,
+                cyto_settings=job.cytoplasmic.settings,
+                spot_detector=job.spots.detector if job.spots.enabled else None,
+                spot_channels=job.spots.channels,
+                spot_settings=job.spots.settings,
+                quantification_features=quant_contexts,
+                quantification_format=job.quantification.format,
+                quantification_tab=(
+                    self._quant_tab if self._quant_enabled.isChecked() else None
+                ),
+                extensions=job.extensions,
+                include_subfolders=job.include_subfolders,
+                output_format=job.output_format,
+                overwrite=job.overwrite,
+                process_all_scenes=job.process_all_scenes,
+            ),
             on_success=self._handle_batch_complete,
         )
 
     def _build_job_config(self) -> BatchJobConfig:
         """Build a BatchJobConfig from the current UI state."""
-        nuclear_settings = (
-            self._collect_settings(self._nuclear_settings_widgets)
-            if self._nuclear_settings_widgets
-            else self._nuclear_settings_values
-        )
-        cyto_settings = (
-            self._collect_settings(self._cyto_settings_widgets)
-            if self._cyto_settings_widgets
-            else self._cyto_settings_values
-        )
-        spot_settings = (
-            self._collect_settings(self._spot_settings_widgets)
-            if self._spot_settings_widgets
-            else self._spot_settings_values
-        )
+        nuclear_settings = self._collect_settings(self._nuclear_settings_widgets)
+        if not nuclear_settings:
+            nuclear_settings = self._nuclear_settings_values
+        cyto_settings = self._collect_settings(self._cyto_settings_widgets)
+        if not cyto_settings:
+            cyto_settings = self._cyto_settings_values
+        spot_settings = self._collect_settings(self._spot_settings_widgets)
+        if not spot_settings:
+            spot_settings = self._spot_settings_values
         spot_channels = [
             row["combo"].currentText().strip()
             for row in self._spot_channel_rows
