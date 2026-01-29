@@ -14,6 +14,12 @@ theme:
 
 plugins:
   - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false
+            heading_level: 3
 
 markdown_extensions:
   - admonition
@@ -35,6 +41,7 @@ nav:
       - Settings: user/settings.md
   - Developer Guide:
       - Architecture: developer/architecture.md
+      - API Reference: developer/api.md
       - Models & Detectors: developer/models.md
       - Quantification Features: developer/quantification-features.md
       - Batch Profiles: developer/batch-profiles.md
