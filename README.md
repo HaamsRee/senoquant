@@ -1,6 +1,6 @@
 # SenoQuant
 
-![tests](https://github.com/HaamsRee/senoquant-dev/actions/workflows/tests.yml/badge.svg) ![coverage](https://codecov.io/gh/HaamsRee/senoquant-dev/branch/main/graph/badge.svg)
+![tests](https://github.com/HaamsRee/senoquant-dev/actions/workflows/tests.yml/badge.svg) ![coverage](https://codecov.io/gh/HaamsRee/senoquant-dev/branch/tests/graph/badge.svg)
 
 SenoQuant is a versatile Napari plugin designed for comprehensive, accurate,
 and unbiased spatial quantification and prediction of senescence markers
