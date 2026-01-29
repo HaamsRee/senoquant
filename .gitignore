@@ -15,6 +15,7 @@ dist/
 *.egg-info/
 .eggs/
 wheelhouse/
+site/
 
 # Large model binaries (decide storage strategy)
 src/senoquant/tabs/segmentation/models/cpsam/cpsam

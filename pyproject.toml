@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "senoquant"
 version = "0.1.0"
-description = "SenoQuant: a napari plugin scaffold using qtpy"
+description = "SenoQuant is a versatile Napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "BSD-3-Clause" }

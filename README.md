@@ -1,6 +1,16 @@
 # SenoQuant
 
-A minimal napari plugin scaffold using qtpy.
+SenoQuant is a versatile Napari plugin designed for comprehensive, accurate,
+and unbiased spatial quantification and prediction of senescence markers
+across diverse tissue contexts.
+
+## Documentation
+
+Docs are built with MkDocs Material and published via GitHub Pages.
+
+- Local preview: `pip install mkdocs-material` then `mkdocs serve`
+- Build output: `mkdocs build`
+- CI deploy: `.github/workflows/docs.yml`
 
 ## Development
 

@@ -1,0 +1,43 @@
+site_name: SenoQuant
+site_description: SenoQuant is a versatile Napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts.
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.top
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: teal
+      accent: amber
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - Installation: user/installation.md
+      - Quick Start: user/quickstart.md
+      - Data & Readers: user/data.md
+      - Segmentation: user/segmentation.md
+      - Spots: user/spots.md
+      - Quantification: user/quantification.md
+      - Batch Processing: user/batch.md
+      - Settings: user/settings.md
+  - Developer Guide:
+      - Architecture: developer/architecture.md
+      - Models & Detectors: developer/models.md
+      - Quantification Features: developer/quantification-features.md
+      - Batch Profiles: developer/batch-profiles.md
+      - Packaging & Releases: developer/packaging.md
+      - Contributing: developer/contributing.md
+      - Repo Map: developer/repo-map.md
