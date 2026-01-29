@@ -475,6 +475,12 @@ class QSplitter(QWidget):
     def addWidget(self, widget) -> None:
         return None
 
+    def setChildrenCollapsible(self, *_args, **_kwargs) -> None:
+        return None
+
+    def setStretchFactor(self, *_args, **_kwargs) -> None:
+        return None
+
 
 class QComboBox(QWidget):
     """Combo box stub."""
@@ -687,6 +693,7 @@ class QDialog(QWidget):
     def __init__(self, *_args, **_kwargs) -> None:
         super().__init__()
         self.accepted = DummySignal()
+        self._title = ""
 
     def show(self) -> None:
         return None
@@ -699,6 +706,12 @@ class QDialog(QWidget):
 
     def close(self) -> None:
         return None
+
+    def setWindowTitle(self, title: str) -> None:
+        self._title = title
+
+    def accept(self) -> None:
+        self.accepted.emit()
 
 
 class QFileDialog:

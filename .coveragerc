@@ -1,0 +1,16 @@
+[run]
+source =
+    senoquant
+omit =
+    src/senoquant/_reader.py
+    src/senoquant/tabs/*/frontend.py
+    src/senoquant/tabs/quantification/features/*/dialog.py
+    src/senoquant/tabs/quantification/features/*/rows.py
+    src/senoquant/tabs/quantification/features/roi.py
+    src/senoquant/tabs/segmentation/stardist_onnx_utils/*
+    src/senoquant/tabs/segmentation/stardist_onnx_utils/**
+    src/senoquant/tabs/segmentation/models/stardist_2d/model.py
+    src/senoquant/tabs/segmentation/models/stardist_3d/model.py
+    src/senoquant/tabs/segmentation/models/stardist_mod_2d/model.py
+    src/senoquant/tabs/segmentation/models/cpsam/model.py
+    src/senoquant/tabs/spots/models/rmp/model.py
