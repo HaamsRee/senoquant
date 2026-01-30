@@ -301,11 +301,36 @@ class SegmentationTab(QWidget):
             self._cyto_nuclear_layer_combo.addItem("Select a layer")
             return
 
+        # For nuclear and cytoplasmic layers, use Image layers
         names = [layer.name for layer in self._iter_image_layers()]
         for name in names:
             self._nuclear_layer_combo.addItem(name)
             self._cyto_layer_combo.addItem(name)
-            self._cyto_nuclear_layer_combo.addItem(name)
+        
+        # For cytoplasmic nuclear layer, check if model uses nuclear-only mode
+        cyto_model_name = self._cyto_model_combo.currentText()
+        if cyto_model_name and cyto_model_name != "No models found":
+            try:
+                model = self._backend.get_model(cyto_model_name)
+                modes = model.cytoplasmic_input_modes()
+                if modes == ["nuclear"]:
+                    # Nuclear-only mode: populate with Labels layers
+                    label_names = [layer.name for layer in self._iter_label_layers()]
+                    for name in label_names:
+                        self._cyto_nuclear_layer_combo.addItem(name)
+                else:
+                    # Standard mode: populate with Image layers
+                    for name in names:
+                        self._cyto_nuclear_layer_combo.addItem(name)
+            except Exception:
+                # Fallback to Image layers if model can't be loaded
+                for name in names:
+                    self._cyto_nuclear_layer_combo.addItem(name)
+        else:
+            # No model selected: populate with Image layers
+            for name in names:
+                self._cyto_nuclear_layer_combo.addItem(name)
+        
         self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer")
 
         self._restore_combo_selection(self._nuclear_layer_combo, nuclear_current)
@@ -330,6 +355,10 @@ class SegmentationTab(QWidget):
             self._cyto_model_combo.addItem("No models found")
         else:
             self._cyto_model_combo.addItems(cyto_names)
+        
+        # Trigger initial model settings update to configure layer filters
+        if cyto_names:
+            self._update_cytoplasmic_model_settings(self._cyto_model_combo.currentText())
 
     def _update_nuclear_model_settings(self, model_name: str) -> None:
         """Rebuild the nuclear model settings area for the selected model.
