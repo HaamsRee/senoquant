@@ -17,7 +17,7 @@ from qtpy.QtWidgets import (
 )
 
 try:
-    from napari.layers import Image
+    from napari.layers import Image, Labels
     from napari.utils.notifications import (
         Notification,
         NotificationSeverity,
@@ -25,6 +25,7 @@ try:
     )
 except Exception:  # pragma: no cover - optional import for runtime
     Image = None
+    Labels = None
     show_console_notification = None
     Notification = None
     NotificationSeverity = None
@@ -304,7 +305,7 @@ class SegmentationTab(QWidget):
             self._nuclear_layer_combo.addItem(name)
             self._cyto_layer_combo.addItem(name)
             self._cyto_nuclear_layer_combo.addItem(name)
-        self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer")
+        self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer"))
 
         self._restore_combo_selection(self._nuclear_layer_combo, nuclear_current)
         self._restore_combo_selection(self._cyto_layer_combo, cyto_current)
@@ -370,6 +371,8 @@ class SegmentationTab(QWidget):
             self._cyto_layer_label.setVisible(False)
             self._cyto_nuclear_layer_combo.setEnabled(True)
             self._cyto_nuclear_label.setText("Nuclear layer")
+            # For nuclear-only models, populate with Labels layers
+            self._refresh_nuclear_labels_for_cyto()
         elif "nuclear+cytoplasmic" in modes:
             self._cyto_layer_combo.setVisible(True)
             self._cyto_layer_label.setVisible(True)
@@ -378,6 +381,8 @@ class SegmentationTab(QWidget):
             suffix = "optional" if optional else "mandatory"
             self._cyto_nuclear_label.setText(f"Nuclear layer ({suffix})")
             self._cyto_nuclear_layer_combo.setEnabled(True)
+            # For standard models, populate with Image layers
+            self._refresh_nuclear_images_for_cyto()
         else:
             # Only cytoplasmic
             self._cyto_layer_combo.setVisible(True)
@@ -385,8 +390,55 @@ class SegmentationTab(QWidget):
             self._cyto_layer_combo.setEnabled(True)
             self._cyto_nuclear_label.setText("Nuclear layer")
             self._cyto_nuclear_layer_combo.setEnabled(False)
+            # For standard models, populate with Image layers
+            self._refresh_nuclear_images_for_cyto()
 
         self._update_cytoplasmic_run_state(model)
+
+    def _refresh_nuclear_labels_for_cyto(self) -> None:
+        """Refresh cytoplasmic nuclear layer combo with Labels layers."""
+        current = self._cyto_nuclear_layer_combo.currentText()
+        self._cyto_nuclear_layer_combo.clear()
+        
+        if self._viewer is None:
+            self._cyto_nuclear_layer_combo.addItem("Select a layer")
+            return
+        
+        label_names = [layer.name for layer in self._iter_label_layers()]
+        for name in label_names:
+            self._cyto_nuclear_layer_combo.addItem(name)
+        self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer")
+        self._restore_combo_selection(self._cyto_nuclear_layer_combo, current)
+    
+    def _refresh_nuclear_images_for_cyto(self) -> None:
+        """Refresh cytoplasmic nuclear layer combo with Image layers."""
+        current = self._cyto_nuclear_layer_combo.currentText()
+        self._cyto_nuclear_layer_combo.clear()
+        
+        if self._viewer is None:
+            self._cyto_nuclear_layer_combo.addItem("Select a layer")
+            return
+        
+        image_names = [layer.name for layer in self._iter_image_layers()]
+        for name in image_names:
+            self._cyto_nuclear_layer_combo.addItem(name)
+        self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer")
+        self._restore_combo_selection(self._cyto_nuclear_layer_combo, current)
+
+    def _iter_label_layers(self) -> list:
+        """Iterate over Labels layers in the viewer."""
+        if self._viewer is None:
+            return []
+        
+        label_layers = []
+        for layer in self._viewer.layers:
+            if Labels is not None:
+                if isinstance(layer, Labels):
+                    label_layers.append(layer)
+            else:
+                if layer.__class__.__name__ == "Labels":
+                    label_layers.append(layer)
+        return label_layers
 
     def _iter_image_layers(self) -> list:
         if self._viewer is None:
