@@ -19,6 +19,7 @@ from skimage.measure import regionprops_table
 
 from senoquant.utils import layer_data_asarray
 from .config import MarkerFeatureData
+from .morphology import add_morphology_columns
 from ..base import FeatureConfig
 
 if TYPE_CHECKING:
@@ -102,6 +103,9 @@ def export_marker(
                     break
         rows = _initialize_rows(label_ids, centroids, pixel_sizes)
         _add_roi_columns(rows, labels, label_ids, viewer, data.rois, label_name)
+        morph_columns = add_morphology_columns(
+            rows, labels, label_ids, pixel_sizes
+        )
         header = list(rows[0].keys()) if rows else []
 
         for channel in channels:

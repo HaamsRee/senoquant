@@ -15,12 +15,40 @@ results to disk.
 
 ### Markers
 
-Marker features measure channel intensity within segmentation labels.
+Marker features measure channel intensity and morphological properties within segmentation labels.
 The configuration supports:
 
 - One or more segmentation label layers.
 - One or more image channels (with optional threshold settings).
 - Optional ROIs (include or exclude) based on Shapes layers.
+
+#### Exported columns
+
+Each marker feature export includes:
+
+**Shape and morphology** (prefixed with `morph_`):
+- `area` (2D) or `volume` (3D): Size in pixels
+- `area_um2` (2D) or `volume_um3` (3D): Physical size in micrometers
+- `circularity` (2D only): 4π·area/perimeter² (1.0 is a perfect circle)
+- `eccentricity`: Ellipse eccentricity (0 is circular, 1 is elongated)
+- `extent`: Ratio of region area to bounding box area
+- `feret_diameter_max`: Maximum Feret diameter
+- `major_axis_length`: Semi-major axis of fitted ellipse
+- `minor_axis_length`: Semi-minor axis of fitted ellipse
+- `aspect_ratio`: Ratio of major to minor axis lengths
+- `orientation`: Angle of major axis (radians)
+- `perimeter` (2D only): Region perimeter estimate
+- `perimeter_crofton` (2D only): Crofton perimeter estimate
+- `solidity`: Ratio of region area to convex hull area
+
+**Centroid position** (in pixel coordinates):
+- `centroid_row`, `centroid_col` (2D)
+- `centroid_plane`, `centroid_row`, `centroid_col` (3D)
+
+**Channel intensity** (one per configured channel):
+- Mean, median, min, max, and sum intensity values
+- Standard deviation and variance of intensity
+- Threshold-based metrics if thresholds are configured
 
 ### Spots
 
