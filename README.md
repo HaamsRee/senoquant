@@ -50,9 +50,9 @@ Docs are built with MkDocs Material and published via GitHub Pages.
 The StarDist ONNX model uses compiled C/C++ extensions for NMS and 3D label rendering.
 These are packaged as a separate wheel to keep the main plugin lightweight.
 
-- Install the extension wheel (when available):
+- Install from PyPI (recommended):
   - `pip install senoquant-stardist-ext`
-- If you are working from source, build the wheel:
+- If you are working from source or need a custom build, build the wheel locally:
   - `pip install -U scikit-build-core`
   - `pip wheel ./stardist_ext -w ./wheelhouse`
   - `pip install ./wheelhouse/senoquant_stardist_ext-*.whl`

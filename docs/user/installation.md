@@ -48,13 +48,13 @@ pip install -e ".[all]"
 ## StarDist extension (compiled)
 
 StarDist ONNX inference uses a compiled extension for NMS and 3D label
-rendering. When available, install the wheel:
+rendering. Install it from PyPI:
 
 ```bash
 pip install senoquant-stardist-ext
 ```
 
-To build the wheel from source:
+If you are working from source or need a custom build, build the wheel locally:
 
 ```bash
 pip install -U scikit-build-core

@@ -11,7 +11,8 @@ extension for StarDist NMS and 3D label rendering.
 ## StarDist extension
 
 Source for the compiled extension lives in `stardist_ext/`.
-To build the wheel locally:
+The extension is published to PyPI as `senoquant-stardist-ext`.
+To build the wheel locally (for development or custom builds):
 
 ```bash
 pip install -U scikit-build-core
@@ -25,4 +26,5 @@ pip install ./wheelhouse/senoquant_stardist_ext-*.whl
 ```
 
 The main package depends on `senoquant-stardist-ext`, so distribution
-pipelines should ensure wheels are built for target platforms.
+pipelines should ensure wheels are built for target platforms and uploaded
+to PyPI.
