@@ -106,6 +106,21 @@ def export_marker(
         morph_columns = add_morphology_columns(
             rows, labels, label_ids, pixel_sizes
         )
+        
+        # Extract file path from metadata if available
+        file_path = None
+        if channels:
+            first_channel_layer = _find_layer(viewer, channels[0].channel, "Image")
+            if first_channel_layer is not None:
+                metadata = getattr(first_channel_layer, "metadata", {})
+                file_path = metadata.get("path")
+        
+        # Determine segmentation type from label name or config
+        seg_type = getattr(segmentation, "task", "nuclear")
+        ref_columns = _add_reference_columns(
+            rows, labels, label_ids, file_path, seg_type
+        )
+        
         header = list(rows[0].keys()) if rows else []
 
         for channel in channels:
@@ -696,6 +711,131 @@ def _write_threshold_metadata(
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
     return output_path
+
+
+def _add_reference_columns(
+    rows: list[dict],
+    labels: np.ndarray,
+    label_ids: np.ndarray,
+    file_path: str | None,
+    segmentation_type: str,
+) -> list[str]:
+    """Add reference columns to marker export rows.
+
+    Parameters
+    ----------
+    rows : list of dict
+        Output row dictionaries to update in-place.
+    labels : numpy.ndarray
+        Label image with integer ids.
+    label_ids : numpy.ndarray
+        Label ids corresponding to the output rows.
+    file_path : str or None
+        Original file path from metadata.
+    segmentation_type : str
+        Type of segmentation ("nuclear" or "cytoplasmic").
+
+    Returns
+    -------
+    list of str
+        List of column names added.
+    """
+    column_names: list[str] = []
+
+    # Add file path column
+    if file_path:
+        for row in rows:
+            row["file_path"] = str(file_path)
+        column_names.append("file_path")
+
+    # Add segmentation type column
+    for row in rows:
+        row["segmentation_type"] = segmentation_type
+    column_names.append("segmentation_type")
+
+    return column_names
+
+
+def _build_cross_segmentation_map(
+    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]],
+) -> dict[tuple[str, int], list[tuple[str, int]]]:
+    """Build a mapping of label overlaps across segmentations.
+
+    Parameters
+    ----------
+    all_segmentations : dict
+        Mapping from segmentation name to (labels, label_ids) tuple.
+
+    Returns
+    -------
+    dict
+        Mapping from (seg_name, label_id) to list of overlapping
+        (other_seg_name, overlapping_label_id) tuples.
+
+    Notes
+    -----
+    This function identifies which labels from different segmentations
+    overlap spatially, enabling cross-referencing between tables.
+    """
+    cross_map: dict[tuple[str, int], list[tuple[str, int]]] = {}
+
+    seg_names = list(all_segmentations.keys())
+    for i, seg1_name in enumerate(seg_names):
+        labels1, label_ids1 = all_segmentations[seg1_name]
+        for label_id1 in label_ids1:
+            cross_map[(seg1_name, int(label_id1))] = []
+            # Check overlaps with all other segmentations
+            for seg2_name in seg_names[i + 1 :]:
+                labels2, _label_ids2 = all_segmentations[seg2_name]
+                # Find which labels in seg2 overlap with label_id1
+                mask1 = labels1 == label_id1
+                overlapping_labels2 = np.unique(labels2[mask1])
+                overlapping_labels2 = overlapping_labels2[overlapping_labels2 > 0]
+                for label_id2 in overlapping_labels2:
+                    cross_map[(seg1_name, int(label_id1))].append(
+                        (seg2_name, int(label_id2)),
+                    )
+
+    return cross_map
+
+
+def _add_cross_reference_column(
+    rows: list[dict],
+    segmentation_name: str,
+    label_ids: np.ndarray,
+    cross_map: dict,
+) -> str:
+    """Add a cross-reference column to rows for multi-segmentation overlaps.
+
+    Parameters
+    ----------
+    rows : list of dict
+        Output row dictionaries to update in-place.
+    segmentation_name : str
+        Name of this segmentation.
+    label_ids : numpy.ndarray
+        Label ids corresponding to the output rows.
+    cross_map : dict
+        Cross-segmentation overlap mapping from _build_cross_segmentation_map.
+
+    Returns
+    -------
+    str
+        Column name added.
+    """
+    for row, label_id in zip(rows, label_ids, strict=True):
+        overlaps = cross_map.get((segmentation_name, int(label_id)), [])
+        if overlaps:
+            overlap_str = ";".join(
+                [f"{seg}_{lid}" for seg, lid in overlaps],
+            )
+            row["overlaps_with"] = overlap_str
+        else:
+            row["overlaps_with"] = ""
+
+    return "overlaps_with"
+
+
 
 
 def _write_table(
