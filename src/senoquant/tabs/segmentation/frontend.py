@@ -305,7 +305,7 @@ class SegmentationTab(QWidget):
             self._nuclear_layer_combo.addItem(name)
             self._cyto_layer_combo.addItem(name)
             self._cyto_nuclear_layer_combo.addItem(name)
-        self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer"))
+        self._cyto_nuclear_layer_combo.insertItem(0, "Select a layer")
 
         self._restore_combo_selection(self._nuclear_layer_combo, nuclear_current)
         self._restore_combo_selection(self._cyto_layer_combo, cyto_current)
