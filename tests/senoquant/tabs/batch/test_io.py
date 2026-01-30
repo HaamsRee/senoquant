@@ -193,3 +193,101 @@ def test_list_scenes(monkeypatch) -> None:
     monkeypatch.setattr(batch_io.reader_core, "_open_bioimage", lambda _p: image)
     scenes = batch_io.list_scenes(Path("/tmp/test.tif"))
     assert scenes == ["scene-1"]
+
+def test_write_array_tif_format(tmp_path: Path) -> None:
+    """Write numpy array to tif file format.
+
+    Returns
+    -------
+    None
+    """
+    data = np.ones((10, 10), dtype=np.uint16)
+    output_path = batch_io.write_array(tmp_path, "test_output", data, "tif")
+    
+    assert output_path.exists()
+    assert output_path.suffix == ".tif"
+
+
+def test_write_array_npy_format(tmp_path: Path) -> None:
+    """Write numpy array to npy file format.
+
+    Returns
+    -------
+    None
+    """
+    data = np.ones((10, 10), dtype=np.uint16)
+    output_path = batch_io.write_array(tmp_path, "test_output", data, "npy")
+    
+    assert output_path.exists()
+    assert output_path.suffix == ".npy"
+
+
+def test_safe_scene_dir() -> None:
+    """Sanitize scene identifiers for filesystem use.
+
+    Returns
+    -------
+    None
+    """
+    # Test normal scene ID
+    assert batch_io.safe_scene_dir("scene-1") == "scene-1"
+    
+    # Test scene ID with problematic characters (forward and backslash)
+    result = batch_io.safe_scene_dir("scene/path\\with_chars")
+    assert "/" not in result
+    assert "\\" not in result
+
+
+def test_resolve_channel_index_with_numeric_string() -> None:
+    """Resolve channel index from numeric string without channel map.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    
+    # Numeric string should resolve to index
+    idx = batch_io.resolve_channel_index("1", channel_map)
+    assert idx == 1
+
+
+def test_resolve_channel_index_by_name() -> None:
+    """Resolve channel index by name from channel map.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    
+    # Named channel should resolve to its index
+    idx = batch_io.resolve_channel_index("GFP", channel_map)
+    assert idx == 1
+
+
+def test_spot_label_name_generation() -> None:
+    """Generate consistent spot label names.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="GFP", index=0),
+        BatchChannelConfig(name="DAPI", index=1),
+    ]
+    
+    # Test with channel name
+    name = batch_io.spot_label_name("GFP", channel_map)
+    assert name == "spot_labels_GFP"
+    
+    # Test with numeric index
+    name = batch_io.spot_label_name(0, channel_map)
+    assert name == "spot_labels_0"

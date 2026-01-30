@@ -180,6 +180,7 @@ class BatchBackend:
         output_format: str = "tif",
         overwrite: bool = False,
         process_all_scenes: bool = False,
+        progress_callback: callable | None = None,
     ) -> BatchSummary:
         """Run batch processing on a folder of images.
 
@@ -227,6 +228,9 @@ class BatchBackend:
             Whether to overwrite existing output folders.
         process_all_scenes : bool, optional
             Whether to process all scenes in multi-scene files.
+        progress_callback : callable or None, optional
+            Optional callback invoked with (current, total, message) to
+            report progress during batch processing.
 
         Returns
         -------
@@ -248,6 +252,15 @@ class BatchBackend:
         spot_settings = spot_settings or {}
         quant_backend = QuantificationBackend()
 
+        # Count total items to process
+        total_items = 0
+        for path in files:
+            scenes = self._iter_scenes(path, process_all_scenes)
+            total_items += len(scenes)
+
+        if progress_callback is not None:
+            progress_callback(0, total_items, "Starting batch processing...")
+
         if (
             not nuclear_model
             and not cyto_model
@@ -264,10 +277,21 @@ class BatchBackend:
             )
 
         # Iterate over files and (optionally) scene variants.
+        current_item = 0
         for path in files:
             scenes = self._iter_scenes(path, process_all_scenes)
             for scene_id in scenes:
+                current_item += 1
                 item_result = BatchItemResult(path=path, scene_id=scene_id)
+                
+                if progress_callback is not None:
+                    scene_label = f" (Scene: {scene_id})" if scene_id else ""
+                    progress_callback(
+                        current_item,
+                        total_items,
+                        f"Processing {path.name}{scene_label}..."
+                    )
+                
                 try:
                     output_dir = _resolve_output_dir(
                         output_root, path, scene_id, overwrite

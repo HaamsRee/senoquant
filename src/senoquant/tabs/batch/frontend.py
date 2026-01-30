@@ -21,6 +21,7 @@ from qtpy.QtWidgets import (
     QDialog,
     QLabel,
     QLineEdit,
+    QProgressBar,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -143,6 +144,10 @@ class BatchTab(QWidget):
         self._run_button = QPushButton("Run batch")
         self._run_button.clicked.connect(self._run_batch)
         layout.addWidget(self._run_button)
+
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setVisible(False)
+        layout.addWidget(self._progress_bar)
 
         self._status_label = QLabel("Ready")
         self._status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -890,34 +895,39 @@ class BatchTab(QWidget):
             if self._quant_enabled.isChecked()
             else []
         )
+        
+        # Create a worker that can report progress
+        worker = _RunWorker(lambda progress_cb: self._backend.process_folder(
+            job.input_path,
+            job.output_path,
+            channel_map=job.channel_map,
+            nuclear_model=job.nuclear.model if job.nuclear.enabled else None,
+            nuclear_channel=job.nuclear.channel or None,
+            nuclear_settings=job.nuclear.settings,
+            cyto_model=job.cytoplasmic.model if job.cytoplasmic.enabled else None,
+            cyto_channel=job.cytoplasmic.channel or None,
+            cyto_nuclear_channel=job.cytoplasmic.nuclear_channel or None,
+            cyto_settings=job.cytoplasmic.settings,
+            spot_detector=job.spots.detector if job.spots.enabled else None,
+            spot_channels=job.spots.channels,
+            spot_settings=job.spots.settings,
+            quantification_features=quant_contexts,
+            quantification_format=job.quantification.format,
+            quantification_tab=(
+                self._quant_tab if self._quant_enabled.isChecked() else None
+            ),
+            extensions=job.extensions,
+            include_subfolders=job.include_subfolders,
+            output_format=job.output_format,
+            overwrite=job.overwrite,
+            process_all_scenes=job.process_all_scenes,
+            progress_callback=progress_cb,
+        ))
+        
         self._start_background_run(
             run_button=self._run_button,
             run_text="Run batch",
-            run_callable=lambda: self._backend.process_folder(
-                job.input_path,
-                job.output_path,
-                channel_map=job.channel_map,
-                nuclear_model=job.nuclear.model if job.nuclear.enabled else None,
-                nuclear_channel=job.nuclear.channel or None,
-                nuclear_settings=job.nuclear.settings,
-                cyto_model=job.cytoplasmic.model if job.cytoplasmic.enabled else None,
-                cyto_channel=job.cytoplasmic.channel or None,
-                cyto_nuclear_channel=job.cytoplasmic.nuclear_channel or None,
-                cyto_settings=job.cytoplasmic.settings,
-                spot_detector=job.spots.detector if job.spots.enabled else None,
-                spot_channels=job.spots.channels,
-                spot_settings=job.spots.settings,
-                quantification_features=quant_contexts,
-                quantification_format=job.quantification.format,
-                quantification_tab=(
-                    self._quant_tab if self._quant_enabled.isChecked() else None
-                ),
-                extensions=job.extensions,
-                include_subfolders=job.include_subfolders,
-                output_format=job.output_format,
-                overwrite=job.overwrite,
-                process_all_scenes=job.process_all_scenes,
-            ),
+            worker=worker,
             on_success=self._handle_batch_complete,
         )
 
@@ -1094,17 +1104,19 @@ class BatchTab(QWidget):
         *,
         run_button: QPushButton,
         run_text: str,
-        run_callable,
+        worker: "_RunWorker",
         on_success,
     ) -> None:
         """Start a background thread to execute the batch job."""
         run_button.setEnabled(False)
         run_button.setText("Running...")
         self._status_label.setText("Running batch...")
+        self._progress_bar.setVisible(True)
+        self._progress_bar.setValue(0)
 
-        worker = _RunWorker(run_callable)
         thread = QThread()
         worker.moveToThread(thread)
+        worker.progress.connect(self._update_progress)
         worker.finished.connect(lambda result: on_success(result))
         worker.finished.connect(
             lambda: self._finish_background_run(run_button, run_text, thread, worker)
@@ -1130,12 +1142,21 @@ class BatchTab(QWidget):
         run_button.setEnabled(True)
         run_button.setText(run_text)
         self._status_label.setText("Ready")
+        self._progress_bar.setVisible(False)
+        self._progress_bar.setValue(0)
         thread.quit()
         thread.wait()
         try:
             self._active_workers.remove((thread, worker))
         except ValueError:
             pass
+
+    def _update_progress(self, current: int, total: int, message: str) -> None:
+        """Update progress bar and status label."""
+        if total > 0:
+            percent = int((current / total) * 100)
+            self._progress_bar.setValue(percent)
+        self._status_label.setText(message)
 
     def _handle_batch_complete(self, summary) -> None:
         """Handle successful completion of a batch run."""
@@ -1163,6 +1184,7 @@ class _RunWorker(QObject):
 
     finished = Signal(object)
     failed = Signal(str)
+    progress = Signal(int, int, str)  # current, total, message
 
     def __init__(self, run_callable) -> None:
         """Initialize the worker.
@@ -1170,7 +1192,8 @@ class _RunWorker(QObject):
         Parameters
         ----------
         run_callable : callable
-            Callable invoked on the worker thread.
+            Callable invoked on the worker thread. Should accept a
+            progress callback function as its argument.
         """
         super().__init__()
         self._run_callable = run_callable
@@ -1178,11 +1201,15 @@ class _RunWorker(QObject):
     def run(self) -> None:
         """Execute the job and emit result or error."""
         try:
-            result = self._run_callable()
+            result = self._run_callable(self._emit_progress)
         except Exception as exc:  # pragma: no cover - runtime error path
             self.failed.emit(str(exc))
             return
         self.finished.emit(result)
+
+    def _emit_progress(self, current: int, total: int, message: str) -> None:
+        """Emit progress updates from the worker thread."""
+        self.progress.emit(current, total, message)
 
 
 def _defaults_from_settings(settings: list[dict]) -> dict[str, object]:

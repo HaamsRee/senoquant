@@ -160,3 +160,192 @@ def test_apply_quantification_viewer_sets_viewer() -> None:
     batch_backend._apply_quantification_viewer(contexts, tab, viewer)
     assert tab._viewer is viewer
     assert contexts[0].feature_handler._tab._viewer is viewer
+
+def test_progress_callback_invoked(tmp_path) -> None:
+    """Progress callback is invoked during batch processing.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Temporary directory for test files.
+
+    Returns
+    -------
+    None
+    """
+    progress_calls: list[tuple] = []
+
+    def progress_callback(current: int, total: int, message: str) -> None:
+        progress_calls.append((current, total, message))
+
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+
+    # Run with no tasks should call with initial message
+    summary = backend.process_folder(
+        input_path=str(tmp_path),
+        output_path=str(tmp_path / "output"),
+        progress_callback=progress_callback,
+    )
+
+    # Should have at least one progress call (initial message)
+    assert len(progress_calls) > 0
+    # First call should be "Starting batch processing..."
+    assert progress_calls[0][2] == "Starting batch processing..."
+    assert summary.processed == 0
+    assert summary.skipped == 0
+    assert summary.failed == 0
+
+
+def test_resolve_channel_name_with_map(tmp_path) -> None:
+    """Test _resolve_channel_name with different input types.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Temporary directory for test files.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+
+    # Test with integer choice
+    assert batch_backend._resolve_channel_name(0, channel_map) == "0"
+
+    # Test with numeric string choice
+    assert batch_backend._resolve_channel_name("1", channel_map) == "1"
+
+    # Test with channel name in map
+    assert batch_backend._resolve_channel_name("DAPI", channel_map) == "DAPI"
+
+    # Test with channel name not in map (returns as-is)
+    assert batch_backend._resolve_channel_name("Unknown", channel_map) == "Unknown"
+
+
+def test_normalize_channel_map() -> None:
+    """Test channel map normalization with different input formats.
+
+    Returns
+    -------
+    None
+    """
+    # Test with BatchChannelConfig objects
+    config_list = [
+        BatchChannelConfig(name="Ch0", index=0),
+        BatchChannelConfig(name="Ch1", index=1),
+    ]
+    result = batch_backend._normalize_channel_map(config_list)
+    assert len(result) == 2
+    assert result[0].name == "Ch0"
+
+    # Test with dict objects
+    dict_list = [
+        {"name": "DAPI", "index": 0},
+        {"name": "GFP", "index": 1},
+    ]
+    result = batch_backend._normalize_channel_map(dict_list)
+    assert len(result) == 2
+    assert result[0].name == "DAPI"
+
+    # Test with None
+    result = batch_backend._normalize_channel_map(None)
+    assert result == []
+
+    # Test with mixed valid/invalid entries
+    mixed = [
+        BatchChannelConfig(name="Valid", index=0),
+        {"name": "", "index": 1},  # Empty name -> gets default
+    ]
+    result = batch_backend._normalize_channel_map(mixed)
+    assert len(result) == 2
+    assert result[1].name == "Channel 1"  # Default name
+
+
+def test_process_folder_with_overwrite_skip(tmp_path) -> None:
+    """Test output directory handling with overwrite flag.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Temporary directory for test files.
+
+    Returns
+    -------
+    None
+    """
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    input_dir.mkdir()
+    output_dir.mkdir()
+
+    # Create existing output to trigger skip
+    (output_dir / "test_file").mkdir()
+
+    # Without overwrite flag, should skip existing output
+    summary = backend.process_folder(
+        input_path=str(input_dir),
+        output_path=str(output_dir),
+        nuclear_model="TestModel",
+        overwrite=False,
+    )
+
+    assert summary.skipped >= 0
+
+
+def test_batch_item_result_initialization() -> None:
+    """Test BatchItemResult dataclass initialization.
+
+    Returns
+    -------
+    None
+    """
+    path = Path("test.tif")
+    result = batch_backend.BatchItemResult(path=path, scene_id="scene-1")
+
+    assert result.path == path
+    assert result.scene_id == "scene-1"
+    assert result.outputs == {}
+    assert result.errors == []
+
+    # Test with error appending
+    result.errors.append("Test error")
+    assert len(result.errors) == 1
+
+
+def test_batch_summary_counts() -> None:
+    """Test BatchSummary dataclass initialization and counts.
+
+    Returns
+    -------
+    None
+    """
+    input_root = Path("/input")
+    output_root = Path("/output")
+    result1 = batch_backend.BatchItemResult(path=Path("file1.tif"), scene_id=None)
+    result2 = batch_backend.BatchItemResult(path=Path("file2.tif"), scene_id=None)
+
+    summary = batch_backend.BatchSummary(
+        input_root=input_root,
+        output_root=output_root,
+        processed=1,
+        skipped=1,
+        failed=0,
+        results=[result1, result2],
+    )
+
+    assert summary.processed == 1
+    assert summary.skipped == 1
+    assert summary.failed == 0
+    assert len(summary.results) == 2

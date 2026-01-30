@@ -3,6 +3,18 @@
 The Batch tab runs segmentation, spot detection, and quantification over
 folders of images.
 
+## Running Batch Jobs
+
+When you click "Run batch", the processing will execute in the background.
+A progress bar displays the current progress, showing:
+
+- The percentage of completion
+- Current item being processed
+- Status messages for each file/scene
+
+The progress bar and status label update in real-time as the batch job
+progresses.
+
 ## Input
 
 - **Input folder**: folder containing images.

@@ -55,10 +55,16 @@ Reader in [`src/senoquant/reader/core.py`](../src/senoquant/reader/core.py):
 
 ## Development Workflows
 
+### Environment Activation
+The project uses a conda environment called `senoquant-dev`. Always activate this environment before running any commands:
+```bash
+conda activate senoquant-dev
+```
+
 ### Environment Setup
 ```bash
-conda create -n senoquant python=3.11
-conda activate senoquant
+conda create -n senoquant-dev python=3.11
+conda activate senoquant-dev
 pip install uv
 uv pip install "napari[all]"
 uv pip install -e .
@@ -66,7 +72,9 @@ napari  # Opens napari; load plugin from Plugins menu
 ```
 
 ### Testing
+Always activate the environment first:
 ```bash
+conda activate senoquant-dev
 pytest  # Runs tests from tests/ with 80% coverage requirement
 ```
 - Pytest config: `pytest.ini` (coverage settings, pythonpath=src)

@@ -687,6 +687,35 @@ class QLabel(QWidget):
         self._text = text
 
 
+class QProgressBar(QWidget):
+    """Progress bar stub."""
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        super().__init__()
+        self._value = 0
+        self._visible = True
+
+    def setValue(self, value: int) -> None:
+        """Set progress value.
+
+        Parameters
+        ----------
+        value : int
+            Progress value (0-100).
+        """
+        self._value = value
+
+    def setVisible(self, visible: bool) -> None:
+        """Set visibility.
+
+        Parameters
+        ----------
+        visible : bool
+            Whether the progress bar is visible.
+        """
+        self._visible = visible
+
+
 class QDialog(QWidget):
     """Dialog stub."""
 
@@ -799,6 +828,7 @@ def _ensure_qtpy(force: bool = True) -> None:
     qtwidgets.QSpinBox = QSpinBox
     qtwidgets.QDoubleSpinBox = QDoubleSpinBox
     qtwidgets.QLabel = QLabel
+    qtwidgets.QProgressBar = QProgressBar
     qtwidgets.QDialog = QDialog
     qtwidgets.QFileDialog = QFileDialog
     qtwidgets.QSizePolicy = QSizePolicy
