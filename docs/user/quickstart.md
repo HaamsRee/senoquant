@@ -13,14 +13,14 @@ This walkthrough shows the core workflow in napari.
 
 Segmentation writes new labels layers with predictable names:
 
-- Nuclear: `<image layer>_nuclear_labels`
-- Cytoplasmic: `<image layer>_cyto_labels`
+- Nuclear: `<image layer>_<model>_nuc_labels`
+- Cytoplasmic: `<image layer>_<model>_cyto_labels`
 
 ## Spots output names
 
 Spot detectors create labels layers named:
 
-- `<image layer>_<detector>_labels`
+- `<image layer>_<detector>_spot_labels`
 
 ## Colocalization output name
 

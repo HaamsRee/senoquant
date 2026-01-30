@@ -193,11 +193,29 @@ class MarkerChannelsDialog(QDialog):
             return
         for layer in viewer.layers:
             if layer.__class__.__name__ == "Labels":
-                combo.addItem(layer.name)
+                layer_name = layer.name
+                # Only show cellular labels (nuclear/cytoplasmic), exclude spot labels
+                if self._is_cellular_label(layer_name):
+                    combo.addItem(layer_name)
         if current:
             index = combo.findText(current)
             if index != -1:
                 combo.setCurrentIndex(index)
+
+    def _is_cellular_label(self, layer_name: str) -> bool:
+        """Check if a label layer is a cellular segmentation.
+
+        Parameters
+        ----------
+        layer_name : str
+            Name of the labels layer.
+
+        Returns
+        -------
+        bool
+            True if the layer is a cellular label (nuclear or cytoplasmic).
+        """
+        return layer_name.endswith("_nuc_labels") or layer_name.endswith("_cyto_labels")
 
     def _refresh_image_combo(self, combo: QComboBox) -> None:
         """Refresh image layer options for the dialog.

@@ -31,8 +31,8 @@ Each model exposes a list of settings with metadata such as:
 
 ## Output layers
 
-- Nuclear segmentation outputs `<image layer>_nuclear_labels`.
-- Cytoplasmic segmentation outputs `<image layer>_cyto_labels`.
+- Nuclear segmentation outputs `<image layer>_<model>_nuc_labels`.
+- Cytoplasmic segmentation outputs `<image layer>_<model>_cyto_labels`.
 - Labels layers are created with a contour value of 2.
 
 ## Preloading models

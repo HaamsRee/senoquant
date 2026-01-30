@@ -46,8 +46,8 @@ Batch quantification embeds a simplified Quantification UI:
 
 Batch writes outputs with standard names:
 
-- `nuclear_labels` for nuclear segmentation.
-- `cyto_labels` for cytoplasmic segmentation.
-- `spot_labels_<channel>` for each spot channel.
+- `<channel>_<model>_nuc_labels` for nuclear segmentation.
+- `<channel>_<model>_cyto_labels` for cytoplasmic segmentation.
+- `<channel>_<detector>_spot_labels` for each spot channel.
 
 When `tif` output fails, batch falls back to `.npy` automatically.

@@ -44,7 +44,6 @@ from .io import (
     normalize_extensions,
     resolve_channel_index,
     safe_scene_dir,
-    spot_label_name,
     write_array,
 )
 
@@ -300,15 +299,19 @@ class BatchBackend:
                         )
                         masks = seg_result.get("masks")
                         if masks is not None:
+                            channel_name = _resolve_channel_name(
+                                nuclear_channel, normalized_channels
+                            )
+                            label_name = f"{channel_name}_{nuclear_model}_nuc_labels"
                             out_path = write_array(
                                 output_dir,
-                                "nuclear_labels",
+                                label_name,
                                 masks,
                                 output_format,
                             )
-                            labels_data["nuclear_labels"] = masks
-                            labels_meta["nuclear_labels"] = metadata
-                            item_result.outputs["nuclear_labels"] = out_path
+                            labels_data[label_name] = masks
+                            labels_meta[label_name] = metadata
+                            item_result.outputs[label_name] = out_path
 
                     if cyto_model:
                         channel_idx = resolve_channel_index(
@@ -346,15 +349,19 @@ class BatchBackend:
                         )
                         masks = seg_result.get("masks")
                         if masks is not None:
+                            channel_name = _resolve_channel_name(
+                                cyto_channel, normalized_channels
+                            )
+                            label_name = f"{channel_name}_{cyto_model}_cyto_labels"
                             out_path = write_array(
                                 output_dir,
-                                "cyto_labels",
+                                label_name,
                                 masks,
                                 output_format,
                             )
-                            labels_data["cyto_labels"] = masks
-                            labels_meta["cyto_labels"] = cyto_meta
-                            item_result.outputs["cyto_labels"] = out_path
+                            labels_data[label_name] = masks
+                            labels_meta[label_name] = cyto_meta
+                            item_result.outputs[label_name] = out_path
 
                     if spot_detector:
                         resolved_spot_channels = list(spot_channels or [])
@@ -380,9 +387,10 @@ class BatchBackend:
                             mask = spot_result.get("mask")
                             if mask is None:
                                 continue
-                            label_name = spot_label_name(
+                            channel_name = _resolve_channel_name(
                                 channel_choice, normalized_channels
                             )
+                            label_name = f"{channel_name}_{spot_detector}_spot_labels"
                             out_path = write_array(
                                 output_dir,
                                 label_name,
@@ -466,6 +474,35 @@ def _normalize_channel_map(
             name = f"Channel {index}"
         normalized.append(BatchChannelConfig(name=name, index=index))
     return normalized
+
+
+def _resolve_channel_name(
+    choice: str | int,
+    channel_map: list[BatchChannelConfig],
+) -> str:
+    """Resolve a user-friendly channel name from a choice.
+
+    Parameters
+    ----------
+    choice : str or int
+        Channel selection (name or index).
+    channel_map : list of BatchChannelConfig
+        Channel mapping list for name lookup.
+
+    Returns
+    -------
+    str
+        Channel name for use in output labels.
+    """
+    if isinstance(choice, int):
+        return str(choice)
+    text = str(choice).strip()
+    if text.isdigit():
+        return text
+    for channel in channel_map:
+        if channel.name == text:
+            return channel.name
+    return text
 
 
 def _resolve_output_dir(

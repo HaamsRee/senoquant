@@ -606,7 +606,8 @@ class SegmentationTab(QWidget):
             on_success=lambda result: self._add_labels_layer(
                 layer,
                 result.get("masks"),
-                suffix="_nuclear_labels",
+                model_name=model_name,
+                label_type="nuc",
             ),
         )
 
@@ -642,7 +643,8 @@ class SegmentationTab(QWidget):
             on_success=lambda result: self._add_labels_layer(
                 cyto_layer,
                 result.get("masks"),
-                suffix="_cyto_labels",
+                model_name=model_name,
+                label_type="cyto",
             ),
         )
 
@@ -826,16 +828,17 @@ class SegmentationTab(QWidget):
         model = self._backend.get_model(model_name)
         self._update_cytoplasmic_run_state(model)
 
-    def _add_labels_layer(self, source_layer, masks, suffix: str) -> None:
+    def _add_labels_layer(self, source_layer, masks, model_name: str, label_type: str) -> None:
         if self._viewer is None or source_layer is None or masks is None:
             return
+        label_name = f"{source_layer.name}_{model_name}_{label_type}_labels"
         self._viewer.add_labels(
             masks,
-            name=f"{source_layer.name}{suffix}",
+            name=label_name,
         )
 
         # Get the labels layer and set contour = 2
-        labels_layer = self._viewer.layers[f"{source_layer.name}{suffix}"]
+        labels_layer = self._viewer.layers[label_name]
         labels_layer.contour = 2
 
 

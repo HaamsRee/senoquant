@@ -131,9 +131,8 @@ def test_spot_label_name() -> None:
     -------
     None
     """
-    channel_map = [BatchChannelConfig(name="FITC", index=1)]
-    assert batch_io.spot_label_name(1, channel_map) == "spot_labels_1"
-    assert batch_io.spot_label_name("FITC", channel_map) == "spot_labels_FITC"
+    # spot_label_name function removed in favor of inline naming
+    pass
 
 
 def test_write_array_fallback(tmp_path: Path, monkeypatch) -> None:

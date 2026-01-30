@@ -197,13 +197,16 @@ class SpotsChannelsDialog(QDialog):
             "}"
         )
 
-    def _refresh_labels_combo(self, combo: QComboBox) -> None:
+    def _refresh_labels_combo(self, combo: QComboBox, filter_type: str = "cellular") -> None:
         """Refresh labels layer options for the dialog.
 
         Parameters
         ----------
         combo : QComboBox
             Labels combo box to refresh.
+        filter_type : str, optional
+            Type of labels to show: "cellular" for nuc/cyto labels,
+            "spots" for spot labels. Defaults to "cellular".
         """
         current = combo.currentText()
         combo.clear()
@@ -213,11 +216,46 @@ class SpotsChannelsDialog(QDialog):
             return
         for layer in viewer.layers:
             if layer.__class__.__name__ == "Labels":
-                combo.addItem(layer.name)
+                layer_name = layer.name
+                # Filter based on label type
+                if filter_type == "cellular" and self._is_cellular_label(layer_name):
+                    combo.addItem(layer_name)
+                elif filter_type == "spots" and self._is_spot_label(layer_name):
+                    combo.addItem(layer_name)
         if current:
             index = combo.findText(current)
             if index != -1:
                 combo.setCurrentIndex(index)
+
+    def _is_cellular_label(self, layer_name: str) -> bool:
+        """Check if a label layer is a cellular segmentation.
+
+        Parameters
+        ----------
+        layer_name : str
+            Name of the labels layer.
+
+        Returns
+        -------
+        bool
+            True if the layer is a cellular label (nuclear or cytoplasmic).
+        """
+        return layer_name.endswith("_nuc_labels") or layer_name.endswith("_cyto_labels")
+
+    def _is_spot_label(self, layer_name: str) -> bool:
+        """Check if a label layer is a spot segmentation.
+
+        Parameters
+        ----------
+        layer_name : str
+            Name of the labels layer.
+
+        Returns
+        -------
+        bool
+            True if the layer is a spot label.
+        """
+        return layer_name.endswith("_spot_labels")
 
     def _refresh_image_combo(self, combo: QComboBox) -> None:
         """Refresh image layer options for the dialog.

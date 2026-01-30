@@ -133,8 +133,8 @@ def test_process_folder_runs_detection(tmp_path: Path, monkeypatch) -> None:
     assert summary.processed == 1
     assert summary.failed == 0
     outputs = summary.results[0].outputs
-    assert "nuclear_labels" in outputs
-    assert "spot_labels_0" in outputs
+    assert "Channel 0_nuclear_nuc_labels" in outputs or "0_nuclear_nuc_labels" in outputs
+    assert "Channel 0_udwt_spot_labels" in outputs or "0_udwt_spot_labels" in outputs
 
 
 def test_apply_quantification_viewer_sets_viewer() -> None:

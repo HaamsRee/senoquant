@@ -568,10 +568,18 @@ class SpotsTab(QWidget):
         """Add a labels layer for the detector mask."""
         if self._viewer is None or source_layer is None:
             return
-        name = f"{source_layer.name}_{detector_name}_labels"
+        name = self._spot_label_name(source_layer, detector_name)
         self._viewer.add_labels(mask, name=name)
         labels_layer = self._viewer.layers[name]
         labels_layer.contour = 1
+
+    def _spot_label_name(self, source_layer, detector_name: str) -> str:
+        """Return a standardized spot labels layer name."""
+        layer_name = getattr(source_layer, "name", "")
+        layer_name = layer_name.strip() if isinstance(layer_name, str) else ""
+        if layer_name:
+            return f"{layer_name}_{detector_name}_spot_labels"
+        return f"{detector_name}_spot_labels"
 
     def _notify(self, message: str) -> None:
         """Send a warning notification to the napari console.

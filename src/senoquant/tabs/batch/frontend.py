@@ -612,12 +612,22 @@ class BatchTab(QWidget):
             # Add placeholder image layers so quantification UI can list names.
             layers.append(Image(None, config.name))
         if getattr(self, "_nuclear_enabled", None) is not None and self._nuclear_enabled.isChecked():
-            layers.append(Labels(None, "nuclear_labels"))
-        if getattr(self, "_cyto_enabled", None) is not None and self._cyto_enabled.isChecked():
-            layers.append(Labels(None, "cyto_labels"))
-        if getattr(self, "_spots_enabled", None) is not None and self._spots_enabled.isChecked():
-            for label_name in _spot_label_names(self._spot_channel_rows):
+            nuclear_model = self._nuclear_model_combo.currentText()
+            nuclear_channel = self._nuclear_channel_combo.currentText()
+            if nuclear_model and nuclear_channel and not nuclear_model.startswith("("):
+                label_name = f"{nuclear_channel}_{nuclear_model}_nuc_labels"
                 layers.append(Labels(None, label_name))
+        if getattr(self, "_cyto_enabled", None) is not None and self._cyto_enabled.isChecked():
+            cyto_model = self._cyto_model_combo.currentText()
+            cyto_channel = self._cyto_channel_combo.currentText()
+            if cyto_model and cyto_channel and not cyto_model.startswith("("):
+                label_name = f"{cyto_channel}_{cyto_model}_cyto_labels"
+                layers.append(Labels(None, label_name))
+        if getattr(self, "_spots_enabled", None) is not None and self._spots_enabled.isChecked():
+            spot_detector = self._spot_detector_combo.currentText()
+            if spot_detector and not spot_detector.startswith("("):
+                for label_name in _spot_label_names(self._spot_channel_rows, spot_detector):
+                    layers.append(Labels(None, label_name))
         self._config_viewer.set_layers(layers)
 
     def _update_nuclear_settings(self) -> None:
@@ -1184,7 +1194,7 @@ def _defaults_from_settings(settings: list[dict]) -> dict[str, object]:
     return values
 
 
-def _spot_label_names(rows: list[dict]) -> list[str]:
+def _spot_label_names(rows: list[dict], detector_name: str = "") -> list[str]:
     """Build label layer names for spot channels."""
     labels: list[str] = []
     for row in rows:
@@ -1194,7 +1204,10 @@ def _spot_label_names(rows: list[dict]) -> list[str]:
         name = combo.currentText().strip()
         if not name:
             continue
-        labels.append(f"spot_labels_{_sanitize_label(name)}")
+        if detector_name:
+            labels.append(f"{_sanitize_label(name)}_{detector_name}_spot_labels")
+        else:
+            labels.append(f"{_sanitize_label(name)}_spot_labels")
     return labels
 
 

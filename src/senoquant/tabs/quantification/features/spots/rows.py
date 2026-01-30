@@ -61,7 +61,7 @@ class SpotsSegmentationRow(QGroupBox):
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         labels_combo = RefreshingComboBox(
             refresh_callback=lambda combo_ref=None: self._dialog._refresh_labels_combo(
-                labels_combo
+                labels_combo, filter_type="cellular"
             )
         )
         self._tab._configure_combo(labels_combo)
@@ -174,7 +174,7 @@ class SpotsChannelRow(QGroupBox):
         )
         segmentation_combo = RefreshingComboBox(
             refresh_callback=lambda combo_ref=None: self._dialog._refresh_labels_combo(
-                segmentation_combo
+                segmentation_combo, filter_type="spots"
             )
         )
         self._tab._configure_combo(segmentation_combo)

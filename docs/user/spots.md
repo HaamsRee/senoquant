@@ -22,7 +22,7 @@ Detectors are discovered from `src/senoquant/tabs/spots/models`.
 
 Detectors output labels layers named:
 
-- `<image layer>_<detector>_labels`
+- `<image layer>_<detector>_spot_labels`
 
 Labels layers are created with a contour value of 1.
 

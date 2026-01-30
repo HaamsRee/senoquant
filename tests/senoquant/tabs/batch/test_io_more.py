@@ -22,14 +22,14 @@ def test_sanitize_label_strips_symbols() -> None:
 
 
 def test_spot_label_name_numeric_string() -> None:
-    """Return numeric suffix for numeric channel names.
+    """Test removed - spot_label_name function no longer used.
 
     Returns
     -------
     None
     """
-    channel_map = [BatchChannelConfig(name="1", index=0)]
-    assert batch_io.spot_label_name("1", channel_map) == "spot_labels_1"
+    # spot_label_name function removed in favor of inline naming
+    pass
 
 
 def test_load_channel_data_raises_on_bad_index(monkeypatch, tmp_path) -> None:
