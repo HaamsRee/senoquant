@@ -1,0 +1,69 @@
+{
+  "name": "default_3d",
+  "description": "Fine-tuned StarDist 3D model for nuclear segmentation.",
+  "version": "0.1.0",
+  "order": 2,
+  "tasks": {
+    "nuclear": {
+      "supported": true
+    },
+    "cytoplasmic": {
+      "supported": false
+    }
+  },
+  "settings": [
+    {
+      "key": "object_diameter_px",
+      "label": "Object diameter (px)",
+      "type": "float",
+      "decimals": 1,
+      "min": 1.0,
+      "max": 500.0,
+      "default": 30.0
+    },
+    {
+      "key": "prob_thresh",
+      "label": "Prob threshold",
+      "type": "float",
+      "decimals": 3,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.4451190689256302
+    },
+    {
+      "key": "nms_thresh",
+      "label": "NMS threshold",
+      "type": "float",
+      "decimals": 3,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.3
+    },
+    {
+      "key": "normalize",
+      "label": "Normalize",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "pmin",
+      "label": "Percentile min",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.0,
+      "max": 100.0,
+      "default": 1.0,
+      "enabled_by": "normalize"
+    },
+    {
+      "key": "pmax",
+      "label": "Percentile max",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.0,
+      "max": 100.0,
+      "default": 99.8,
+      "enabled_by": "normalize"
+    }
+  ]
+}

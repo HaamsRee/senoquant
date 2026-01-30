@@ -2,6 +2,7 @@
   "name": "cpsam",
   "description": "Placeholder details for the cpsam segmentation model",
   "version": "0.1.0",
+  "order": 3,
   "tasks": {
     "nuclear": {
       "supported": true

@@ -74,6 +74,25 @@ class SenoQuantSegmentationModel:
             return settings
         return []
 
+    def display_order(self) -> float | None:
+        """Return the optional display ordering for this model.
+
+        Returns
+        -------
+        float or None
+            Numeric ordering value if specified in details.json.
+        """
+        details = self.load_details()
+        order = details.get("order")
+        if isinstance(order, (int, float)):
+            return float(order)
+        if isinstance(order, str):
+            try:
+                return float(order)
+            except ValueError:
+                return None
+        return None
+
     def supports_task(self, task: str) -> bool:
         """Return whether the model supports a given task.
 

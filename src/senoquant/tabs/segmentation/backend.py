@@ -103,16 +103,17 @@ class SegmentationBackend:
         if not self._models_root.exists():
             return []
 
-        names = []
+        entries: list[tuple[float, str]] = []
         for path in self._models_root.iterdir():
             if path.is_dir() and not path.name.startswith("__"):
-                if task is None:
-                    names.append(path.name)
-                else:
-                    model = self.get_model(path.name)
-                    if model.supports_task(task):
-                        names.append(path.name)
-        return sorted(names)
+                model = self.get_model(path.name)
+                if task is not None and not model.supports_task(task):
+                    continue
+                order = model.display_order()
+                order_key = order if order is not None else float("inf")
+                entries.append((order_key, path.name))
+        entries.sort(key=lambda item: (item[0], item[1]))
+        return [name for _, name in entries]
 
     def get_preloaded_model(self, name: str) -> SenoQuantSegmentationModel:
         """Return a preloaded model instance by name."""
