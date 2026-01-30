@@ -90,8 +90,8 @@ def _compute_derived_metrics(
     -----
     Circularity is 2D-only: 4*pi*area / perimeter^2. It is only computed
     when perimeter is available (which indicates 2D data).
-    Aspect ratio is available for both 2D and 3D images when major/minor
-    axis lengths are present.
+    Aspect ratio is 2D-only and only computed when major/minor axis lengths
+    are present in the result.
 
     """
     # Get area/volume (whichever exists after dimensionality-based renaming)
@@ -113,7 +113,7 @@ def _compute_derived_metrics(
         )
         result["morph_circularity"] = circularity
 
-    # Aspect ratio is available for 2D and 3D
+    # Aspect ratio: only computed if major/minor axis lengths are present (2D only)
     if (
         "morph_major_axis_length" in result
         and "morph_minor_axis_length" in result
