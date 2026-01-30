@@ -1,0 +1,26 @@
+{
+  "name": "nuclear_dilation",
+  "description": "Dilates nuclear masks to approximate cytoplasm",
+  "version": "0.1.0",
+  "order": 2,
+  "tasks": {
+    "nuclear": {
+      "supported": false
+    },
+    "cytoplasmic": {
+      "supported": true,
+      "input_modes": ["nuclear"],
+      "nuclear_channel_optional": false
+    }
+  },
+  "settings": [
+    {
+      "key": "dilation_iterations",
+      "label": "Dilation iterations",
+      "type": "int",
+      "min": 1,
+      "max": 100,
+      "default": 5
+    }
+  ]
+}

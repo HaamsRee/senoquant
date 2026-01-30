@@ -354,18 +354,32 @@ class SegmentationTab(QWidget):
         )
 
         if not model_name or model_name == "No models found":
+            self._cyto_layer_combo.setVisible(True)
+            self._cyto_layer_combo.setEnabled(False)
             self._cyto_nuclear_layer_combo.setEnabled(False)
             self._cyto_nuclear_label.setText("Nuclear layer")
             return
 
         model = self._backend.get_model(model_name)
         modes = model.cytoplasmic_input_modes()
-        if "nuclear+cytoplasmic" in modes:
+        
+        # Check if model only uses nuclear input (nuclear-only mode)
+        if modes == ["nuclear"]:
+            # Hide cytoplasmic layer, show only nuclear
+            self._cyto_layer_combo.setVisible(False)
+            self._cyto_nuclear_layer_combo.setEnabled(True)
+            self._cyto_nuclear_label.setText("Nuclear layer (input)")
+        elif "nuclear+cytoplasmic" in modes:
+            self._cyto_layer_combo.setVisible(True)
+            self._cyto_layer_combo.setEnabled(True)
             optional = model.cytoplasmic_nuclear_optional()
             suffix = "optional" if optional else "mandatory"
             self._cyto_nuclear_label.setText(f"Nuclear layer ({suffix})")
             self._cyto_nuclear_layer_combo.setEnabled(True)
         else:
+            # Only cytoplasmic
+            self._cyto_layer_combo.setVisible(True)
+            self._cyto_layer_combo.setEnabled(True)
             self._cyto_nuclear_label.setText("Nuclear layer")
             self._cyto_nuclear_layer_combo.setEnabled(False)
 
@@ -439,6 +453,17 @@ class SegmentationTab(QWidget):
 
     def _update_cytoplasmic_run_state(self, model) -> None:
         """Enable/disable cytoplasmic run button based on required inputs."""
+        modes = model.cytoplasmic_input_modes()
+        
+        # Nuclear-only model: only needs nuclear layer
+        if modes == ["nuclear"]:
+            nuclear_layer = self._get_layer_by_name(
+                self._cyto_nuclear_layer_combo.currentText()
+            )
+            self._cyto_run_button.setEnabled(nuclear_layer is not None)
+            return
+        
+        # Check if nuclear is required
         if self._cyto_requires_nuclear(model):
             nuclear_layer = self._get_layer_by_name(
                 self._cyto_nuclear_layer_combo.currentText()
@@ -618,6 +643,34 @@ class SegmentationTab(QWidget):
             return
         model = self._backend.get_preloaded_model(model_name)
         settings = self._collect_settings(self._cyto_settings_widgets)
+        modes = model.cytoplasmic_input_modes()
+        
+        # Handle nuclear-only models
+        if modes == ["nuclear"]:
+            nuclear_layer = self._get_layer_by_name(
+                self._cyto_nuclear_layer_combo.currentText()
+            )
+            if not self._validate_single_channel_layer(nuclear_layer, "Nuclear layer"):
+                return
+            self._start_background_run(
+                run_button=self._cyto_run_button,
+                run_text="Run",
+                task="cytoplasmic",
+                run_callable=lambda: model.run(
+                    task="cytoplasmic",
+                    nuclear_layer=nuclear_layer,
+                    settings=settings,
+                ),
+                on_success=lambda result: self._add_labels_layer(
+                    nuclear_layer,
+                    result.get("masks"),
+                    model_name=model_name,
+                    label_type="cyto",
+                ),
+            )
+            return
+        
+        # Standard models: require cytoplasmic layer
         cyto_layer = self._get_layer_by_name(self._cyto_layer_combo.currentText())
         nuclear_layer = self._get_layer_by_name(
             self._cyto_nuclear_layer_combo.currentText()
@@ -816,6 +869,8 @@ class SegmentationTab(QWidget):
     def _cyto_requires_nuclear(self, model) -> bool:
         """Return True when cytoplasmic mode requires a nuclear channel."""
         modes = model.cytoplasmic_input_modes()
+        if modes == ["nuclear"]:
+            return True
         if "nuclear+cytoplasmic" not in modes:
             return False
         return not model.cytoplasmic_nuclear_optional()

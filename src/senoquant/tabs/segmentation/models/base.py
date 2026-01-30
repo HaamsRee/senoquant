@@ -50,13 +50,18 @@ class SenoQuantSegmentationModel:
         with self.details_path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
 
-    def run(self, **kwargs) -> None:
+    def run(self, **kwargs) -> dict | None:
         """Run the model with the provided inputs and settings.
 
         Parameters
         ----------
         **kwargs
             Model inputs and settings passed from the UI.
+
+        Returns
+        -------
+        dict or None
+            Result dictionary from the model, or None if not implemented.
         """
         raise NotImplementedError("Model run not implemented.")
 
