@@ -1,7 +1,7 @@
 """Frontend widget for the Quantification tab."""
 
 from dataclasses import dataclass
-from qtpy.QtCore import Qt, QTimer
+from qtpy.QtCore import QObject, QThread, Qt, QTimer, Signal
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
     QComboBox,
@@ -17,6 +17,17 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+try:
+    from napari.utils.notifications import (
+        Notification,
+        NotificationSeverity,
+        show_console_notification,
+    )
+except Exception:  # pragma: no cover - optional import for runtime
+    show_console_notification = None
+    Notification = None
+    NotificationSeverity = None
 
 from .backend import QuantificationBackend
 from .features import FeatureConfig, build_feature_data, get_feature_registry
@@ -87,6 +98,7 @@ class QuantificationTab(QWidget):
         self._feature_registry = get_feature_registry()
         self._features_watch_timer: QTimer | None = None
         self._features_last_size: tuple[int, int] | None = None
+        self._active_workers: list[tuple[QThread, QObject]] = []
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_features_section())
@@ -461,13 +473,26 @@ class QuantificationTab(QWidget):
     def _process_features(self) -> None:
         """Trigger quantification processing for configured features."""
         process = getattr(self._backend, "process", None)
-        if callable(process):
-            process(
-                self._feature_configs,
-                self._output_path_input.text(),
-                self._save_name_input.text(),
-                self._format_combo.currentText(),
+        if not callable(process):
+            return
+        features = list(self._feature_configs)
+        output_path = self._output_path_input.text()
+        output_name = self._save_name_input.text()
+        export_format = self._format_combo.currentText()
+        if hasattr(self, "_process_button"):
+            self._start_background_run(
+                run_button=self._process_button,
+                run_text="Process",
+                run_callable=lambda: process(
+                    features,
+                    output_path,
+                    output_name,
+                    export_format,
+                ),
+                on_success=self._handle_process_complete,
             )
+        else:
+            process(features, output_path, output_name, export_format)
 
     def _feature_handler_for_type(
         self, feature_type: str, context: FeatureUIContext
@@ -522,6 +547,75 @@ class QuantificationTab(QWidget):
             child_layout = item.layout()
             if child_layout is not None:
                 self._clear_layout(child_layout)
+
+    def _start_background_run(
+        self,
+        *,
+        run_button: QPushButton,
+        run_text: str,
+        run_callable,
+        on_success,
+    ) -> None:
+        """Run quantification in a background thread and manage UI state."""
+        run_button.setEnabled(False)
+        run_button.setText("Running...")
+
+        thread = QThread(self)
+        worker = _RunWorker(run_callable)
+        worker.moveToThread(thread)
+
+        def handle_success(result) -> None:
+            on_success(result)
+            self._finish_background_run(run_button, run_text, thread, worker)
+
+        def handle_error(message: str) -> None:
+            self._notify(f"Quantification failed: {message}")
+            self._finish_background_run(run_button, run_text, thread, worker)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(handle_success)
+        worker.error.connect(handle_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(worker.deleteLater)
+
+        self._active_workers.append((thread, worker))
+        thread.start()
+
+    def _finish_background_run(
+        self,
+        run_button: QPushButton,
+        run_text: str,
+        thread: QThread,
+        worker: QObject,
+    ) -> None:
+        """Restore UI state after a background run completes."""
+        run_button.setEnabled(True)
+        run_button.setText(run_text)
+        try:
+            self._active_workers.remove((thread, worker))
+        except ValueError:
+            pass
+
+    def _handle_process_complete(self, result) -> None:
+        """Notify the user when quantification completes."""
+        output_root = getattr(result, "output_root", None)
+        if output_root:
+            self._notify(f"Quantification complete: {output_root}")
+        else:
+            self._notify("Quantification complete.")
+
+    def _notify(self, message: str) -> None:
+        """Send a user-visible notification."""
+        if (
+            show_console_notification is not None
+            and Notification is not None
+            and NotificationSeverity is not None
+        ):
+            show_console_notification(
+                Notification(message, severity=NotificationSeverity.WARNING)
+            )
 
     def _feature_index(self, context: FeatureUIContext) -> int:
         """Return the 0-based index for a feature config.
@@ -698,3 +792,24 @@ class QuantificationTab(QWidget):
             total_width = max(total_width, container_size.width())
             total_height = max(total_height, container_size.height())
         return (total_width, total_height)
+
+
+class _RunWorker(QObject):
+    """Worker that executes a callable in a background thread."""
+
+    finished = Signal(object)
+    error = Signal(str)
+
+    def __init__(self, run_callable) -> None:
+        """Initialize the worker with a callable."""
+        super().__init__()
+        self._run_callable = run_callable
+
+    def run(self) -> None:
+        """Execute the callable and emit results."""
+        try:
+            result = self._run_callable()
+        except Exception as exc:  # pragma: no cover - runtime error path
+            self.error.emit(str(exc))
+            return
+        self.finished.emit(result)
