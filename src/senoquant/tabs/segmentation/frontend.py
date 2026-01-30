@@ -197,7 +197,8 @@ class SegmentationTab(QWidget):
             self._update_cytoplasmic_model_settings
         )
 
-        form_layout.addRow("Cytoplasmic layer", self._cyto_layer_combo)
+        self._cyto_layer_label = QLabel("Cytoplasmic layer")
+        form_layout.addRow(self._cyto_layer_label, self._cyto_layer_combo)
         self._cyto_nuclear_label = QLabel("Nuclear layer")
         form_layout.addRow(self._cyto_nuclear_label, self._cyto_nuclear_layer_combo)
         form_layout.addRow("Model", self._cyto_model_combo)
