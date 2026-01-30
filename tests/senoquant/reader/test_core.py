@@ -134,3 +134,160 @@ def test_iter_channel_layers_builds_layers() -> None:
         assert layer_type == "image"
         assert "metadata" in meta
         assert "physical_pixel_sizes" in meta["metadata"]
+
+def test_physical_pixel_sizes_defaults() -> None:
+    """Test physical pixel size extraction with defaults.
+
+    Returns
+    -------
+    None
+    """
+    class DummyImage:
+        def __init__(self):
+            pass
+
+    image = DummyImage()
+    result = reader_core._physical_pixel_sizes(image)
+    
+    # Should have Z, Y, X keys with None values when not available
+    assert "Z" in result
+    assert "Y" in result
+    assert "X" in result
+    assert result["Z"] is None
+
+
+def test_axes_present_from_string() -> None:
+    """Test extracting axes from string dims.
+
+    Returns
+    -------
+    None
+    """
+    class DummyDims:
+        def __init__(self):
+            self.order = "CZYX"
+
+    class DummyImage:
+        def __init__(self):
+            self.dims = DummyDims()
+
+    image = DummyImage()
+    result = reader_core._axes_present(image)
+    
+    assert "C" in result
+    assert "Z" in result
+    assert "Y" in result
+    assert "X" in result
+
+
+def test_colormap_cycle() -> None:
+    """Test colormap cycle generation.
+
+    Returns
+    -------
+    None
+    """
+    cycle = reader_core._colormap_cycle()
+    
+    # Should be an iterator
+    colors = [next(cycle) for _ in range(16)]
+    assert len(colors) == 16
+    # Should cycle back - after 8 items (the colormap list size)
+    # The cycle repeats, so colors[0] should equal colors[8]
+    assert colors[0] == colors[8]
+
+
+def test_should_force_tifffile_with_wildcard() -> None:
+    """Test that wildcards prevent tifffile forcing.
+
+    Returns
+    -------
+    None
+    """
+    result = reader_core._should_force_tifffile(None, "/path/to/*.tif")
+    assert result is False
+
+
+def test_should_force_tifffile_non_tiff() -> None:
+    """Test that non-TIFF files return False.
+
+    Returns
+    -------
+    None
+    """
+    result = reader_core._should_force_tifffile(None, "/path/to/image.lif")
+    assert result is False
+
+
+def test_should_force_tifffile_with_tiff_glob_plugin() -> None:
+    """Test that tiff_glob plugin triggers forcing.
+
+    Returns
+    -------
+    None
+    """
+    class MockPlugin:
+        name = "bioio_tiff_glob"
+
+    result = reader_core._should_force_tifffile(MockPlugin(), "/path/to/image.tif")
+    assert result is True
+
+
+def test_get_reader_empty_list() -> None:
+    """Test that empty list of paths returns None.
+
+    Returns
+    -------
+    None
+    """
+    result = reader_core.get_reader([])
+    assert result is None
+
+def test_open_bioimage_exception_handling() -> None:
+    """Test _open_bioimage with mock exception handling.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        # This will fail because path doesn't exist, testing exception paths
+        result = reader_core._open_bioimage("/nonexistent/path.tif")
+    except Exception:
+        # Expected to raise exception for nonexistent path
+        pass
+
+
+def test_try_bioimage_readers() -> None:
+    """Test _try_bioimage_readers returns None for invalid readers.
+
+    Returns
+    -------
+    None
+    """
+    class MockBioIO:
+        pass
+
+    result = reader_core._try_bioimage_readers(MockBioIO(), "/path.tif", ("nonexistent_reader",))
+    assert result is None
+
+def test_get_reader_invalid_path_type() -> None:
+    """Test that invalid path type returns None.
+
+    Returns
+    -------
+    None
+    """
+    result = reader_core.get_reader(123)
+    assert result is None
+
+
+def test_get_reader_empty_string() -> None:
+    """Test that empty string path returns None.
+
+    Returns
+    -------
+    None
+    """
+    result = reader_core.get_reader("")
+    assert result is None

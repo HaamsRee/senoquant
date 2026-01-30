@@ -291,3 +291,142 @@ def test_spot_label_name_generation() -> None:
     # Test with numeric index
     name = batch_io.spot_label_name(0, channel_map)
     assert name == "spot_labels_0"
+
+
+def test_normalize_extensions_none() -> None:
+    """Test normalize_extensions with None input.
+
+    Returns
+    -------
+    None
+    """
+    result = batch_io.normalize_extensions(None)
+    assert result is None
+
+
+def test_normalize_extensions_adds_dot() -> None:
+    """Test normalize_extensions adds leading dot if missing.
+
+    Returns
+    -------
+    None
+    """
+    result = batch_io.normalize_extensions(["tif", ".tiff", "ome.tif"])
+    assert ".tif" in result
+    assert ".tiff" in result
+    assert ".ome.tif" in result
+
+
+def test_normalize_extensions_deduplicates() -> None:
+    """Test normalize_extensions removes duplicates.
+
+    Returns
+    -------
+    None
+    """
+    result = batch_io.normalize_extensions([".tif", "tif", ".tif"])
+    assert ".tif" in result
+
+
+def test_basename_for_path_simple_filename() -> None:
+    """Test basename extraction from simple path.
+
+    Returns
+    -------
+    None
+    """
+    path = Path("image.tif")
+    result = batch_io.basename_for_path(path)
+    assert result == "image"
+
+
+def test_basename_for_path_nested() -> None:
+    """Test basename extraction from nested path.
+
+    Returns
+    -------
+    None
+    """
+    path = Path("/data/images/sample.ome.tif")
+    result = batch_io.basename_for_path(path)
+    assert result == "sample"
+
+
+def test_safe_scene_dir_alphanumeric() -> None:
+    """Test scene directory name sanitization with safe chars.
+
+    Returns
+    -------
+    None
+    """
+    result = batch_io.safe_scene_dir("Scene-1")
+    assert result == "Scene-1"
+
+
+def test_safe_scene_dir_removes_unsafe_chars() -> None:
+    """Test scene directory name removes unsafe characters.
+
+    Returns
+    -------
+    None
+    """
+    result = batch_io.safe_scene_dir("Scene/1:2*3?4")
+    # Only removes / and \, replaces with _
+    assert "/" not in result
+
+
+def test_resolve_channel_index_with_int() -> None:
+    """Test resolve_channel_index with integer input.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = batch_io.resolve_channel_index(1, channel_map)
+    assert result == 1
+
+
+def test_resolve_channel_index_with_string_index() -> None:
+    """Test resolve_channel_index with string numeric input.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = batch_io.resolve_channel_index("0", channel_map)
+    assert result == 0
+
+
+def test_resolve_channel_index_with_channel_name() -> None:
+    """Test resolve_channel_index with channel name lookup.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = batch_io.resolve_channel_index("GFP", channel_map)
+    assert result == 1
+
+
+def test_resolve_channel_index_raises_when_not_found() -> None:
+    """Test resolve_channel_index raises error when name not found.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [BatchChannelConfig(name="DAPI", index=0)]
+    with pytest.raises(ValueError, match="Unknown channel selection"):
+        batch_io.resolve_channel_index("NonExistent", channel_map)

@@ -205,3 +205,20 @@ def test_nuclear_dilation_model_info() -> None:
     assert settings[0]["key"] == "dilation_iterations"
     assert settings[0]["type"] == "int"
     assert settings[0]["default"] == 5
+
+def test_run_raises_error_when_nuclear_layer_is_none() -> None:
+    """Test that run raises ValueError when nuclear_layer is None.
+
+    Returns
+    -------
+    None
+    """
+    model = NuclearDilationModel(models_root=None)
+    
+    # Create a mock image layer
+    image_data = np.ones((10, 10), dtype=np.uint8)
+    image = MockLayer(image_data)
+    
+    # Try to run without nuclear_layer keyword argument
+    with pytest.raises(ValueError, match="Nuclear layer is required"):
+        model.run(task="cytoplasmic", layer=image, settings={}, nuclear_layer=None)

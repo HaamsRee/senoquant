@@ -349,3 +349,248 @@ def test_batch_summary_counts() -> None:
     assert summary.skipped == 1
     assert summary.failed == 0
     assert len(summary.results) == 2
+
+
+def test_normalize_channel_map_with_dict() -> None:
+    """Test normalization of dict channel map entries.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        {"name": "DAPI", "index": 0},
+        {"name": "GFP", "index": 1},
+    ]
+    result = batch_backend._normalize_channel_map(channel_map)
+    
+    assert len(result) == 2
+    assert result[0].name == "DAPI"
+    assert result[0].index == 0
+    assert result[1].name == "GFP"
+    assert result[1].index == 1
+
+
+def test_normalize_channel_map_with_config_objects() -> None:
+    """Test normalization with BatchChannelConfig objects.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = batch_backend._normalize_channel_map(channel_map)
+    
+    assert len(result) == 2
+    assert result[0].name == "DAPI"
+    assert result[1].name == "GFP"
+
+
+def test_normalize_channel_map_with_none() -> None:
+    """Test normalization when channel_map is None.
+
+    Returns
+    -------
+    None
+    """
+    result = batch_backend._normalize_channel_map(None)
+    assert result == []
+
+
+def test_normalize_channel_map_empty_name_creates_default() -> None:
+    """Test that empty names get default labels.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [{"name": "", "index": 5}]
+    result = batch_backend._normalize_channel_map(channel_map)
+    
+    assert len(result) == 1
+    assert result[0].name == "Channel 5"
+    assert result[0].index == 5
+
+
+def test_resolve_channel_name_with_index() -> None:
+    """Test channel name resolution from integer index.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = batch_backend._resolve_channel_name(0, channel_map)
+    assert result == "0"
+
+
+def test_resolve_channel_name_with_string_index() -> None:
+    """Test channel name resolution from string index.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = batch_backend._resolve_channel_name("1", channel_map)
+    assert result == "1"
+
+
+def test_resolve_channel_name_with_mapped_name() -> None:
+    """Test channel name resolution from mapped name.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = batch_backend._resolve_channel_name("GFP", channel_map)
+    assert result == "GFP"
+
+
+def test_resolve_channel_name_unmapped_name() -> None:
+    """Test channel name when not in map.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [BatchChannelConfig(name="DAPI", index=0)]
+    result = batch_backend._resolve_channel_name("Unknown", channel_map)
+    assert result == "Unknown"
+
+
+def test_normalize_channel_map_empty() -> None:
+    """Test normalizing empty channel map.
+
+    Returns
+    -------
+    None
+    """
+    result = batch_backend._normalize_channel_map(None)
+    assert result == []
+
+
+def test_normalize_channel_map_from_dicts() -> None:
+    """Test normalizing channel map from dict list.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        {"name": "DAPI", "index": 0},
+        {"name": "GFP", "index": 1},
+    ]
+    result = batch_backend._normalize_channel_map(channel_map)
+    assert len(result) == 2
+    assert result[0].name == "DAPI"
+    assert result[1].index == 1
+
+
+def test_normalize_channel_map_mixed_types() -> None:
+    """Test normalizing channel map with mixed types.
+
+    Returns
+    -------
+    None
+    """
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        {"name": "GFP", "index": 1},
+    ]
+    result = batch_backend._normalize_channel_map(channel_map)
+    assert len(result) == 2
+    assert all(isinstance(c, BatchChannelConfig) for c in result)
+
+
+def test_resolve_channel_index_by_name() -> None:
+    """Test resolving channel index by name.
+
+    Returns
+    -------
+    None
+    """
+    from senoquant.tabs.batch.io import resolve_channel_index
+
+    channel_map = [
+        BatchChannelConfig(name="DAPI", index=0),
+        BatchChannelConfig(name="GFP", index=1),
+    ]
+    result = resolve_channel_index("GFP", channel_map)
+    assert result == 1
+
+
+def test_resolve_output_dir_creates_new() -> None:
+    """Test resolving output directory when it doesn't exist.
+
+    Returns
+    -------
+    None
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        output_root = Path(tmp)
+        input_path = Path("test_image.tif")
+        result = batch_backend._resolve_output_dir(output_root, input_path, None, False)
+        assert result is not None
+        assert result.exists()
+
+
+def test_resolve_output_dir_skip_existing() -> None:
+    """Test resolving output directory when it exists and no overwrite.
+
+    Returns
+    -------
+    None
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        output_root = Path(tmp)
+        input_path = Path("test_image.tif")
+        
+        # Create the output directory first
+        output_dir = output_root / "test_image"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Request without overwrite should return None
+        result = batch_backend._resolve_output_dir(output_root, input_path, None, False)
+        assert result is None
+
+
+def test_resolve_output_dir_overwrite() -> None:
+    """Test resolving output directory with overwrite enabled.
+
+    Returns
+    -------
+    None
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        output_root = Path(tmp)
+        input_path = Path("test_image.tif")
+        
+        # Create the output directory first
+        output_dir = output_root / "test_image"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Request with overwrite should return the directory
+        result = batch_backend._resolve_output_dir(output_root, input_path, None, True)
+        assert result is not None
+        assert result.exists()
+

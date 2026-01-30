@@ -59,3 +59,77 @@ def test_get_model_loads_subclass(tmp_path: Path) -> None:
     model = backend.get_model("model_c")
     assert isinstance(model, SenoQuantSegmentationModel)
     assert model.name == "model_c"
+
+def test_segmentation_backend_list_cytoplasmic_models() -> None:
+    """Test listing cytoplasmic models from default backend.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    cyto_models = backend.list_model_names(task="cytoplasmic")
+    
+    # Should have at least nuclear_dilation
+    assert len(cyto_models) > 0
+    assert "nuclear_dilation" in cyto_models
+
+
+def test_segmentation_backend_get_nuclear_dilation() -> None:
+    """Test retrieving nuclear dilation model.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    model = backend.get_model("nuclear_dilation")
+    
+    assert model is not None
+    assert model.name == "nuclear_dilation"
+    assert model.supports_task("cytoplasmic")
+    assert not model.supports_task("nuclear")
+
+
+def test_model_base_supports_task() -> None:
+    """Test model task support checking.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    model = backend.get_model("default_2d")
+    
+    # default_2d should support nuclear
+    assert model.supports_task("nuclear")
+
+
+def test_model_base_display_order() -> None:
+    """Test model display ordering.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    model = backend.get_model("default_2d")
+    order = model.display_order()
+    
+    # Order should be numeric or None
+    assert order is None or isinstance(order, (int, float))
+
+
+def test_model_base_list_settings() -> None:
+    """Test model settings listing.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    model = backend.get_model("default_2d")
+    settings = model.list_settings()
+    
+    # Should return a list of settings
+    assert isinstance(settings, list)
