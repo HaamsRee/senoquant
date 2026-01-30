@@ -2,7 +2,7 @@
   "name": "nuclear_dilation",
   "description": "Dilates nuclear masks to approximate cytoplasm",
   "version": "0.1.0",
-  "order": 2,
+  "order": 4,
   "tasks": {
     "nuclear": {
       "supported": false
