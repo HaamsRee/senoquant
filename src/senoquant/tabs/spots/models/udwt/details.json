@@ -2,6 +2,7 @@
   "name": "udwt",
   "description": "Undecimated B3-spline wavelet spot detector",
   "version": "0.1.0",
+  "order": 1,
   "settings": [
     {
       "key": "ld",

@@ -64,6 +64,25 @@ class SenoQuantSpotDetector:
             return settings
         return []
 
+    def display_order(self) -> float | None:
+        """Return the optional display ordering for this detector.
+
+        Returns
+        -------
+        float or None
+            Numeric ordering value if specified in details.json.
+        """
+        details = self.load_details()
+        order = details.get("order")
+        if isinstance(order, (int, float)):
+            return float(order)
+        if isinstance(order, str):
+            try:
+                return float(order)
+            except ValueError:
+                return None
+        return None
+
     def run(self, **kwargs) -> None:
         """Run the detector with the provided inputs and settings.
 

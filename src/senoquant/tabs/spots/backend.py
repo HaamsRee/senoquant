@@ -55,16 +55,20 @@ class SpotsBackend:
         Returns
         -------
         list[str]
-            Sorted detector folder names.
+            Sorted detector folder names ordered by display_order, then by name.
         """
         if not self._models_root.exists():
             return []
 
-        names = []
+        entries: list[tuple[float, str]] = []
         for path in self._models_root.iterdir():
             if path.is_dir() and not path.name.startswith("__"):
-                names.append(path.name)
-        return sorted(names)
+                detector = self.get_detector(path.name)
+                order = detector.display_order()
+                order_key = order if order is not None else float("inf")
+                entries.append((order_key, path.name))
+        entries.sort(key=lambda item: (item[0], item[1]))
+        return [name for _, name in entries]
 
     def _load_detector_class(self, name: str) -> type[SenoQuantSpotDetector] | None:
         """Load the detector class from a detector folder's model.py.
