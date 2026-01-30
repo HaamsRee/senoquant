@@ -27,6 +27,7 @@ from skimage.measure import regionprops_table
 from senoquant.utils import layer_data_asarray
 from .config import SpotsFeatureData
 from ..base import FeatureConfig
+from .morphology import add_morphology_columns
 
 if TYPE_CHECKING:
     from ..roi import ROIConfig
@@ -132,6 +133,10 @@ def export_spots(
         cell_rows = _initialize_rows(
             cell_ids, cell_centroids, cell_pixel_sizes
         )
+        
+        # --- Add morphological descriptors to the cell table ---
+        add_morphology_columns(cell_rows, cell_labels, cell_ids, cell_pixel_sizes)
+        
         _add_roi_columns(
             cell_rows,
             cell_labels,
