@@ -82,12 +82,15 @@ class NuclearDilationModel(SenoQuantSegmentationModel):
         settings_dict = {} if not isinstance(settings, dict) else settings
         dilation_iterations = max(int(settings_dict.get("dilation_iterations", 5)), 1)
 
-        dilated = ndi.binary_dilation(
-            nuclear_data > 0,
-            iterations=dilation_iterations,
-        )
-
-        labeled_array, _ = ndi.label(dilated)  # type: ignore[misc]
-        dilated_labels = labeled_array.astype(np.uint32)
+        dilated_labels = np.zeros_like(nuclear_data)
+        for label_id in np.unique(nuclear_data):
+            if label_id == 0:
+                continue
+            mask = nuclear_data == label_id
+            dilated_mask = ndi.binary_dilation(
+                mask,
+                iterations=dilation_iterations,
+            )
+            dilated_labels[dilated_mask] = label_id
 
         return {"masks": dilated_labels}

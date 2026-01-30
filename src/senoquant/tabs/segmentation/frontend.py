@@ -365,12 +365,14 @@ class SegmentationTab(QWidget):
         
         # Check if model only uses nuclear input (nuclear-only mode)
         if modes == ["nuclear"]:
-            # Hide cytoplasmic layer, show only nuclear
+            # Hide cytoplasmic layer and label, show only nuclear
             self._cyto_layer_combo.setVisible(False)
+            self._cyto_layer_label.setVisible(False)
             self._cyto_nuclear_layer_combo.setEnabled(True)
-            self._cyto_nuclear_label.setText("Nuclear layer (input)")
+            self._cyto_nuclear_label.setText("Nuclear layer")
         elif "nuclear+cytoplasmic" in modes:
             self._cyto_layer_combo.setVisible(True)
+            self._cyto_layer_label.setVisible(True)
             self._cyto_layer_combo.setEnabled(True)
             optional = model.cytoplasmic_nuclear_optional()
             suffix = "optional" if optional else "mandatory"
@@ -379,6 +381,7 @@ class SegmentationTab(QWidget):
         else:
             # Only cytoplasmic
             self._cyto_layer_combo.setVisible(True)
+            self._cyto_layer_label.setVisible(True)
             self._cyto_layer_combo.setEnabled(True)
             self._cyto_nuclear_label.setText("Nuclear layer")
             self._cyto_nuclear_layer_combo.setEnabled(False)
