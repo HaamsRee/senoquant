@@ -17,8 +17,7 @@ import pytest
 @pytest.mark.parametrize(
     "module_path",
     [
-        "senoquant.tabs.segmentation.models.stardist_2d.model",
-        "senoquant.tabs.segmentation.models.stardist_mod_2d.model",
+        "senoquant.tabs.segmentation.models.default_2d.model",
     ],
 )
 def test_stardist_2d_helpers(module_path: str) -> None:
@@ -48,7 +47,7 @@ def test_stardist_3d_scale_input() -> None:
     None
     """
     module = importlib.import_module(
-        "senoquant.tabs.segmentation.models.stardist_3d.model"
+        "senoquant.tabs.segmentation.models.default_3d.model"
     )
     model = module.StarDistOnnxModel(models_root=None)
     image = np.zeros((3, 3, 3), dtype=np.float32)
