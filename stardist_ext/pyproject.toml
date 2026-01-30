@@ -7,7 +7,7 @@ name = "senoquant-stardist-ext"
 version = "0.1.0"
 description = "Prebuilt StarDist C/C++ extensions for SenoQuant"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "SenoQuant Team" }]
 keywords = ["napari", "stardist", "segmentation", "image-processing", "native-extensions"]
