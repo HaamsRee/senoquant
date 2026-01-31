@@ -35,6 +35,58 @@ from senoquant.utils import layer_data_asarray
 from .backend import SpotsBackend
 
 
+def _filter_labels_by_size(
+    mask: np.ndarray,
+    min_size: int = 0,
+    max_size: int = 0,
+) -> np.ndarray:
+    """Filter a labeled mask by region size.
+    
+    Parameters
+    ----------
+    mask : numpy.ndarray
+        Labeled mask array.
+    min_size : int, optional
+        Minimum region size in pixels (0 = no minimum).
+    max_size : int, optional
+        Maximum region size in pixels (0 = no maximum).
+        
+    Returns
+    -------
+    numpy.ndarray
+        Filtered labeled mask with regions outside size range removed.
+    """
+    from skimage.measure import regionprops
+    
+    if mask is None or mask.size == 0:
+        return mask
+        
+    # If both are 0, no filtering needed
+    if min_size == 0 and max_size == 0:
+        return mask
+        
+    # Get region properties
+    regions = regionprops(mask)
+    if not regions:
+        return mask
+        
+    # Build a mask of labels to keep
+    filtered_mask = np.zeros_like(mask)
+    for region in regions:
+        area = region.area
+        keep = True
+        
+        if min_size > 0 and area < min_size:
+            keep = False
+        if max_size > 0 and area > max_size:
+            keep = False
+            
+        if keep:
+            filtered_mask[mask == region.label] = region.label
+            
+    return filtered_mask
+
+
 class RefreshingComboBox(QComboBox):
     """Combo box that refreshes its items when opened."""
 
@@ -80,6 +132,8 @@ class SpotsTab(QWidget):
         self._settings_widgets = {}
         self._settings_meta = {}
         self._active_workers: list[tuple[QThread, QObject]] = []
+        self._min_size_spin = None
+        self._max_size_spin = None
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_detector_section())
@@ -121,6 +175,7 @@ class SpotsTab(QWidget):
 
         section_layout.addLayout(form_layout)
         section_layout.addWidget(self._make_settings_section())
+        section_layout.addWidget(self._make_size_filter_section())
 
         self._run_button = QPushButton("Run")
         self._run_button.clicked.connect(self._run_detector)
@@ -171,6 +226,34 @@ class SpotsTab(QWidget):
             Group box containing detector-specific settings.
         """
         return self._make_titled_section("Detector settings")
+
+    def _make_size_filter_section(self) -> QGroupBox:
+        """Build the spot size filter section.
+
+        Returns
+        -------
+        QGroupBox
+            Group box containing size filter controls.
+        """
+        section = QGroupBox("Filter spots by size (pixels)")
+        section.setFlat(False)
+        
+        layout = QFormLayout()
+        layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        
+        self._min_size_spin = QSpinBox()
+        self._min_size_spin.setRange(0, 100000)
+        self._min_size_spin.setValue(0)
+        
+        self._max_size_spin = QSpinBox()
+        self._max_size_spin.setRange(0, 100000)
+        self._max_size_spin.setValue(0)
+        
+        layout.addRow("Minimum size", self._min_size_spin)
+        layout.addRow("Maximum size", self._max_size_spin)
+        
+        section.setLayout(layout)
+        return section
 
     def _make_titled_section(self, title: str) -> QGroupBox:
         """Create a titled box that mimics a group box ring.
@@ -562,7 +645,8 @@ class SpotsTab(QWidget):
             return
         mask = result.get("mask")
         if mask is not None:
-            self._add_labels_layer(layer, mask, detector_name)
+            filtered_mask = self._apply_size_filter(mask)
+            self._add_labels_layer(layer, filtered_mask, detector_name)
 
     def _add_labels_layer(self, source_layer, mask, detector_name: str) -> None:
         """Add a labels layer for the detector mask."""
@@ -572,6 +656,31 @@ class SpotsTab(QWidget):
         self._viewer.add_labels(mask, name=name)
         labels_layer = self._viewer.layers[name]
         labels_layer.contour = 1
+
+    def _apply_size_filter(self, mask: np.ndarray) -> np.ndarray:
+        """Filter spots by size based on min/max settings.
+        
+        Parameters
+        ----------
+        mask : numpy.ndarray
+            Labeled spot mask from detector.
+            
+        Returns
+        -------
+        numpy.ndarray
+            Filtered labeled mask.
+        """
+        if self._min_size_spin is None or self._max_size_spin is None:
+            return mask
+            
+        min_size = self._min_size_spin.value()
+        max_size = self._max_size_spin.value()
+        
+        # If both are 0 (disabled), return original mask
+        if min_size == 0 and max_size == 0:
+            return mask
+            
+        return _filter_labels_by_size(mask, min_size, max_size)
 
     def _spot_label_name(self, source_layer, detector_name: str) -> str:
         """Return a standardized spot labels layer name."""

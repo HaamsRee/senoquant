@@ -120,6 +120,8 @@ class BatchTab(QWidget):
         self._spot_settings_meta: dict[str, dict] = {}
         self._spot_settings_values: dict[str, object] = {}
         self._spot_settings_list: list[dict] = []
+        self._spot_min_size_spin: QSpinBox | None = None
+        self._spot_max_size_spin: QSpinBox | None = None
         self._config_viewer = BatchViewer()
 
         layout = QVBoxLayout()
@@ -347,6 +349,21 @@ class BatchTab(QWidget):
 
         section_layout.addLayout(form_layout)
         section_layout.addWidget(self._spot_settings_button)
+        
+        # Add size filter section
+        size_filter_layout = QFormLayout()
+        self._spot_min_size_spin = QSpinBox()
+        self._spot_min_size_spin.setRange(0, 100000)
+        self._spot_min_size_spin.setValue(0)
+        
+        self._spot_max_size_spin = QSpinBox()
+        self._spot_max_size_spin.setRange(0, 100000)
+        self._spot_max_size_spin.setValue(0)
+        
+        size_filter_layout.addRow("Minimum spot size (px)", self._spot_min_size_spin)
+        size_filter_layout.addRow("Maximum spot size (px)", self._spot_max_size_spin)
+        section_layout.addLayout(size_filter_layout)
+        
         section_layout.addWidget(self._spot_channels_container)
         section_layout.addWidget(add_spot_button)
         section.setLayout(section_layout)
@@ -819,6 +836,10 @@ class BatchTab(QWidget):
         self._cyto_settings_button.setEnabled(cyto_enabled)
         self._spot_detector_combo.setEnabled(spot_enabled)
         self._spot_settings_button.setEnabled(spot_enabled)
+        if self._spot_min_size_spin is not None:
+            self._spot_min_size_spin.setEnabled(spot_enabled)
+        if self._spot_max_size_spin is not None:
+            self._spot_max_size_spin.setEnabled(spot_enabled)
         for row in self._spot_channel_rows:
             combo = row.get("combo")
             if combo is not None:
@@ -987,6 +1008,8 @@ class BatchTab(QWidget):
                 detector=self._spot_detector_combo.currentText(),
                 channels=spot_channels,
                 settings=spot_settings,
+                min_size=self._spot_min_size_spin.value() if self._spot_min_size_spin else 0,
+                max_size=self._spot_max_size_spin.value() if self._spot_max_size_spin else 0,
             ),
             quantification=BatchQuantificationConfig(
                 enabled=self._quant_enabled.isChecked(),
@@ -1033,6 +1056,10 @@ class BatchTab(QWidget):
         self._spots_enabled.setChecked(job.spots.enabled)
         self._set_combo_value(self._spot_detector_combo, job.spots.detector)
         self._spot_settings_values = dict(job.spots.settings)
+        if self._spot_min_size_spin is not None:
+            self._spot_min_size_spin.setValue(job.spots.min_size)
+        if self._spot_max_size_spin is not None:
+            self._spot_max_size_spin.setValue(job.spots.max_size)
         self._clear_spot_channel_rows()
         for channel in job.spots.channels:
             self._add_spot_channel_row()

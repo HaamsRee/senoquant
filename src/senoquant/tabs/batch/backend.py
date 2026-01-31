@@ -33,6 +33,7 @@ import numpy as np
 from senoquant.tabs.quantification.backend import QuantificationBackend
 from senoquant.tabs.segmentation.backend import SegmentationBackend
 from senoquant.tabs.spots.backend import SpotsBackend
+from senoquant.tabs.spots.frontend import _filter_labels_by_size
 
 from .config import BatchChannelConfig, BatchJobConfig
 from .layers import BatchViewer, Image, Labels
@@ -147,6 +148,8 @@ class BatchBackend:
             spot_detector=job.spots.detector if job.spots.enabled else None,
             spot_channels=job.spots.channels,
             spot_settings=job.spots.settings,
+            spot_min_size=job.spots.min_size,
+            spot_max_size=job.spots.max_size,
             quantification_features=job.quantification.features,
             quantification_format=job.quantification.format,
             extensions=job.extensions,
@@ -172,6 +175,8 @@ class BatchBackend:
         spot_detector: str | None = None,
         spot_channels: Iterable[str | int] | None = None,
         spot_settings: dict | None = None,
+        spot_min_size: int = 0,
+        spot_max_size: int = 0,
         quantification_features: Iterable[object] | None = None,
         quantification_format: str = "xlsx",
         quantification_tab: object | None = None,
@@ -212,6 +217,10 @@ class BatchBackend:
             Channels used for spot detection.
         spot_settings : dict or None, optional
             Detector settings.
+        spot_min_size : int, optional
+            Minimum spot size in pixels (0 = no minimum).
+        spot_max_size : int, optional
+            Maximum spot size in pixels (0 = no maximum).
         quantification_features : iterable of object or None, optional
             Quantification feature contexts (UI-generated).
         quantification_format : str, optional
@@ -411,6 +420,9 @@ class BatchBackend:
                             mask = spot_result.get("mask")
                             if mask is None:
                                 continue
+                            # Apply size filtering if enabled
+                            if spot_min_size > 0 or spot_max_size > 0:
+                                mask = _filter_labels_by_size(mask, spot_min_size, spot_max_size)
                             channel_name = _resolve_channel_name(
                                 channel_choice, normalized_channels
                             )

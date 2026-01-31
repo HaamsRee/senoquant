@@ -68,6 +68,8 @@ class BatchSpotsConfig:
     detector: str = ""
     channels: list[str] = field(default_factory=list)
     settings: dict = field(default_factory=dict)
+    min_size: int = 0
+    max_size: int = 0
 
 
 @dataclass(slots=True)
