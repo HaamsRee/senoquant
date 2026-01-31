@@ -71,7 +71,7 @@ If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):
 
 1. Switch to the **Spots** tab.
 2. Select **Image Layer**: Choose the channel with spots.
-3. Select **Detector**: `udwt` or `rmp`.
+3. Select **Detector**: `udwt` or `rmp`. `rmp` is much slower (especially if you don't have CUDA and the associated dependencies installed) but may yield better results for noisy images.
 4. Adjust detection settings (e.g., `Product threshold(ld)`).
 
    > The default settings work well for most images.
