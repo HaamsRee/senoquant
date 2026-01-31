@@ -95,8 +95,8 @@ Model files are downloaded automatically on first use from Hugging Face.
 
 ### Optional dependencies
 
-- `uv pip install senoquant[gpu]` for GPU acceleration (requires CUDA; Windows and Linux only)
-- `uv pip install senoquant[all]` for full stack
+- `uv pip install senoquant[gpu]` for GPU acceleration of the RMP spot detector (requires CUDA; Windows and Linux only).
+- `uv pip install senoquant[all]` for full stack.
 
 ## 5. Launch
 
