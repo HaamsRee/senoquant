@@ -93,8 +93,8 @@ To add a feature:
 1. Switch to the **Quantification** tab.
 2. Click **Add feature** → Select feature **Type**:
 
-   - **Markers**: For intensity-based IF marker quantification.
-   - **Spots**: For spot counting and colocalization.
+    - **Markers**: For intensity-based IF marker quantification.
+    - **Spots**: For spot counting and colocalization.
 
 3. Name your feature (e.g., `IF markers`, `IF spots`).
 
