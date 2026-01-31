@@ -122,6 +122,7 @@ class BatchTab(QWidget):
         self._spot_settings_list: list[dict] = []
         self._spot_min_size_spin: QSpinBox | None = None
         self._spot_max_size_spin: QSpinBox | None = None
+        self._add_spot_button: QPushButton | None = None
         self._config_viewer = BatchViewer()
 
         layout = QVBoxLayout()
@@ -340,8 +341,8 @@ class BatchTab(QWidget):
         self._spot_channels_layout.setContentsMargins(0, 0, 0, 0)
         self._spot_channels_layout.setSpacing(6)
         self._spot_channels_container.setLayout(self._spot_channels_layout)
-        add_spot_button = QPushButton("Add spot channel")
-        add_spot_button.clicked.connect(self._add_spot_channel_row)
+        self._add_spot_button = QPushButton("Add spot channel")
+        self._add_spot_button.clicked.connect(self._add_spot_channel_row)
 
         self._spot_detector_combo.currentTextChanged.connect(
             lambda _text: self._update_spot_settings()
@@ -365,7 +366,7 @@ class BatchTab(QWidget):
         section_layout.addLayout(size_filter_layout)
         
         section_layout.addWidget(self._spot_channels_container)
-        section_layout.addWidget(add_spot_button)
+        section_layout.addWidget(self._add_spot_button)
         section.setLayout(section_layout)
         self._refresh_spot_channel_choices()
         return section
@@ -486,7 +487,7 @@ class BatchTab(QWidget):
         row_layout.addWidget(delete_button)
         row_widget.setLayout(row_layout)
 
-        row = {"widget": row_widget, "combo": combo}
+        row = {"widget": row_widget, "combo": combo, "delete_button": delete_button}
         self._spot_channel_rows.append(row)
         self._spot_channels_layout.addWidget(row_widget)
 
@@ -840,10 +841,15 @@ class BatchTab(QWidget):
             self._spot_min_size_spin.setEnabled(spot_enabled)
         if self._spot_max_size_spin is not None:
             self._spot_max_size_spin.setEnabled(spot_enabled)
+        if self._add_spot_button is not None:
+            self._add_spot_button.setEnabled(spot_enabled)
         for row in self._spot_channel_rows:
             combo = row.get("combo")
             if combo is not None:
                 combo.setEnabled(spot_enabled)
+            delete_button = row.get("delete_button")
+            if delete_button is not None:
+                delete_button.setEnabled(spot_enabled)
         self._quant_tab.setEnabled(self._quant_enabled.isChecked())
 
         self._refresh_config_viewer()
