@@ -46,7 +46,7 @@ The plugin window opens as a docked widget with 5 tabs:
 4. Adjust model settings if needed (e.g., `Object diameter (px)`).
 
     > To quickly measure object diameter, create a  napari    shapes layer (left toolbar, new shapes layer       icon) and     draw a line across a representative   nucleus. Then click     `Layers` → `Measure` → `Toggle   shapes dimensions    measurement (napari builtins)` to     see the length. See  <https://napari.org/stable/howtos layers/shapes.html>    for more details.
-    
+
     > The default settings work well for most images.
 
 5. Click **Run**.
@@ -87,6 +87,8 @@ The quantification tab organizes exports by **Features**. A feature defines *wha
 
 - **Markers**: Measure intensity-based markers (e.g., IF markers) within nuclear/cytoplasmic masks.
 - **Spots**: Count spots and analyze colocalization within cell masks.
+
+To add a feature:
 
 1. Switch to the **Quantification** tab.
 2. Click **Add feature** → Select feature **Type**:
