@@ -20,6 +20,7 @@ napari
 ```
 
 **Load your image:**
+
 - `File` → `Open File(s)...` → Select your image.
 - Or drag-and-drop the file into the napari window.
 
@@ -30,6 +31,7 @@ napari
 `Plugins` → `SenoQuant`
 
 The plugin window opens as a docked widget with 5 tabs:
+
 - **Segmentation**
 - **Spots**
 - **Quantification**
@@ -88,34 +90,40 @@ The quantification tab organizes exports by **Features**. A feature defines *wha
 
 1. Switch to the **Quantification** tab.
 2. Click **Add feature** → Select feature **Type**:
+
    - **Markers**: For intensity-based IF marker quantification.
    - **Spots**: For spot counting and colocalization.
+
 3. Name your feature (e.g., `IF markers`, `IF spots`).
 
 #### Configure a Markers feature
 
 1. Click **Add channels**.
 2. In the popup:
-   - In the top **Segmentations** box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer.
-   
-      > The selected segmentation defines the nuclei/cells for quantification. SenoQuant will export one cell x marker table per segmentation.
 
-   - In the **Channels** box, click **Add channel** → Add intensity channel(s) to quantify.
-   - For each channel, name the channel (e.g., `DAPI`, `p16`), and select the image layer containing the marker. Optionally, click the **Set threshold** checkbox to define a intensity threshold for positive/negative calls automatically or manually. The threshold sliders are linked to the napari layer contrast limits for easy visualization.
-   - Click **Save** or close the popup when done.
+    - In the top **Segmentations** box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer.
+    
+        > The selected segmentation defines the nuclei/cells for quantification. SenoQuant will export one cell x marker table per segmentation.
+
+    - In the **Channels** box, click **Add channel** → Add intensity channel(s) to quantify.
+    - For each channel, name the channel (e.g., `DAPI`, `p16`), and select the image layer containing the marker. Optionally, click the **Set threshold** checkbox to define a intensity threshold for positive/negative calls automatically or manually. The threshold sliders are linked to the napari layer contrast limits for easy visualization.
+    - Click **Save** or close the popup when done.
+
 3. (Optional) Draw ROIs with a shapes layer. Enable **ROIs** → Name the ROI → Select the shapes layer. Select the ROI **Type** to be `Include` or `Exclude`. Nuclei/cells inside `Include` ROIs or outside `Exclude` ROIs will be marked in the output table.
 
 #### Configure a Spots feature
 
 1. Click **Add channels**.
 2. In the popup:
-   - In the top box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer to exclude spots outside these segmented cells.
-   
-      > The selected segmentation defines the nuclei/cells for spot quantification. SenoQuant will export one set of spots tables per segmentation.
 
-   - In the **Channels** box, click **Add channel** → Add spot channel(s) to quantify.
-   - For each channel, name the channel (e.g., `gH2AX`, `Telomere`), and select the spot labels layer in **Channel**. Select the corresponding **Spots segmentation** layer generated in the **Spots** tab.
-   - Click **Save** or close the popup when done.
+    - In the top box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer to exclude spots outside these segmented cells.
+    
+        > The selected segmentation defines the nuclei/cells for spot quantification. SenoQuant will export one set of spots tables per segmentation.
+
+    - In the **Channels** box, click **Add channel** → Add spot channel(s) to quantify.
+    - For each channel, name the channel (e.g., `gH2AX`, `Telomere`), and select the spot labels layer in **Channel**. Select the corresponding **Spots segmentation** layer generated in the **Spots** tab.
+    - Click **Save** or close the popup when done.
+
 3. (Optional) Enable **ROIs** → Name the ROI → Select the shapes layer. ROIs work the same way as in the Markers feature.
 4. (Optional) Enable **Export colocalization** to analyze spot colocalization between two or more spot channels. Colocalization will only be computed if two or more spot channels are added to the feature.
 
@@ -129,6 +137,7 @@ The quantification tab organizes exports by **Features**. A feature defines *wha
 6. Wait for quantification to complete.
 
 **Output:** Excel/CSV files containing:
+
 - **Markers**: Marker intensities per cell, morphological features.
 - **Spots**: Spot counts per cell, spot intensities, colocalization data (if enabled).
 
