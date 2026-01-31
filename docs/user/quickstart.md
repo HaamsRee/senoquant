@@ -45,9 +45,9 @@ The plugin window opens as a docked widget with 5 tabs:
 3. Select **Model**: `default_2d` (for 2D images) or `default_3d` (for Z-stacks). `cpsam` is also available for nuclear+cytoplasmic segmentation.
 4. Adjust model settings if needed (e.g., `Object diameter (px)`).
 
-   > To quickly measure object diameter, create a napari shapes layer (left toolbar, new shapes layer icon) and draw a line across a representative nucleus. Then click `Layers` → `Measure` → `Toggle shapes dimensions measurement (napari builtins)` to see the length. See <https://napari.org/stable/howtos/layers/shapes.html> for more details.
-
-   > The default settings work well for most images.
+    > To quickly measure object diameter, create a  napari    shapes layer (left toolbar, new shapes layer       icon) and     draw a line across a representative   nucleus. Then click     `Layers` → `Measure` → `Toggle   shapes dimensions    measurement (napari builtins)` to     see the length. See  <https://napari.org/stable/howtos layers/shapes.html>    for more details.
+    
+    > The default settings work well for most images.
 
 5. Click **Run**.
 
@@ -74,7 +74,7 @@ If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):
 3. Select **Detector**: `udwt` or `rmp`. `rmp` is much slower (especially if you don't have CUDA and the associated dependencies installed) but may yield better results for noisy images.
 4. Adjust detection settings (e.g., `Product threshold(ld)`).
 
-   > The default settings work well for most images.
+    > The default settings work well for most images.
 
 5. (Optional) Set **Minimum size** and **Maximum size** to further filter spots.
 6. Click **Run**.
