@@ -20,12 +20,12 @@ If you don't have conda or don't know what it is, you need to install **Minicond
 5. Choose **"Just Me"** (recommended) and click **"Next >"**.
 6. Keep the default installation location and click **"Next >"**.
 7. On the "Advanced Options" screen:
-    - Check the box: **"Register Miniconda3 as my default Python 3.xx"**
-    - Check the box: **"Clear the package cache upon completion"**
+    - Check the box: **"Register Miniconda3 as my default Python 3.xx"**.
+    - Check the box: **"Clear the package cache upon completion"**.
     > We recommend **not** checking the box: **"Add installation to my PATH environment variable"** to avoid potential conflicts with other applications.
-    - Click **"Install"**
-8. Wait for the installation to complete, then click **"Next >"** and **"Finish"**
-9. Use the Start Menu to open the **Anaconda Prompt** (search for "Anaconda Prompt")
+    - Click **"Install"**.
+8. Wait for the installation to complete, then click **"Next >"** and **"Finish"**.
+9. Use the Start Menu to open the **Anaconda Prompt** (search for "Anaconda Prompt").
 10. In the Anaconda Prompt, type the following command to initialize conda for your shell(s):
     ```bash
     conda init
@@ -33,7 +33,7 @@ If you don't have conda or don't know what it is, you need to install **Minicond
     > This step ensures that you can access conda from any command prompt or PowerShell window, and not just the Anaconda Prompt.
 
 **To verify it worked:**
-- Use the Start Menu to open a new **Command Prompt** or **PowerShell** window
+- Use the Start Menu to open a new **Command Prompt** or **PowerShell** window.
 - Type: `conda --version`
 - If you see a version number like `conda xx.x.x`, you're ready to proceed.
 
