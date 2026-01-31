@@ -45,7 +45,7 @@ The plugin window opens as a docked widget with 5 tabs:
 3. Select **Model**: `default_2d` (for 2D images) or `default_3d` (for Z-stacks). `cpsam` is also available for nuclear+cytoplasmic segmentation.
 4. Adjust model settings if needed (e.g., `Object diameter (px)`).
 
-    > To quickly measure object diameter, create a  napari    shapes layer (left toolbar, new shapes layer       icon) and     draw a line across a representative   nucleus. Then click     `Layers` → `Measure` → `Toggle   shapes dimensions    measurement (napari builtins)` to     see the length. See  <https://napari.org/stable/howtos layers/shapes.html>    for more details.
+    > To quickly measure object diameter, create a  napari    shapes layer (left toolbar, new shapes layer       icon) and     draw a line across a representative   nucleus. Then click     `Layers` → `Measure` → `Toggle   shapes dimensions    measurement (napari builtins)` to     see the length. See  <https://napari.org/stable/howtos/layers/shapes.html>    for more details.
 
     > The default settings work well for most images.
 
