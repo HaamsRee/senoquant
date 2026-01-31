@@ -34,6 +34,7 @@ If you don't have conda or don't know what it is, you need to install **Minicond
     > This step ensures that you can access conda from any command prompt or PowerShell window, and not just the Anaconda Prompt.
 
 **To verify it worked:**
+
 - Use the Start Menu to open a new **Command Prompt** or **PowerShell** window.
 - Type: `conda --version`
 - If you see a version number like `conda xx.x.x`, you're ready to proceed.
