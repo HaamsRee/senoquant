@@ -1,6 +1,6 @@
 # Installation
 
-SenoQuant targets Python 3.11 and is designed to run inside a napari environment.
+SenoQuant targets Python 3.11 and is designed to run inside [napari](https://napari.org/stable/index.html).
 
 ## 1. Install Miniconda (if you don't have conda)
 

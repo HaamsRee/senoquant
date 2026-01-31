@@ -2,7 +2,7 @@
 
 ## About
 
-SenoQuant is a versatile Napari plugin designed for comprehensive, accurate,
+SenoQuant is a versatile [napari](https://napari.org/stable/index.html) plugin designed for comprehensive, accurate,
 and unbiased spatial quantification and prediction of senescence markers
 across diverse tissue contexts.
 
