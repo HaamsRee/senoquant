@@ -9,7 +9,7 @@ If you don't have conda or don't know what it is, you need to install **Minicond
 
 ### Windows
 
-1. Visit the **Miniconda installation page**: https://www.anaconda.com/docs/getting-started/miniconda/install. Follow the instructions for Windows and download the Miniconda Graphical Installer.  
+1. Visit the **Miniconda installation page**: <https://www.anaconda.com/docs/getting-started/miniconda/install>. Follow the instructions for Windows and download the Miniconda Graphical Installer.  
 
     > **Why Miniconda and not Anaconda?**  
     Miniconda is a lightweight alternative to the full Anaconda distribution. It includes only the essential package manager and Python, using significantly less disk space and fewer system resources. This makes it ideal for most users.
