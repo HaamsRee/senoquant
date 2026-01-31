@@ -127,7 +127,7 @@ class QuantificationTab(QWidget):
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
 
         self._output_path_input = QLineEdit()
-        self._output_path_input.setPlaceholderText("Output folder path")
+        self._output_path_input.setPlaceholderText("Output folder")
         browse_button = QPushButton("Browse")
         browse_button.clicked.connect(self._select_output_path)
         output_path_row = QHBoxLayout()
@@ -145,10 +145,10 @@ class QuantificationTab(QWidget):
         )
 
         self._format_combo = QComboBox()
-        self._format_combo.addItems(["csv", "xlsx"])
+        self._format_combo.addItems(["xlsx", "csv"])
         self._configure_combo(self._format_combo)
 
-        form_layout.addRow("Output path", output_path_widget)
+        form_layout.addRow("Output folder", output_path_widget)
         form_layout.addRow("Save name", self._save_name_input)
         form_layout.addRow("Format", self._format_combo)
 

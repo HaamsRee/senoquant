@@ -418,7 +418,7 @@ class BatchTab(QWidget):
         self._overwrite = QCheckBox("Overwrite existing outputs")
 
         form_layout.addRow("Output folder", output_widget)
-        form_layout.addRow("Format", self._output_format)
+        form_layout.addRow("Segmentation format", self._output_format)
         form_layout.addRow("Quantification format", self._quant_format)
         form_layout.addRow("", self._overwrite)
 
