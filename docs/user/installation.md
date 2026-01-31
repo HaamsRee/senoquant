@@ -94,8 +94,6 @@ pip install senoquant
 
 Model files are downloaded automatically on first use from Hugging Face.
 
-> The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.
-
 ### Optional dependencies
 
 - `uv pip install senoquant[gpu]` for GPU acceleration of the RMP spot detector (requires CUDA; Windows and Linux only).
@@ -108,6 +106,9 @@ Start napari from your terminal:
 ```bash
 napari
 ```
+
+> The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.
+
 > Make sure the terminal remains open while using napari to keep it running. The terminal also displays useful info/warning/error messages.
 
 Then select `Plugins` -> `SenoQuant` to launch SenoQuant.
