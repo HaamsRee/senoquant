@@ -30,6 +30,7 @@ If you don't have conda or don't know what it is, you need to install **Minicond
     ```bash
     conda init
     ```
+    
     > This step ensures that you can access conda from any command prompt or PowerShell window, and not just the Anaconda Prompt.
 
 **To verify it worked:**
