@@ -1,6 +1,6 @@
 {
   "name": "cpsam",
-  "description": "Placeholder details for the cpsam segmentation model",
+  "description": "Cellpose SAM model",
   "version": "0.1.0",
   "order": 3,
   "tasks": {

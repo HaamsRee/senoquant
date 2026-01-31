@@ -1,0 +1,34 @@
+{
+  "name": "perinuclear_rings",
+  "description": "Creates perinuclear rings from nuclear masks",
+  "version": "0.1.0",
+  "order": 5,
+  "tasks": {
+    "nuclear": {
+      "supported": false
+    },
+    "cytoplasmic": {
+      "supported": true,
+      "input_modes": ["nuclear"],
+      "nuclear_channel_optional": false
+    }
+  },
+  "settings": [
+    {
+      "key": "erosion_px",
+      "label": "Inner erosion (px)",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 2
+    },
+    {
+      "key": "dilation_px",
+      "label": "Outer dilation (px)",
+      "type": "int",
+      "min": 0,
+      "max": 50,
+      "default": 5
+    }
+  ]
+}
