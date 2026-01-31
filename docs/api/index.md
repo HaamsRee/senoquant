@@ -35,18 +35,6 @@ This page is generated automatically from docstrings using `mkdocstrings`.
 
 ::: senoquant.tabs.segmentation.models.base
 
-### Model Implementations
-
-::: senoquant.tabs.segmentation.models.cpsam.model
-
-::: senoquant.tabs.segmentation.models.default_2d.model
-
-::: senoquant.tabs.segmentation.models.default_3d.model
-
-::: senoquant.tabs.segmentation.models.nuclear_dilation.model
-
-::: senoquant.tabs.segmentation.models.perinuclear_rings.model
-
 ## Spot Detection
 
 ### Backend
@@ -56,12 +44,6 @@ This page is generated automatically from docstrings using `mkdocstrings`.
 ### Detector Base Classes
 
 ::: senoquant.tabs.spots.models.base
-
-### Detector Implementations
-
-::: senoquant.tabs.spots.models.udwt.model
-
-::: senoquant.tabs.spots.models.rmp.model
 
 ## Quantification
 
@@ -76,43 +58,6 @@ This page is generated automatically from docstrings using `mkdocstrings`.
 ### ROI Configuration
 
 ::: senoquant.tabs.quantification.features.roi
-
-### Marker Feature
-
-::: senoquant.tabs.quantification.features.marker.config
-
-::: senoquant.tabs.quantification.features.marker.feature
-
-::: senoquant.tabs.quantification.features.marker.export
-    options:
-      filters:
-        - "!^_"
-
-::: senoquant.tabs.quantification.features.marker.morphology
-    options:
-      filters:
-        - "!^_"
-
-::: senoquant.tabs.quantification.features.marker.thresholding
-    options:
-      filters:
-        - "!^_"
-
-### Spots Feature
-
-::: senoquant.tabs.quantification.features.spots.config
-
-::: senoquant.tabs.quantification.features.spots.feature
-
-::: senoquant.tabs.quantification.features.spots.export
-    options:
-      filters:
-        - "!^_"
-
-::: senoquant.tabs.quantification.features.spots.morphology
-    options:
-      filters:
-        - "!^_"
 
 ## Batch Processing
 
