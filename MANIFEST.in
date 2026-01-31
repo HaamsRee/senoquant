@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+include pyproject.toml
+recursive-include src/senoquant *.yaml
+recursive-include src/senoquant *.json
+recursive-include src/senoquant *.py
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.onnx
+global-exclude cpsam

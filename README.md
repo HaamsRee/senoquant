@@ -1,69 +1,113 @@
 # SenoQuant
 
 ![tests](https://github.com/HaamsRee/senoquant-dev/actions/workflows/tests.yml/badge.svg)
+[![PyPI version](https://badge.fury.io/py/senoquant.svg)](https://badge.fury.io/py/senoquant)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 SenoQuant is a versatile Napari plugin designed for comprehensive, accurate,
 and unbiased spatial quantification and prediction of senescence markers
 across diverse tissue contexts.
 
+## Features
+
+- **Multi-Model Segmentation**: Nuclear and cytoplasmic segmentation with 5 built-in models
+  - StarDist ONNX (2D/3D)
+  - Cellpose SAM
+  - Morphological operations (dilation, perinuclear rings)
+- **Spot Detection**: Detect and quantify punctate senescence markers
+  - Undecimated B3-spline wavelet (UDWT)
+  - Rotational morphological processing (RMP)
+- **Quantification**: Extract intensity, morphology, and spot metrics
+  - Per-cell marker intensities
+  - Morphological descriptors
+  - Spot counting and colocalization
+- **Batch Processing**: Automated analysis of entire image folders
+  - Profile save/load for reproducibility
+  - Multi-scene file support
+- **File Format Support**: Microscopy formats via BioIO
+  - OME-TIFF, ND2, LIF, CZI, Zarr, and more
+
+## Installation
+
+### Prerequisites
+
+SenoQuant requires Python 3.11+ and napari:
+
+```bash
+conda create -n senoquant python=3.11
+conda activate senoquant
+pip install "napari[all]"
+```
+
+Or using `uv` (faster installer):
+
+```bash
+conda create -n senoquant python=3.11
+conda activate senoquant
+pip install uv
+uv pip install "napari[all]"
+```
+
+### Install SenoQuant
+
+```bash
+pip install senoquant
+```
+
+Or with `uv`:
+
+```bash
+uv pip install senoquant
+```
+
+Model files are downloaded automatically on first use from Hugging Face.
+To override the model repository, set `SENOQUANT_MODEL_REPO` environment variable.
+
+For GPU acceleration (Windows/Linux with CUDA):
+
+```bash
+pip install senoquant[gpu]
+```
+
+**Note:** The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (~1.3 GB) from Hugging Face. Subsequent launches will be faster as models are cached locally.
+
+## Quick Start
+
+1. **Launch napari and open your image:**
+   ```bash
+   napari
+   ```
+   File → Open File(s)... → Select your image
+
+2. **Open SenoQuant plugin:**  
+   Plugins → SenoQuant
+
+3. **Run segmentation:**  
+   Segmentation tab → Select nuclear channel → Choose model → Run
+
+4. **Detect spots (optional):**  
+   Spots tab → Select channel → Choose detector → Run
+
+5. **Export quantification:**  
+   Quantification tab → Configure features → Export
+
+6. **Batch process (optional):**  
+   Batch tab → Configure settings → Run Batch
+
 ## Documentation
 
-Docs are built with MkDocs Material and published via GitHub Pages.
+Full documentation is available at [https://haamsree.github.io/senoquant-dev/](https://haamsree.github.io/senoquant-dev/)
 
-- Local preview: `pip install mkdocs-material` then `mkdocs serve`
-- Build output: `mkdocs build`
-- CI deploy: `.github/workflows/docs.yml`
+- [Installation Guide](https://haamsree.github.io/senoquant-dev/user/installation/)
+- [Quick Start Tutorial](https://haamsree.github.io/senoquant-dev/user/quickstart/)
+- [Segmentation Models](https://haamsree.github.io/senoquant-dev/user/segmentation/)
+- [Spot Detection](https://haamsree.github.io/senoquant-dev/user/spots/)
+- [Quantification Features](https://haamsree.github.io/senoquant-dev/user/quantification/)
+- [Batch Processing](https://haamsree.github.io/senoquant-dev/user/batch/)
+- [API Reference](https://haamsree.github.io/senoquant-dev/api/)
 
 ## Development
 
-- Create a conda environment with Python 3.11.
-- `pip install uv` (fast alternative to pip)
-- `uv pip install "napari[all]"`
-- `uv pip install -e .`
-- Note: bioformats-based readers can fail on very large images. Installing
-  dedicated reader plugins may help (e.g., `pip install bioio-ome-tiff`).
-- Run napari and open the plugin widget from the Plugins menu
+See the [Contributing Guide](https://haamsree.github.io/senoquant-dev/developer/contributing/) for development setup instructions.
 
-## StarDist ONNX Converter
-
-- Create and activate a conda environment with Python 3.11.
-- `pip install uv`
-- `uv pip install tensorflow tf2onnx`
-- Force protobuf after TensorFlow and tf2onnx:
-  - `uv pip install --upgrade "protobuf>=6.33.4"`
-- Ensure the package is installed (see Development section): `uv pip install -e .`
-- Convert a pretrained model:
-  - 2D: `python -m senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.convert.cli --dim 2 --model 2D_versatile_fluo --output ./onnx_models`
-  - 3D: `python -m senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.convert.cli --dim 3 --model 3D_demo --output ./onnx_models`
-
-### Version Notes
-
-- Known-good Linux combo:
-  - `tensorflow==2.20.0`
-  - `tf2onnx==1.16.1`
-  - `protobuf==6.33.4` (must be installed after TensorFlow/tf2onnx)
-- If you see protobuf/runtime import errors, reinstall protobuf last.
-- macOS note: some TF/protobuf builds can crash with `libc++abi` mutex errors. If that happens, try a clean conda env and prefer Linux for conversion.
-
-## StarDist Extension (Compiled NMS)
-
-The StarDist ONNX model uses compiled C/C++ extensions for NMS and 3D label rendering.
-These are packaged as a separate wheel to keep the main plugin lightweight.
-
-- Install from PyPI (recommended):
-  - `pip install senoquant-stardist-ext`
-- If you are working from source or need a custom build, build the wheel locally:
-  - `pip install -U scikit-build-core`
-  - `pip wheel ./stardist_ext -w ./wheelhouse`
-  - `pip install ./wheelhouse/senoquant_stardist_ext-*.whl`
-- Then install and run the plugin as usual:
-  - `uv pip install -e .`
-  - `napari`
-
-### Wheels from CI
-
-The GitHub Actions workflow `.github/workflows/build-stardist-ext.yml` builds
-platform wheels via `cibuildwheel`. Download artifacts from the workflow run
-and install the appropriate wheel for your platform:
-
-- `pip install /path/to/senoquant_stardist_ext-*.whl`

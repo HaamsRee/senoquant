@@ -1,8 +1,6 @@
 # Installation
 
-SenoQuant targets Python 3.11 and is designed to run inside a napari
-environment. The project does not pin napari in its runtime dependencies,
-so you need to install napari separately.
+SenoQuant targets Python 3.11 and is designed to run inside a napari environment.
 
 ## Create an environment
 
@@ -17,50 +15,33 @@ conda activate senoquant
 pip install "napari[all]"
 ```
 
-## Install SenoQuant from source
-
-```bash
-pip install -e .
-```
-
-If you prefer `uv` (fast installer):
+Alternatively, using `uv` (faster installer):
 
 ```bash
 pip install uv
 uv pip install "napari[all]"
-uv pip install -e .
 ```
+
+## Install SenoQuant
+
+```bash
+pip install senoquant
+```
+
+Alternatively, using `uv`:
+
+```bash
+uv pip install senoquant
+```
+
+Model files are downloaded automatically on first use from Hugging Face.
+
+**Note:** The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (~1.3 GB) from Hugging Face. Subsequent launches will be faster as models are cached locally.
 
 ## Optional dependencies
 
-The project defines optional dependency groups in `pyproject.toml`:
-
-- `.[distributed]` for dask support.
-- `.[gpu]` for GPU extras.
-- `.[all]` for the full stack (napari + optional deps).
-
-Example:
-
-```bash
-pip install -e ".[all]"
-```
-
-## StarDist extension (compiled)
-
-StarDist ONNX inference uses a compiled extension for NMS and 3D label
-rendering. Install it from PyPI:
-
-```bash
-pip install senoquant-stardist-ext
-```
-
-If you are working from source or need a custom build, build the wheel locally:
-
-```bash
-pip install -U scikit-build-core
-pip wheel ./stardist_ext -w ./wheelhouse
-pip install ./wheelhouse/senoquant_stardist_ext-*.whl
-```
+- `pip install senoquant[gpu]` for GPU acceleration (requires CUDA; Windows and Linux only)
+- `pip install senoquant[all]` for full stack
 
 ## Launch
 

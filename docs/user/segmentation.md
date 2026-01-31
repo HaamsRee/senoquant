@@ -1,33 +1,60 @@
 # Segmentation
 
-The Segmentation tab provides two sections:
+The Segmentation tab provides two sections for segmenting nuclei and cytoplasm in your images.
 
-- Nuclear segmentation
-- Cytoplasmic segmentation
+## Interface Overview
 
-Each section lets you select an image layer, pick a model, and tune model
-settings. Model settings are defined by the model's `details.json` file
-and are rendered dynamically in the UI.
+### Nuclear Segmentation Section
 
-## Model settings
+**Controls:**
 
-Each model exposes a list of settings with metadata such as:
+- **Image layer** (dropdown): Select the image layer containing nuclear staining
+- **Model** (dropdown): Choose a nuclear segmentation model
+- **Settings** (dynamic panel): Model-specific parameters that update based on selected model
+- **Run** (button): Execute nuclear segmentation on the selected image
 
-- `key`: setting identifier used internally
-- `label`: UI label
-- `type`: `int`, `float`, or `bool`
-- `default`, `min`, `max`, `decimals`
-- `enabled_by` / `disabled_by` to control conditional UI enabling
+### Cytoplasmic Segmentation Section
 
-## Available models
+**Controls:**
 
-| Model | Description | Nuclear | Cytoplasmic | Cytoplasmic input modes | Nuclear optional |
-| --- | --- | --- | --- | --- | --- |
-| `cpsam` | Placeholder details for the cpsam segmentation model | Yes | Yes | `cytoplasmic`, `nuclear+cytoplasmic` | Yes |
-| `cyto_only` | Placeholder details for a cytoplasmic-only model | No | Yes | `cytoplasmic` | Yes |
-| `stardist_2d` | StarDist 2D nuclear segmentation using ONNX runtime | Yes | No | - | - |
-| `stardist_3d` | StarDist 3D nuclear segmentation using ONNX runtime | Yes | No | - | - |
-| `stardist_mod_2d` | StarDist MOD 2D nuclear segmentation using ONNX runtime | Yes | No | - | - |
+- **Image layer** (dropdown): Select the image layer containing cytoplasmic staining
+- **Nuclear layer** (dropdown): Optional nuclear segmentation mask (required for some models)
+- **Model** (dropdown): Choose a cytoplasmic segmentation model
+- **Settings** (dynamic panel): Model-specific parameters
+- **Run** (button): Execute cytoplasmic segmentation
+
+## Available Models
+
+### Nuclear Segmentation Models
+
+| Model | Description | Dimensionality | Technology |
+| --- | --- | --- | --- |
+| `default_2d` | Fine-tuned StarDist 2D model | 2D | ONNX Runtime |
+| `default_3d` | Fine-tuned StarDist 3D model | 3D | ONNX Runtime |
+| `cpsam` | Cellpose SAM integration | 2D/3D | Cellpose |
+
+### Cytoplasmic Segmentation Models
+
+| Model | Description | Input Requirements | Use Case |
+| --- | --- | --- | --- |
+| `cpsam` | Cellpose SAM cytoplasmic | Cytoplasm image (nuclear optional) | General cytoplasm segmentation |
+| `nuclear_dilation` | Dilates nuclear masks | Nuclear mask only | Weak cytoplasmic staining |
+| `perinuclear_rings` | Ring-shaped regions | Nuclear mask only | Perinuclear marker analysis |
+
+## Model Settings
+
+Each model exposes settings through a dynamic UI generated from `details.json`:
+
+**Setting Types:**
+
+- **Float**: Spin box with decimal precision, min/max range
+- **Integer**: Spin box with whole numbers, min/max range
+- **Boolean**: Checkbox for on/off options
+
+**Conditional Settings:**
+
+Some settings are enabled/disabled based on other settings:
+- Example: `pmin` and `pmax` are only enabled when `normalize` is checked
 
 ## Output layers
 
@@ -41,54 +68,54 @@ If `Preload segmentation models on startup` is enabled in Settings,
 SenoQuant instantiates all discovered segmentation models when the tab
 loads. This can reduce the first-run latency for models.
 
-## Settings reference
+## Settings Reference
 
-### cpsam
+### default_2d (StarDist 2D)
 
-| Key | Type | Default | Range | Notes |
+| Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `diameter` | float | 30.0 | 0.1 - 1000.0 | - |
-| `flow_threshold` | float | 0.4 | 0.0 - 2.0 | - |
-| `cellprob_threshold` | float | 0.0 | -6.0 - 6.0 | - |
-| `n_iterations` | int | 0 | 0 - 9999 | - |
-| `use_3d` | bool | false | - | - |
-| `normalize` | bool | true | - | - |
+| **Object diameter (px)** | float | 30.0 | 1.0 - 500.0 | Expected diameter of nuclei in pixels |
+| **Prob threshold** | float | 0.496 | 0.0 - 1.0 | Probability threshold for nucleus detection |
+| **NMS threshold** | float | 0.3 | 0.0 - 1.0 | Non-maximum suppression threshold |
+| **Normalize** | bool | true | - | Enable intensity normalization |
+| **Percentile min** | float | 1.0 | 0.0 - 100.0 | Lower percentile for normalization (requires Normalize=true) |
+| **Percentile max** | float | 99.8 | 0.0 - 100.0 | Upper percentile for normalization (requires Normalize=true) |
 
-### cyto_only
+### default_3d (StarDist 3D)
 
-| Key | Type | Default | Range | Notes |
+| Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `min_size` | float | 50.0 | 0.0 - 500.0 | - |
+| **Object diameter (px)** | float | 30.0 | 1.0 - 500.0 | Expected diameter of nuclei in pixels |
+| **Prob threshold** | float | 0.445 | 0.0 - 1.0 | Probability threshold for nucleus detection |
+| **NMS threshold** | float | 0.3 | 0.0 - 1.0 | Non-maximum suppression threshold |
+| **Normalize** | bool | true | - | Enable intensity normalization |
+| **Percentile min** | float | 1.0 | 0.0 - 100.0 | Lower percentile for normalization (requires Normalize=true) |
+| **Percentile max** | float | 99.8 | 0.0 - 100.0 | Upper percentile for normalization (requires Normalize=true) |
 
-### stardist_2d
+### cpsam (Cellpose SAM)
 
-| Key | Type | Default | Range | Notes |
+| Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `object_diameter_px` | float | 30.0 | 1.0 - 500.0 | - |
-| `prob_thresh` | float | 0.479071 | 0.0 - 1.0 | - |
-| `nms_thresh` | float | 0.3 | 0.0 - 1.0 | - |
-| `normalize` | bool | true | - | - |
-| `pmin` | float | 1.0 | 0.0 - 100.0 | Enabled when `normalize` is true. |
-| `pmax` | float | 99.8 | 0.0 - 100.0 | Enabled when `normalize` is true. |
+| **Diameter** | float | 30.0 | 0.1 - 1000.0 | Expected cell/nucleus diameter |
+| **Flow threshold** | float | 0.4 | 0.0 - 2.0 | Flow field threshold |
+| **Cellprob threshold** | float | 0.0 | -6.0 - 6.0 | Cell probability threshold |
+| **Number of iterations** | int | 0 | 0 - 9999 | Refinement iterations (0 = automatic) |
+| **Use 3D** | bool | false | - | Enable 3D processing |
+| **Normalize** | bool | true | - | Enable intensity normalization |
 
-### stardist_3d
+### nuclear_dilation (Cytoplasmic)
 
-| Key | Type | Default | Range | Notes |
+| Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `object_diameter_px` | float | 30.0 | 1.0 - 500.0 | - |
-| `prob_thresh` | float | 0.707933 | 0.0 - 1.0 | - |
-| `nms_thresh` | float | 0.3 | 0.0 - 1.0 | - |
-| `normalize` | bool | true | - | - |
-| `pmin` | float | 1.0 | 0.0 - 100.0 | Enabled when `normalize` is true. |
-| `pmax` | float | 99.8 | 0.0 - 100.0 | Enabled when `normalize` is true. |
+| **Dilation iterations** | int | 5 | 1 - 100 | Number of binary dilation iterations to expand nuclear mask |
 
-### stardist_mod_2d
+**Use case:** When cytoplasmic staining is weak or unavailable, this model expands the nuclear mask outward to approximate cytoplasmic boundaries.
 
-| Key | Type | Default | Range | Notes |
+### perinuclear_rings (Cytoplasmic)
+
+| Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `object_diameter_px` | float | 30.0 | 1.0 - 500.0 | - |
-| `prob_thresh` | float | 0.496187 | 0.0 - 1.0 | - |
-| `nms_thresh` | float | 0.3 | 0.0 - 1.0 | - |
-| `normalize` | bool | true | - | - |
-| `pmin` | float | 1.0 | 0.0 - 100.0 | Enabled when `normalize` is true. |
-| `pmax` | float | 99.8 | 0.0 - 100.0 | Enabled when `normalize` is true. |
+| **Inner erosion (px)** | int | 2 | 1 - 50 | Pixels to erode inward from nuclear boundary |
+| **Outer dilation (px)** | int | 5 | 0 - 50 | Pixels to dilate outward from nuclear boundary |
+
+**Use case:** Creates ring-shaped labels for analyzing perinuclear markers (e.g., ER, Golgi, nuclear envelope).

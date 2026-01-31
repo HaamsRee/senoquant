@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from senoquant.utils import layer_data_asarray
+from ..hf import DEFAULT_REPO_ID, ensure_hf_model
 from ..base import SenoQuantSegmentationModel
 
 
@@ -14,11 +15,19 @@ class CPSAMModel(SenoQuantSegmentationModel):
 
     def __init__(self, models_root=None) -> None:
         """Initialize the CPSAM model wrapper."""
-        # TODO: Decide how to store and distribute large model binaries (e.g., git-lfs or downloads).
         super().__init__("cpsam", models_root=models_root)
         from cellpose.models import CellposeModel
 
         model_path = Path(self.model_dir) / "cpsam"
+        if not model_path.exists():
+            try:
+                model_path = ensure_hf_model(
+                    "cpsam",
+                    self.model_dir,
+                    repo_id=DEFAULT_REPO_ID,
+                )
+            except RuntimeError:
+                pass
         # Always request GPU; Cellpose will fall back if unavailable.
         self._model = CellposeModel(gpu=True, pretrained_model=str(model_path))
 

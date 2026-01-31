@@ -1,69 +1,74 @@
 # Spots
 
-The Spots tab provides spot detection and colocalization visualization.
+The Spots tab provides spot detection and colocalization visualization for analyzing fluorescent spots in your images.
 
-## Spot detection
+## Interface Overview
 
-1. Select an image layer.
-2. Choose a detector.
-3. Configure detector settings (dynamic per detector).
-4. Run detection.
+### Spot Detection Section
 
-Detectors are discovered from `src/senoquant/tabs/spots/models`.
+**Controls:**
 
-### Available detectors
+- **Image layer** (dropdown): Select the image layer containing spots to detect
+- **Detector** (dropdown): Choose a spot detection algorithm
+- **Settings** (dynamic panel): Detector-specific parameters
+- **Min size** (spin box): Minimum spot size in pixels (0 = no minimum filter)
+- **Max size** (spin box): Maximum spot size in pixels (0 = no maximum filter)
+- **Run** (button): Execute spot detection on the selected image
 
-| Detector | Description |
-| --- | --- |
-| `rmp` | Placeholder details for the rmp spot detector |
-| `udwt` | Undecimated B3-spline wavelet spot detector |
+**Size Filtering:**
+After detection, spots smaller than min size or larger than max size are automatically removed. This helps eliminate noise (single pixels) and large artifacts.
 
-### Output labels
+### Colocalization Section
 
-Detectors output labels layers named:
+**Controls:**
 
-- `<image layer>_<detector>_spot_labels`
+- **Labels A** (dropdown): First labels layer
+- **Labels B** (dropdown): Second labels layer
+- **Run** (button): Compute intersection and visualize overlaps
 
-Labels layers are created with a contour value of 1.
+**Output:**
+Creates a Points layer named `{labels_A}_{labels_B}_colocalization` with yellow ring markers at overlap locations.
 
-## Colocalization
+## Available Detectors
 
-The colocalization section visualizes overlaps between two labels layers.
+| Detector | Algorithm | Best For |
+| --- | --- | --- |
+| `udwt` | Undecimated B3-spline wavelet transform | Multi-scale spot detection, various sizes |
+| `rmp` | Rotational morphological processing | Spot detection with rotational analysis |
 
-- Select two labels layers with matching shapes.
-- SenoQuant computes the intersection and adds a points layer.
-- Output layer name: `<labels A>_<labels B>_colocalization`.
-- Points are rendered as yellow rings.
+## Detector Settings
 
-If no overlap is found, a notification is displayed.
+### udwt (Undecimated Wavelet Transform)
 
-## Settings reference
-
-### rmp
-
-| Key | Type | Default | Range | Notes |
+| Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `denoising_kernel_length` | int | 2 | 2 - 9999 | Enabled when `enable_denoising` is true. |
-| `extraction_kernel_length` | int | 10 | 1 - 9999 | - |
-| `angle_spacing` | int | 5 | 1 - 10 | - |
-| `manual_threshold` | float | 0.05 | 0.0 - 1.0 | Disabled when `auto_threshold` is true. |
-| `auto_threshold` | bool | true | - | - |
-| `enable_denoising` | bool | true | - | - |
-| `use_3d` | bool | false | - | - |
+| **Product threshold (ld)** | float | 1.0 | 0.0 - 10.0 | Detection threshold (lower = more sensitive) |
+| **Force 2D for 3D** | bool | false | - | Use 2D wavelets on 3D images (for spots in XY only) |
+| **Enable scale 1** | bool | true | - | Detect smallest spots |
+| **Scale 1 sensitivity** | float | 100.0 | 1.0 - 100.0 | Sensitivity for scale 1 (requires Enable scale 1) |
+| **Enable scale 2** | bool | true | - | Detect medium spots |
+| **Scale 2 sensitivity** | float | 100.0 | 1.0 - 100.0 | Sensitivity for scale 2 (requires Enable scale 2) |
+| **Enable scale 3** | bool | true | - | Detect larger spots |
+| **Scale 3 sensitivity** | float | 100.0 | 1.0 - 100.0 | Sensitivity for scale 3 (requires Enable scale 3) |
+| **Enable scale 4** | bool | false | - | Detect very large structures |
+| **Scale 4 sensitivity** | float | 100.0 | 1.0 - 100.0 | Sensitivity for scale 4 (requires Enable scale 4) |
+| **Enable scale 5** | bool | false | - | Detect largest structures |
+| **Scale 5 sensitivity** | float | 100.0 | 1.0 - 100.0 | Sensitivity for scale 5 (requires Enable scale 5) |
 
-### udwt
+**Multi-scale strategy:**
+- Scale 1: Smallest spots (finest details)
+- Scale 2: Medium-sized spots
+- Scale 3: Larger spots
+- Scales 4-5: Very large structures (typically disabled)
 
-| Key | Type | Default | Range | Notes |
+### rmp (Rotational Morphological Processing)
+
+| Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `ld` | float | 1.0 | 0.0 - 10.0 | - |
-| `force_2d` | bool | false | - | - |
-| `scale_1_enabled` | bool | true | - | - |
-| `scale_1_sensitivity` | float | 100.0 | 1.0 - 100.0 | Enabled when `scale_1_enabled` is true. |
-| `scale_2_enabled` | bool | true | - | - |
-| `scale_2_sensitivity` | float | 100.0 | 1.0 - 100.0 | Enabled when `scale_2_enabled` is true. |
-| `scale_3_enabled` | bool | true | - | - |
-| `scale_3_sensitivity` | float | 100.0 | 1.0 - 100.0 | Enabled when `scale_3_enabled` is true. |
-| `scale_4_enabled` | bool | false | - | - |
-| `scale_4_sensitivity` | float | 100.0 | 1.0 - 100.0 | Enabled when `scale_4_enabled` is true. |
-| `scale_5_enabled` | bool | false | - | - |
-| `scale_5_sensitivity` | float | 100.0 | 1.0 - 100.0 | Enabled when `scale_5_enabled` is true. |
+| **Denoising kernel length** | int | 2 | 2 - 9999 | Kernel size for denoising (requires Enable denoising) |
+| **Extraction kernel length** | int | 10 | 1 - 9999 | Kernel size for morphological operations |
+| **Angle spacing** | int | 5 | 1 - 10 | Angular resolution (smaller = finer) |
+| **Manual threshold** | float | 0.05 | 0.0 - 1.0 | Detection threshold (requires Auto threshold=false) |
+| **Auto threshold** | bool | true | - | Automatically determine threshold |
+| **Enable denoising** | bool | true | - | Pre-filter image before detection |
+| **Use 3D** | bool | false | - | Enable 3D detection |

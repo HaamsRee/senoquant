@@ -4,16 +4,38 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "senoquant"
-version = "0.1.0"
-description = "SenoQuant is a versatile Napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts."
+version = "1.0.0b1"
+description = "Napari plugin for spatial quantification of senescence markers in tissue imaging"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "BSD-3-Clause" }
-authors = [{ name = "Your Name" }]
+authors = [
+  { name = "SenoQuant Contributors" },
+]
+maintainers = [
+  { name = "SenoQuant Contributors" },
+]
+keywords = [
+  "napari",
+  "plugin",
+  "senescence",
+  "quantification",
+  "microscopy",
+  "image analysis",
+  "segmentation",
+  "spot detection",
+]
 classifiers = [
+  "Development Status :: 4 - Beta",
   "Framework :: napari",
-  "Programming Language :: Python :: 3",
+  "Intended Audience :: Science/Research",
   "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Image Processing",
 ]
 
 dependencies = [
@@ -35,16 +57,24 @@ dependencies = [
   "onnxruntime>=1.16; platform_system == 'Darwin'",
   "onnxruntime-gpu>=1.16; platform_system != 'Darwin'",
   "openpyxl>=3.1",
+  "huggingface_hub>=0.23.0",
   "scikit-image>=0.22,<0.25",
   "scipy>=1.8",
   "senoquant-stardist-ext>=0.1.0",
+  "dask[array]>=2024.4",
+  "dask[distributed]>=2024.4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/HaamsRee/senoquant-dev"
+Documentation = "https://haamsree.github.io/senoquant-dev/"
+Repository = "https://github.com/HaamsRee/senoquant-dev"
+"Bug Tracker" = "https://github.com/HaamsRee/senoquant-dev/issues"
 
 [project.entry-points."napari.manifest"]
 senoquant = "senoquant:napari.yaml"
 
 [project.optional-dependencies]
-distributed = ["dask[array]>=2024.4", "dask[distributed]>=2024.4"]
 gpu = ["cupy-cuda12x>=12.0", "cucim>=23.4"]
 all = [
   "napari[all]",
@@ -65,6 +95,7 @@ all = [
   "onnxruntime>=1.16; platform_system == 'Darwin'",
   "onnxruntime-gpu>=1.16; platform_system != 'Darwin'",
   "openpyxl>=3.1",
+  "huggingface_hub>=0.23.0",
   "scikit-image>=0.22,<0.25",
   "scipy>=1.8",
   "senoquant-stardist-ext>=0.1.0",
@@ -75,4 +106,16 @@ all = [
 ]
 
 [tool.setuptools.package-data]
-senoquant = ["napari.yaml"]
+senoquant = [
+  "napari.yaml",
+  "tabs/segmentation/models/*/details.json",
+  "tabs/segmentation/models/*/model.py",
+  "tabs/spots/models/*/details.json",
+  "tabs/spots/models/*/model.py",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "__pycache__/*", ".DS_Store"]

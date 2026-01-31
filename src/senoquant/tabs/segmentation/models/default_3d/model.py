@@ -13,6 +13,7 @@ import onnxruntime as ort
 from scipy import ndimage as ndi
 
 from senoquant.utils import layer_data_asarray
+from ..hf import DEFAULT_REPO_ID, ensure_hf_model
 from ..base import SenoQuantSegmentationModel
 from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework import (
     normalize,
@@ -423,7 +424,10 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         """
         if ndim != 3:
             raise ValueError("StarDist ONNX 3D expects a 3D model.")
+        default_filename = "default_3d.onnx"
         candidates = [
+            self.model_dir / "onnx_models" / default_filename,
+            self.model_dir / default_filename,
             self.model_dir / "onnx_models" / "stardist3d_3D_demo.onnx",
             self.model_dir / "stardist3d_3D_demo.onnx",
             self.model_dir / "stardist3d.onnx",
@@ -432,6 +436,17 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         for path in candidates:
             if path.exists():
                 return path
+
+        try:
+            downloaded = ensure_hf_model(
+                default_filename,
+                self.model_dir / "onnx_models",
+                repo_id=DEFAULT_REPO_ID,
+            )
+        except RuntimeError:
+            downloaded = None
+        if downloaded is not None and downloaded.exists():
+            return downloaded
 
         matches = []
         for folder in (self.model_dir / "onnx_models", self.model_dir):
@@ -445,7 +460,8 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
                 "Multiple ONNX files found; keep one or use default file names."
             )
         raise FileNotFoundError(
-            "No ONNX model found. Place the exported model in the model folder."
+            "No ONNX model found. Place the exported model in the model folder "
+            "or allow SenoQuant to download it from the model repository."
         )
 
     def _resolve_io_names(self, session: ort.InferenceSession) -> tuple[str, list[str]]:

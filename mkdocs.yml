@@ -49,5 +49,5 @@ nav:
       - Packaging & Releases: developer/packaging.md
       - Contributing: developer/contributing.md
       - Repo Map: developer/repo-map.md
-  - API Reference:
-      - Overview: developer/api.md
+      - Marker Cross-References: developer/marker-cross-references.md
+  - API Reference: api/index.md
