@@ -9,20 +9,21 @@ If you don't have conda or don't know what it is, you need to install **Minicond
 
 ### Windows
 
-1. Visit the **Miniconda installation page**: https://www.anaconda.com/docs/getting-started/miniconda/install. Follow the instructions for Windows and download the Miniconda Graphical Installer.
+1. Visit the **Miniconda installation page**: https://www.anaconda.com/docs/getting-started/miniconda/install. Follow the instructions for Windows and download the Miniconda Graphical Installer.  
+
     > **Why Miniconda and not Anaconda?**  
     Miniconda is a lightweight alternative to the full Anaconda distribution. It includes only the essential package manager and Python, using significantly less disk space and fewer system resources. This makes it ideal for most users.
 
-2. Open the downloaded `.exe` file (it should be in your **Downloads** folder)
-3. Click **"Next >"** to start the installation wizard
-4. Read the license and click **"I Agree"**
-5. Choose **"Just Me"** (recommended) and click **"Next >"**
-6. Keep the default installation location and click **"Next >"**
+2. Open the downloaded `.exe` file (it should be in your **Downloads** folder).
+3. Click **"Next >"** to start the installation wizard.
+4. Read the license and click **"I Agree"**.
+5. Choose **"Just Me"** (recommended) and click **"Next >"**.
+6. Keep the default installation location and click **"Next >"**.
 7. On the "Advanced Options" screen:
-   - Check the box: **"Register Miniconda3 as my default Python 3.xx"**
-   - Check the box: **"Clear the package cache upon completion"**
-   > We recommend **not** checking the box: **"Add installation to my PATH environment variable"** to avoid potential conflicts with other applications.
-   - Click **"Install"**
+    - Check the box: **"Register Miniconda3 as my default Python 3.xx"**
+    - Check the box: **"Clear the package cache upon completion"**
+    > We recommend **not** checking the box: **"Add installation to my PATH environment variable"** to avoid potential conflicts with other applications.
+    - Click **"Install"**
 8. Wait for the installation to complete, then click **"Next >"** and **"Finish"**
 9. Use the Start Menu to open the **Anaconda Prompt** (search for "Anaconda Prompt")
 10. In the Anaconda Prompt, type the following command to initialize conda for your shell(s):
