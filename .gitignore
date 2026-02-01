@@ -35,3 +35,6 @@ coverage.xml
 
 # Local resources
 res/
+
+# Installer artifacts
+installer/windows/Output/
