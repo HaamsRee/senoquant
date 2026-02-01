@@ -50,6 +50,7 @@ if (!(Test-Path $envDir)) {
 }
 Invoke-Checked "Upgrading pip" { & $micromambaExe run -p $envDir python -m pip install --upgrade pip }
 Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install uv }
+Invoke-Checked "Installing pip-system-certs" { & $micromambaExe run -p $envDir uv pip install pip-system-certs }
 
 Invoke-Checked "Installing napari" { & $micromambaExe run -p $envDir uv pip install "napari[all]" }
 

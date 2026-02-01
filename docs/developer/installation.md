@@ -21,8 +21,11 @@ We strongly recommend using `uv` instead of `pip` because standard pip often has
 
 ```bash
 pip install uv
+uv pip install pip-system-certs
 uv pip install "napari[all]"
 ```
+
+> **Note:** `pip-system-certs` enables Python to use your system's certificate store for SSL verification. This helps avoid certificate errors when downloading packages or models, especially on corporate networks or systems with custom certificate authorities.
 
 Alternatively, using standard `pip`:
 
