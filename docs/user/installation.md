@@ -9,6 +9,18 @@ If you don't have conda or don't know what it is, you need to install **Minicond
 
 ### Windows
 
+**Recommended (Installer):**
+
+1. Download the **Windows Installer** from the latest GitHub Release.
+2. Run the `.exe` and choose an install location (user profile locations like LocalAppData are recommended).
+3. After installation completes, launch **SenoQuant** from the Start Menu or the desktop icon.
+
+> The installer sets up a dedicated environment and installs GPU-enabled PyTorch where available. This avoids the common issue where `pip` installs CPU-only PyTorch on Windows.
+
+**Advanced (Conda/uv):**
+
+If you prefer a manual setup, use the steps below. Note: `pip`/`uv` installs may not include GPU-enabled PyTorch on Windows. The installer is the most reliable way to get GPU support.
+
 1. Visit the **Miniconda installation page**: <https://www.anaconda.com/docs/getting-started/miniconda/install>. Follow the instructions for Windows and download the Miniconda Graphical Installer.  
 
     > **Why Miniconda and not Anaconda?**  
@@ -94,6 +106,8 @@ pip install senoquant
 
 Model files are downloaded automatically on first use from Hugging Face.
 
+> **Windows note:** Installing via `pip`/`uv` may not pull a GPU-enabled PyTorch build. If you need GPU acceleration on Windows, use the installer.
+
 ### Optional dependencies
 
 - `uv pip install senoquant[gpu]` for GPU acceleration of the RMP spot detector (requires CUDA; Windows and Linux only).
@@ -101,14 +115,18 @@ Model files are downloaded automatically on first use from Hugging Face.
 
 ## 5. Launch
 
+**Windows (Installer):**
+
+- Launch **SenoQuant** from the Start Menu or the desktop icon.
+
+**Manual installs (conda/uv):**
+
 Start napari from your terminal:
 
 ```bash
-napari
+napari --with senoquant
 ```
 
 > The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.
 
 > Make sure the terminal remains open while using napari to keep it running. The terminal also displays useful info/warning/error messages.
-
-Then select `Plugins` -> `SenoQuant` to launch SenoQuant.

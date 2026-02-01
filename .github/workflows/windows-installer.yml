@@ -1,0 +1,44 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Install ImageMagick
+        run: choco install imagemagick -y
+
+      - name: Build Windows app bundle
+        shell: pwsh
+        run: .\installer\windows\build_windows_installer.ps1
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc .\installer\windows\senoquant.iss
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: senoquant-windows-installer
+          path: installer\windows\Output\SenoQuant-Installer.exe

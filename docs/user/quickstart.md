@@ -12,11 +12,17 @@ This guide walks through the basic workflow for analyzing senescence markers in 
 
 ### 1. Launch napari and load image
 
+**Windows (Installer):**
+
+- Launch **SenoQuant** from the Start Menu or the desktop icon.
+
+**Manual installs (conda/uv):**
+
 In your terminal, activate the conda environment where SenoQuant is installed and start napari:
 
 ```bash
 conda activate senoquant
-napari
+napari --with senoquant
 ```
 
 **Load your image:**
@@ -27,6 +33,8 @@ napari
 **Expected result:** Each channel appears as a separate layer in the layer list.
 
 ### 2. Open SenoQuant
+
+SenoQuant should launch automatically in Step 1. If not:
 
 `Plugins` → `SenoQuant`
 
