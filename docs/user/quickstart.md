@@ -155,7 +155,49 @@ To add a feature:
 
 For high-throughput analysis of multiple images:
 
-**Under construction**
+### 1. Open the Batch tab
+
+In the SenoQuant dock widget, select **Batch**.
+
+### 2. Configure inputs
+
+1. **Input folder** → Choose the directory containing images.
+2. **Extensions** → List the file types to include (e.g., `.tif, .nd2, .czi`).
+3. (Optional) **Include subfolders** → Enable if your data are nested.
+4. (Optional) **Process all scenes** → Enable for multi-scene files.
+
+### 3. Map channels
+
+Add channel names and indices so they appear in all dropdowns:
+
+- **Name**: `DAPI`, `FITC`, `Cy3`, etc.
+- **Index**: zero-based channel index
+
+### 4. Enable processing steps
+
+Configure only the steps you need:
+
+- **Nuclear segmentation** → Enable, select model and channel, adjust settings.
+- **Cytoplasmic segmentation** (optional) → Enable if needed.
+- **Spot detection** (optional) → Choose detector and channels; set min/max size if needed.
+
+### 5. Configure quantification (optional)
+
+If you want batch exports:
+
+1. Enable **Quantification**.
+2. Click **Add feature** and set up **Markers** or **Spots** features as in the single-image workflow.
+
+> Note: ROI selection and threshold tuning are not available in batch mode.
+
+### 6. Set outputs and run
+
+1. **Output folder** → Choose where results are written.
+2. **Segmentation format** → Choose `tif` or `npy` for segmentation mask outputs.
+3. (Optional) **Overwrite** → Enable to replace existing outputs.
+4. Click **Run batch**.
+
+**Outputs:** Each input image gets its own output folder with (if enabled) quantification tables. Masks are also saved.
 
 ## Next steps
 
