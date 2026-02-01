@@ -42,6 +42,7 @@ nav:
       - Batch Processing: user/batch.md
       - Settings: user/settings.md
   - Developer Guide:
+      - Installation: developer/installation.md
       - Architecture: developer/architecture.md
       - Models & Detectors: developer/models.md
       - Quantification Features: developer/quantification-features.md
