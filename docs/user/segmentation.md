@@ -122,4 +122,4 @@ This section mirrors the model metadata in the plugin. Use it as a guide for cho
 | **Inner erosion (px)** | int | 2 | 1 - 50 | Pixels to erode inward from the nuclear boundary. |
 | **Outer dilation (px)** | int | 5 | 0 - 50 | Pixels to dilate outward from the nuclear boundary. |
 
-> **Note:** The minimum inner erosion is set to 1 pixel as needed by the logic to associate across segmentation masks in Quantification to work.
+> **Note:** The minimum inner erosion is set to 1 pixel as needed by the logic to associate across segmentation masks in Quantification.
