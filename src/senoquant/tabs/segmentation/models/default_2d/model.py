@@ -529,6 +529,19 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
             pkg.__path__ = [str(p) for p in lib_dirs]
             sys.modules[base_pkg] = pkg
 
+        for module_name in (f"{base_pkg}.stardist2d", f"{base_pkg}.stardist3d"):
+            try:
+                spec = importlib.util.find_spec(module_name)
+            except (ImportError, AttributeError, ValueError):
+                spec = None
+            if spec and spec.origin:
+                try:
+                    candidate = Path(spec.origin).parent
+                except Exception:
+                    candidate = None
+                if candidate is not None and candidate.exists():
+                    lib_dirs.append(candidate)
+
         def _stub(*_args, **_kwargs):
             raise RuntimeError("StarDist compiled ops are unavailable.")
 
@@ -537,10 +550,10 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         for lib_dir in lib_dirs:
             has_2d = has_2d or any(lib_dir.glob("stardist2d*.so")) or any(
                 lib_dir.glob("stardist2d*.pyd")
-            )
+            ) or any(lib_dir.glob("stardist2d*.dll"))
             has_3d = has_3d or any(lib_dir.glob("stardist3d*.so")) or any(
                 lib_dir.glob("stardist3d*.pyd")
-            )
+            ) or any(lib_dir.glob("stardist3d*.dll"))
         self._has_stardist_2d_lib = has_2d
         self._has_stardist_3d_lib = has_3d
 
