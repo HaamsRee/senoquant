@@ -8,9 +8,9 @@ theme:
     - navigation.top
     - content.code.copy
   palette:
-    - scheme: default
-      primary: teal
-      accent: amber
+    - scheme: slate
+      primary: indigo
+      accent: indigo
 
 plugins:
   - search
