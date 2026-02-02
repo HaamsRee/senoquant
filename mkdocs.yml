@@ -11,6 +11,8 @@ theme:
     - scheme: slate
       primary: indigo
       accent: indigo
+  font:
+    - text: Inter
 
 plugins:
   - search
