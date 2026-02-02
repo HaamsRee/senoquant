@@ -33,6 +33,7 @@ except Exception:  # pragma: no cover - optional import for runtime
 
 from senoquant.utils import layer_data_asarray
 from .backend import SpotsBackend
+from .ufish_utils import UFishConfig, enhance_image
 
 
 def _filter_labels_by_size(
@@ -110,6 +111,15 @@ class RefreshingComboBox(QComboBox):
         super().showPopup()
 
 
+class _LayerShim:
+    """Minimal layer wrapper for detector inputs."""
+
+    def __init__(self, data: np.ndarray, *, rgb: bool, name: str) -> None:
+        self.data = data
+        self.rgb = rgb
+        self.name = name
+
+
 class SpotsTab(QWidget):
     """Spots tab UI for spot detectors.
 
@@ -134,6 +144,7 @@ class SpotsTab(QWidget):
         self._active_workers: list[tuple[QThread, QObject]] = []
         self._min_size_spin = None
         self._max_size_spin = None
+        self._ufish_checkbox = None
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_detector_section())
@@ -175,6 +186,7 @@ class SpotsTab(QWidget):
 
         section_layout.addLayout(form_layout)
         section_layout.addWidget(self._make_settings_section())
+        section_layout.addWidget(self._make_ufish_section())
         section_layout.addWidget(self._make_size_filter_section())
 
         self._run_button = QPushButton("Run")
@@ -252,6 +264,16 @@ class SpotsTab(QWidget):
         layout.addRow("Minimum size", self._min_size_spin)
         layout.addRow("Maximum size", self._max_size_spin)
         
+        section.setLayout(layout)
+        return section
+
+    def _make_ufish_section(self) -> QGroupBox:
+        """Build the U-FISH enhancement toggle section."""
+        section = QGroupBox("U-FISH enhancement")
+        layout = QVBoxLayout()
+        self._ufish_checkbox = QCheckBox("Enhance spots with U-FISH")
+        self._ufish_checkbox.setChecked(True)
+        layout.addWidget(self._ufish_checkbox)
         section.setLayout(layout)
         return section
 
@@ -491,11 +513,16 @@ class SpotsTab(QWidget):
         detector = self._backend.get_detector(detector_name)
         layer = self._get_layer_by_name(self._layer_combo.currentText())
         settings = self._collect_settings()
+
+        def run_detector() -> dict:
+            run_layer = self._prepare_ufish_layer(layer)
+            return detector.run(layer=run_layer, settings=settings)
+
         self._start_background_run(
             run_button=self._run_button,
             run_text="Run",
             detector_name=detector_name,
-            run_callable=lambda: detector.run(layer=layer, settings=settings),
+            run_callable=run_detector,
             on_success=lambda result: self._handle_run_result(
                 layer, detector_name, result
             ),
@@ -681,6 +708,25 @@ class SpotsTab(QWidget):
             return mask
             
         return _filter_labels_by_size(mask, min_size, max_size)
+
+    def _prepare_ufish_layer(self, layer):
+        """Apply U-FISH enhancement before running the detector."""
+        if layer is None:
+            return layer
+        if self._ufish_checkbox is not None and not self._ufish_checkbox.isChecked():
+            return layer
+        data = layer_data_asarray(layer)
+        if data.ndim not in (2, 3):
+            msg = "U-FISH expects 2D or 3D images."
+            raise ValueError(msg)
+        config = UFishConfig()
+        enhanced = enhance_image(data, config=config)
+        enhanced = np.asarray(enhanced, dtype=np.float32)
+        return _LayerShim(
+            enhanced,
+            rgb=bool(getattr(layer, "rgb", False)),
+            name=str(getattr(layer, "name", "")),
+        )
 
     def _spot_label_name(self, source_layer, detector_name: str) -> str:
         """Return a standardized spot labels layer name."""
