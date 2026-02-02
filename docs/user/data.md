@@ -86,6 +86,7 @@ SenoQuant supports:
 ## Fallback readers
 
 If BioIO cannot determine a reader for your file:
+
 1. SenoQuant returns `None` from its reader function.
 2. napari automatically tries other installed readers.
 3. Use napari's built-in readers, or install plugins from napari's Plugin Manager as alternatives.
