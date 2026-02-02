@@ -42,3 +42,10 @@ jobs:
         with:
           name: senoquant-windows-installer
           path: installer\windows\Output\SenoQuant-Installer.exe
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: installer\windows\Output\SenoQuant-Installer.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
