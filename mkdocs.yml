@@ -3,16 +3,18 @@ site_description: SenoQuant is a versatile Napari plugin designed for comprehens
 
 theme:
   name: material
+  logo: assets/images/senoquant_logo.svg
+  font:
+    text: Roboto
+    code: Roboto Mono
   features:
     - navigation.tabs
     - navigation.top
     - content.code.copy
   palette:
-    - scheme: slate
+    - scheme: default
       primary: indigo
       accent: indigo
-  font:
-    - text: Inter
 
 plugins:
   - search
