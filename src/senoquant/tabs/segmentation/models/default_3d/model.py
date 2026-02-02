@@ -19,6 +19,9 @@ from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework import (
     normalize,
     predict_tiled,
 )
+from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.stardist_libs import (
+    ensure_stardist_libs,
+)
 from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect import (
     make_probe_image,
 )
@@ -263,6 +266,9 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         session = self._sessions.get(model_path)
         if session is None or providers_override is not None:
             providers = providers_override or self._preferred_providers()
+            preload = getattr(ort, "preload_dlls", None)
+            if callable(preload):
+                preload()
             session = ort.InferenceSession(
                 str(model_path),
                 providers=providers,
@@ -505,97 +511,12 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         libraries are absent, allowing Python utilities to import.
         """
         utils_root = self._get_utils_root()
-        csbdeep_root = utils_root / "_csbdeep"
-        if csbdeep_root.exists():
-            csbdeep_path = str(csbdeep_root)
-            if csbdeep_path not in sys.path:
-                sys.path.insert(0, csbdeep_path)
-
         stardist_pkg = (
             "senoquant.tabs.segmentation.stardist_onnx_utils._stardist"
         )
-        if stardist_pkg not in sys.modules:
-            pkg = types.ModuleType(stardist_pkg)
-            pkg.__path__ = [str(utils_root / "_stardist")]
-            sys.modules[stardist_pkg] = pkg
-
-        base_pkg = f"{stardist_pkg}.lib"
-        lib_dirs = [utils_root / "_stardist" / "lib"]
-        for entry in list(sys.path):
-            if not entry:
-                continue
-            try:
-                candidate = (
-                    Path(entry)
-                    / "senoquant"
-                    / "tabs"
-                    / "segmentation"
-                    / "stardist_onnx_utils"
-                    / "_stardist"
-                    / "lib"
-                )
-            except Exception:
-                continue
-            if candidate.exists():
-                lib_dirs.append(candidate)
-
-        if base_pkg in sys.modules:
-            pkg = sys.modules[base_pkg]
-            pkg.__path__ = [str(p) for p in lib_dirs]
-        else:
-            pkg = types.ModuleType(base_pkg)
-            pkg.__path__ = [str(p) for p in lib_dirs]
-            sys.modules[base_pkg] = pkg
-
-        for module_name in (f"{base_pkg}.stardist2d", f"{base_pkg}.stardist3d"):
-            try:
-                spec = importlib.util.find_spec(module_name)
-            except (ImportError, AttributeError, ValueError):
-                spec = None
-            if spec and spec.origin:
-                try:
-                    candidate = Path(spec.origin).parent
-                except Exception:
-                    candidate = None
-                if candidate is not None and candidate.exists():
-                    lib_dirs.append(candidate)
-
-        def _stub(*_args, **_kwargs):
-            raise RuntimeError("StarDist compiled ops are unavailable.")
-
-        has_2d = False
-        has_3d = False
-        for lib_dir in lib_dirs:
-            has_2d = has_2d or any(lib_dir.glob("stardist2d*.so")) or any(
-                lib_dir.glob("stardist2d*.pyd")
-            ) or any(lib_dir.glob("stardist2d*.dll"))
-            has_3d = has_3d or any(lib_dir.glob("stardist3d*.so")) or any(
-                lib_dir.glob("stardist3d*.pyd")
-            ) or any(lib_dir.glob("stardist3d*.dll"))
+        has_2d, has_3d = ensure_stardist_libs(utils_root, stardist_pkg)
         self._has_stardist_2d_lib = has_2d
         self._has_stardist_3d_lib = has_3d
-
-        mod2d = f"{base_pkg}.stardist2d"
-        if has_2d and mod2d in sys.modules:
-            if getattr(sys.modules[mod2d], "__file__", None) is None:
-                del sys.modules[mod2d]
-        if not has_2d and mod2d not in sys.modules:
-            module = types.ModuleType(mod2d)
-            module.c_star_dist = _stub
-            module.c_non_max_suppression_inds_old = _stub
-            module.c_non_max_suppression_inds = _stub
-            sys.modules[mod2d] = module
-
-        mod3d = f"{base_pkg}.stardist3d"
-        if has_3d and mod3d in sys.modules:
-            if getattr(sys.modules[mod3d], "__file__", None) is None:
-                del sys.modules[mod3d]
-        if not has_3d and mod3d not in sys.modules:
-            module = types.ModuleType(mod3d)
-            module.c_star_dist3d = _stub
-            module.c_polyhedron_to_label = _stub
-            module.c_non_max_suppression_inds = _stub
-            sys.modules[mod3d] = module
 
     def _get_rays_class(self):
         """Load and cache the StarDist Rays_GoldenSpiral class."""
