@@ -41,6 +41,7 @@ SenoQuant supports the following file patterns:
 
 ### Additional formats
 See the [BioIO documentation](https://bioio-devs.github.io/bioio/) for a full list of supported formats via plugins. SenoQuant includes:
+
 - bioio-czi
 - bioio-dv
 - bioio-imageio
@@ -77,6 +78,7 @@ pixel_size_x = metadata["physical_pixel_sizes"]["X"]
 ## Dimensionality
 
 SenoQuant supports:
+
 - **2D images**: Single Z-plane (YX data).
 - **3D images**: Z-stacks (ZYX data).
 - **Multi-channel**: Any number of channels per scene.
