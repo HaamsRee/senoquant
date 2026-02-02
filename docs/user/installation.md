@@ -30,8 +30,9 @@ The **macOS installer** provides a native PKG installer that sets up SenoQuant w
 > The Python environment and logs are stored in `~/Library/Application Support/SenoQuant/`, while the app bundle remains at `~/Applications/SenoQuant.app`.
 
 **Architecture Support:**
-- **Apple Silicon (M1/M2/M3)**: Includes MPS (Metal Performance Shaders) acceleration for improved performance
-- **Intel Macs**: CPU-only operation
+
+- **Apple Silicon (M1/M2/M3)**: Includes MPS (Metal Performance Shaders) acceleration for improved performance.
+- **Intel Macs**: CPU-only operation.
 
 ### Linux
 

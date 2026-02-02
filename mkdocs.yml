@@ -48,7 +48,7 @@ nav:
   - Developer Guide:
       - Installation: developer/installation.md
       - Architecture: developer/architecture.md
-      - Windows Installer: developer/installer.md
+      - Installers: developer/installer.md
       - Models & Detectors: developer/models.md
       - Quantification Features: developer/quantification-features.md
       - Batch Profiles: developer/batch-profiles.md
