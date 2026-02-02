@@ -18,7 +18,20 @@ The **Windows installer** is the easiest and most reliable way to install SenoQu
 
 ### macOS
 
-Under construction
+The **macOS installer** provides a native PKG installer that sets up SenoQuant with all dependencies.
+
+1. Download the **macOS installer** (`.pkg`) from the [latest GitHub Release](https://github.com/senoquant/senoquant/releases).
+2. Double-click the PKG file and follow the installation prompts.
+3. The app installs to `~/Applications/SenoQuant.app`.
+4. Launch **SenoQuant** from Spotlight, Launchpad, or your Applications folder.
+
+> **Note:** On first launch, a Terminal window opens showing installation progress. The initial setup creates a Python environment and installs napari, PyTorch, and SenoQuant dependencies. This may take **5-10 minutes** depending on your internet connection. Subsequent launches will be much faster.
+
+> The Python environment and logs are stored in `~/Library/Application Support/SenoQuant/`, while the app bundle remains at `~/Applications/SenoQuant.app`.
+
+**Architecture Support:**
+- **Apple Silicon (M1/M2/M3)**: Includes MPS (Metal Performance Shaders) acceleration for improved performance
+- **Intel Macs**: CPU-only operation
 
 ### Linux
 
