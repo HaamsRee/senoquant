@@ -1,12 +1,21 @@
 """Tests for marker export reference columns functionality."""
 
+import csv
 import numpy as np
 import pytest
 
+from tests.conftest import DummyViewer, Image, Labels
+from senoquant.tabs.quantification.features.base import FeatureConfig
+from senoquant.tabs.quantification.features.marker.config import (
+    MarkerChannelConfig,
+    MarkerFeatureData,
+    MarkerSegmentationConfig,
+)
 from senoquant.tabs.quantification.features.marker.export import (
     _add_reference_columns,
     _build_cross_segmentation_map,
     _add_cross_reference_column,
+    export_marker,
 )
 
 
@@ -52,6 +61,33 @@ class TestAddReferenceColumns:
         _add_reference_columns(rows, labels, label_ids, None, "cytoplasmic")
 
         assert rows[0]["segmentation_type"] == "cytoplasmic"
+
+
+def test_export_segmentation_type_uses_layer_metadata(tmp_path):
+    """Use labels metadata task for segmentation_type export."""
+    labels = np.array([[0, 1], [0, 2]], dtype=np.int32)
+    image = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    viewer = DummyViewer(
+        [
+            Labels(labels, "cells", metadata={"task": "cytoplasmic"}),
+            Image(image, "chan1"),
+        ]
+    )
+    data = MarkerFeatureData(
+        segmentations=[MarkerSegmentationConfig(label="cells")],
+        channels=[MarkerChannelConfig(name="Ch1", channel="chan1")],
+    )
+    feature = FeatureConfig(name="Markers", type_name="Markers", data=data)
+
+    outputs = list(export_marker(feature, tmp_path, viewer=viewer, export_format="csv"))
+    csv_paths = [path for path in outputs if path.suffix == ".csv"]
+    assert csv_paths
+
+    with csv_paths[0].open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert rows
+    assert all(row.get("segmentation_type") == "cytoplasmic" for row in rows)
 
 
 class TestBuildCrossSegmentationMap:

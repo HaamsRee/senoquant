@@ -682,6 +682,15 @@ class SpotsTab(QWidget):
         name = self._spot_label_name(source_layer, detector_name)
         self._viewer.add_labels(mask, name=name)
         labels_layer = self._viewer.layers[name]
+        source_metadata = getattr(source_layer, "metadata", {})
+        layer_metadata = getattr(labels_layer, "metadata", {})
+        merged_metadata: dict[str, object] = {}
+        if isinstance(source_metadata, dict):
+            merged_metadata.update(source_metadata)
+        if isinstance(layer_metadata, dict):
+            merged_metadata.update(layer_metadata)
+        merged_metadata["task"] = "spots"
+        labels_layer.metadata = merged_metadata
         labels_layer.contour = 1
 
     def _apply_size_filter(self, mask: np.ndarray) -> np.ndarray:

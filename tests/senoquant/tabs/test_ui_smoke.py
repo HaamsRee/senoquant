@@ -48,6 +48,24 @@ def test_segmentation_tab_validation() -> None:
     assert tab._validate_single_channel_layer(rgb_layer, "Layer") is False
 
 
+def test_segmentation_labels_include_task_metadata() -> None:
+    """Tag generated segmentation labels with task metadata."""
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    settings = SettingsBackend()
+    settings.set_preload_models(False)
+    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    source = DummyLayer(np.zeros((4, 4)), "img", metadata={"path": "file.tif"})
+
+    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "nuc")
+    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "cyto")
+
+    nuc_layer = viewer.layers["img_model_nuc_labels"]
+    cyto_layer = viewer.layers["img_model_cyto_labels"]
+    assert nuc_layer.metadata.get("task") == "nuclear"
+    assert cyto_layer.metadata.get("task") == "cytoplasmic"
+    assert nuc_layer.metadata.get("path") == "file.tif"
+
+
 def test_spots_tab_instantiates() -> None:
     """Instantiate the spots tab UI.
 

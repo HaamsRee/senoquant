@@ -216,45 +216,75 @@ class SpotsChannelsDialog(QDialog):
             return
         for layer in viewer.layers:
             if layer.__class__.__name__ == "Labels":
-                layer_name = layer.name
                 # Filter based on label type
-                if filter_type == "cellular" and self._is_cellular_label(layer_name):
-                    combo.addItem(layer_name)
-                elif filter_type == "spots" and self._is_spot_label(layer_name):
-                    combo.addItem(layer_name)
+                if filter_type == "cellular" and self._is_cellular_label(layer):
+                    combo.addItem(layer.name)
+                elif filter_type == "spots" and self._is_spot_label(layer):
+                    combo.addItem(layer.name)
         if current:
             index = combo.findText(current)
             if index != -1:
                 combo.setCurrentIndex(index)
 
-    def _is_cellular_label(self, layer_name: str) -> bool:
+    def _layer_task(self, layer: object) -> str | None:
+        """Return normalized segmentation task from layer metadata."""
+        metadata = getattr(layer, "metadata", None)
+        if not isinstance(metadata, dict):
+            return None
+        task = metadata.get("task")
+        if not isinstance(task, str):
+            return None
+        normalized = task.strip().lower()
+        return normalized or None
+
+    def _is_cellular_label(self, layer: object | str) -> bool:
         """Check if a label layer is a cellular segmentation.
 
         Parameters
         ----------
-        layer_name : str
-            Name of the labels layer.
+        layer : object or str
+            Labels layer object or labels layer name.
 
         Returns
         -------
         bool
             True if the layer is a cellular label (nuclear or cytoplasmic).
         """
+        if isinstance(layer, str):
+            layer_name = layer
+            task = None
+        else:
+            layer_name = str(getattr(layer, "name", ""))
+            task = self._layer_task(layer)
+        if task in {"nuclear", "cytoplasmic"}:
+            return True
+        if task is not None:
+            return False
         return layer_name.endswith("_nuc_labels") or layer_name.endswith("_cyto_labels")
 
-    def _is_spot_label(self, layer_name: str) -> bool:
+    def _is_spot_label(self, layer: object | str) -> bool:
         """Check if a label layer is a spot segmentation.
 
         Parameters
         ----------
-        layer_name : str
-            Name of the labels layer.
+        layer : object or str
+            Labels layer object or labels layer name.
 
         Returns
         -------
         bool
             True if the layer is a spot label.
         """
+        if isinstance(layer, str):
+            layer_name = layer
+            task = None
+        else:
+            layer_name = str(getattr(layer, "name", ""))
+            task = self._layer_task(layer)
+        if task == "spots":
+            return True
+        if task is not None:
+            return False
         return layer_name.endswith("_spot_labels")
 
     def _refresh_image_combo(self, combo: QComboBox) -> None:

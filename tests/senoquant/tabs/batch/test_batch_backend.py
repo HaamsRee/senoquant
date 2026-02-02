@@ -161,6 +161,60 @@ def test_apply_quantification_viewer_sets_viewer() -> None:
     assert tab._viewer is viewer
     assert contexts[0].feature_handler._tab._viewer is viewer
 
+
+def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatch) -> None:
+    """Attach task metadata to generated labels before quantification."""
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_file = input_dir / "sample.tif"
+    input_file.write_text("data")
+    output_dir = tmp_path / "output"
+
+    def fake_iter_input_files(_root, _exts, _include):
+        yield input_file
+
+    def fake_load_channel_data(_path, _index, _scene_id):
+        return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
+
+    def fake_write_array(out_dir, name, data, fmt):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"{name}.npy"
+        np.save(path, data)
+        return path
+
+    captured_meta: dict[str, dict] = {}
+
+    def fake_build_viewer(_path, _scene_id, _channel_map, _labels_data, labels_meta):
+        captured_meta.update(labels_meta)
+        return batch_backend.BatchViewer([])
+
+    monkeypatch.setattr(batch_backend, "iter_input_files", fake_iter_input_files)
+    monkeypatch.setattr(batch_backend, "load_channel_data", fake_load_channel_data)
+    monkeypatch.setattr(batch_backend, "write_array", fake_write_array)
+    monkeypatch.setattr(batch_backend, "_build_viewer_for_quantification", fake_build_viewer)
+    monkeypatch.setattr(batch_backend, "QuantificationBackend", DummyQuantBackend)
+
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+    backend.process_folder(
+        input_path=str(input_dir),
+        output_path=str(output_dir),
+        nuclear_model="nuclear",
+        nuclear_channel=0,
+        cyto_model="cyto",
+        cyto_channel=0,
+        spot_detector="udwt",
+        spot_channels=[0],
+        quantification_features=[types.SimpleNamespace()],
+        channel_map=[BatchChannelConfig(name="Channel 0", index=0)],
+    )
+
+    assert captured_meta
+    task_values = {meta.get("task") for meta in captured_meta.values()}
+    assert {"nuclear", "cytoplasmic", "spots"} <= task_values
+
 def test_progress_callback_invoked(tmp_path) -> None:
     """Progress callback is invoked during batch processing.
 
@@ -593,4 +647,3 @@ def test_resolve_output_dir_overwrite() -> None:
         result = batch_backend._resolve_output_dir(output_root, input_path, None, True)
         assert result is not None
         assert result.exists()
-

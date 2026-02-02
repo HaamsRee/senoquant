@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from tests.conftest import DummyViewer, Image
 from senoquant.tabs.spots import frontend as spots_frontend
 
 # ruff: noqa: EM101, S101, SLF001, TRY003
@@ -67,3 +68,20 @@ def test_prepare_ufish_layer_applies_enhancement(monkeypatch: object) -> None:
     np.testing.assert_array_equal(result.data, layer.data + 2.0)
     assert result.rgb is False
     assert result.name == "spots"
+
+
+def test_spot_labels_include_task_metadata() -> None:
+    """Tag generated spot labels with task metadata."""
+    viewer = DummyViewer([Image(np.zeros((4, 4), dtype=np.float32), "img")])
+    tab = spots_frontend.SpotsTab(napari_viewer=viewer)
+    source = Image(
+        np.zeros((4, 4), dtype=np.float32),
+        "img",
+        metadata={"path": "file.tif"},
+    )
+
+    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "detector")
+
+    labels_layer = viewer.layers["img_detector_spot_labels"]
+    assert labels_layer.metadata.get("task") == "spots"
+    assert labels_layer.metadata.get("path") == "file.tif"

@@ -979,6 +979,20 @@ class SegmentationTab(QWidget):
 
         # Get the labels layer and set contour = 2
         labels_layer = self._viewer.layers[label_name]
+        task_value = {
+            "nuc": "nuclear",
+            "cyto": "cytoplasmic",
+        }.get(label_type)
+        source_metadata = getattr(source_layer, "metadata", {})
+        layer_metadata = getattr(labels_layer, "metadata", {})
+        merged_metadata: dict[str, object] = {}
+        if isinstance(source_metadata, dict):
+            merged_metadata.update(source_metadata)
+        if isinstance(layer_metadata, dict):
+            merged_metadata.update(layer_metadata)
+        if task_value:
+            merged_metadata["task"] = task_value
+        labels_layer.metadata = merged_metadata
         labels_layer.contour = 2
 
 

@@ -343,7 +343,9 @@ class BatchBackend:
                                 output_format,
                             )
                             labels_data[label_name] = masks
-                            labels_meta[label_name] = metadata
+                            labels_meta[label_name] = _with_task_metadata(
+                                metadata, "nuclear"
+                            )
                             item_result.outputs[label_name] = out_path
 
                     if cyto_model:
@@ -393,7 +395,9 @@ class BatchBackend:
                                 output_format,
                             )
                             labels_data[label_name] = masks
-                            labels_meta[label_name] = cyto_meta
+                            labels_meta[label_name] = _with_task_metadata(
+                                cyto_meta, "cytoplasmic"
+                            )
                             item_result.outputs[label_name] = out_path
 
                     if spot_detector:
@@ -434,7 +438,9 @@ class BatchBackend:
                                 output_format,
                             )
                             labels_data[label_name] = mask
-                            labels_meta[label_name] = spot_meta
+                            labels_meta[label_name] = _with_task_metadata(
+                                spot_meta, "spots"
+                            )
                             item_result.outputs[label_name] = out_path
 
                     if quantification_features:
@@ -573,6 +579,15 @@ def _resolve_output_dir(
         return None
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
+
+
+def _with_task_metadata(metadata: dict | None, task: str) -> dict:
+    """Return a metadata copy with task type attached."""
+    payload: dict[str, object] = {}
+    if isinstance(metadata, dict):
+        payload.update(metadata)
+    payload["task"] = task
+    return payload
 
 
 def _build_viewer_for_quantification(

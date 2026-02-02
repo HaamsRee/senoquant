@@ -115,8 +115,8 @@ def export_marker(
                 metadata = getattr(first_channel_layer, "metadata", {})
                 file_path = metadata.get("path")
         
-        # Determine segmentation type from label name or config
-        seg_type = getattr(segmentation, "task", "nuclear")
+        # Determine segmentation type from labels metadata with suffix fallback.
+        seg_type = _segmentation_type_from_layer(labels_layer, label_name)
         ref_columns = _add_reference_columns(
             rows, labels, label_ids, file_path, seg_type
         )
@@ -222,6 +222,40 @@ def _find_layer(viewer, name: str, layer_type: str):
         if layer.__class__.__name__ == layer_type and layer.name == name:
             return layer
     return None
+
+
+def _segmentation_type_from_layer(layer: object, label_name: str) -> str:
+    """Return segmentation type from layer metadata or legacy suffixes.
+
+    Parameters
+    ----------
+    layer : object
+        Labels layer object.
+    label_name : str
+        Labels layer name used for fallback suffix parsing.
+
+    Returns
+    -------
+    str
+        Segmentation type ("nuclear" or "cytoplasmic").
+
+    Notes
+    -----
+    Metadata value ``metadata["task"]`` is authoritative when valid.
+    Legacy layer-name suffixes are used as fallback for older layers.
+    """
+    metadata = getattr(layer, "metadata", None)
+    if isinstance(metadata, dict):
+        task = metadata.get("task")
+        if isinstance(task, str):
+            normalized = task.strip().lower()
+            if normalized in {"nuclear", "cytoplasmic"}:
+                return normalized
+    if label_name.endswith("_cyto_labels"):
+        return "cytoplasmic"
+    if label_name.endswith("_nuc_labels"):
+        return "nuclear"
+    return "nuclear"
 
 
 def _compute_centroids(labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
