@@ -14,6 +14,7 @@ from senoquant.tabs.spots.ufish_utils import UFishConfig, enhance_image
 
 
 DEFAULT_THRESHOLD = 0.5
+USE_LAPLACE_FOR_PEAKS = False
 
 
 def _clamp_threshold(value: float) -> float:
@@ -22,9 +23,9 @@ def _clamp_threshold(value: float) -> float:
 
 
 def _normalize_unit(image: np.ndarray) -> np.ndarray:
-    """Normalize to float32 in [0, 1] using 0.5/99.5 percentiles."""
+    """Normalize to float32 in [0, 1] using 0.05/99.95 percentiles."""
     data = np.asarray(image, dtype=np.float32)
-    low, high = np.nanpercentile(data, [0.5, 99.5])
+    low, high = np.nanpercentile(data, [0.05, 99.95])
     low = float(low)
     high = float(high)
     if high <= low:
@@ -36,12 +37,17 @@ def _normalize_unit(image: np.ndarray) -> np.ndarray:
 def _markers_from_local_maxima(
     enhanced: np.ndarray,
     threshold: float,
+    use_laplace: bool = True,
 ) -> np.ndarray:
     """Build marker labels from U-FISH local maxima calls."""
     connectivity = max(1, min(2, enhanced.ndim))
-    enhanced_lap = laplace(enhanced)
-    mask = local_maxima(enhanced_lap, connectivity=connectivity)
-    mask = mask & (enhanced_lap > threshold)
+    response = (
+        laplace(enhanced.astype(np.float32, copy=False))
+        if use_laplace
+        else np.asarray(enhanced, dtype=np.float32)
+    )
+    mask = local_maxima(response, connectivity=connectivity)
+    mask = mask & (response > threshold)
 
     markers = np.zeros(enhanced.shape, dtype=np.int32)
     coords = np.argwhere(mask)
@@ -95,14 +101,29 @@ class UFishDetector(SenoQuantSpotDetector):
 
         settings = kwargs.get("settings", {}) or {}
         threshold = _clamp_threshold(float(settings.get("threshold", DEFAULT_THRESHOLD)))
+        use_laplace = USE_LAPLACE_FOR_PEAKS
 
         data = layer_data_asarray(layer)
         if data.ndim not in (2, 3):
             raise ValueError("U-FISH detector expects 2D images or 3D stacks.")
+
+        # Percentile normalize the data
+        data = _normalize_unit(data)
+
         enhanced = enhance_image(np.asarray(data, dtype=np.float32), config=UFishConfig())
         enhanced = np.asarray(enhanced, dtype=np.float32)
+
+        # Re-normalize after enhancement
         enhanced = _normalize_unit(enhanced)
 
-        markers = _markers_from_local_maxima(enhanced, threshold)
-        labels = _segment_from_markers(enhanced, markers, threshold)
+        markers = _markers_from_local_maxima(
+            enhanced,
+            threshold,
+            use_laplace=use_laplace,
+        )
+        labels = _segment_from_markers(
+            enhanced,
+            markers,
+            threshold,
+        )
         return {"mask": labels}

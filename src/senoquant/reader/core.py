@@ -166,9 +166,10 @@ def _prompt_scene_selection(path: str, scenes: list[str]) -> list[int] | None:
     if app is None:
         return list(range(len(scenes)))
 
-    dialog = QDialog(app.activeWindow())
+    dialog = QDialog(_napari_dialog_parent(app))
     dialog.setWindowTitle("Select scenes to load")
     dialog.setMinimumWidth(520)
+    _apply_napari_dialog_theme(dialog, app)
 
     layout = QVBoxLayout(dialog)
     layout.addWidget(QLabel(f"File: {Path(path).name}"))
@@ -220,6 +221,56 @@ def _prompt_scene_selection(path: str, scenes: list[str]) -> list[int] | None:
     if dialog.exec() != QDialog.Accepted:
         return None
     return _checked_scene_indices(scene_list)
+
+
+def _napari_dialog_parent(app):
+    """Return a good parent window for napari-linked dialogs."""
+    try:
+        import napari
+
+        viewer = napari.current_viewer()
+    except Exception:
+        viewer = None
+    if viewer is not None:
+        window = getattr(viewer, "window", None)
+        qt_window = getattr(window, "_qt_window", None)
+        if qt_window is not None:
+            return qt_window
+    return app.activeWindow()
+
+
+def _apply_napari_dialog_theme(dialog, app) -> None:
+    """Apply napari/app stylesheet so popup theming is consistent."""
+    stylesheet = ""
+    try:
+        import napari
+
+        viewer = napari.current_viewer()
+        theme_id = getattr(viewer, "theme", None) if viewer is not None else None
+        if theme_id:
+            try:
+                from napari.qt import get_stylesheet
+
+                stylesheet = str(get_stylesheet(theme_id) or "")
+            except Exception:
+                stylesheet = ""
+    except Exception:
+        stylesheet = ""
+
+    if not stylesheet:
+        try:
+            stylesheet = str(app.styleSheet() or "")
+        except Exception:
+            stylesheet = ""
+    if not stylesheet:
+        try:
+            parent = dialog.parentWidget()
+            stylesheet = str(parent.styleSheet() if parent is not None else "")
+        except Exception:
+            stylesheet = ""
+
+    if stylesheet:
+        dialog.setStyleSheet(stylesheet)
 
 
 def _set_scene_checks(scene_list, state) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import types
 
 from senoquant.reader import core as reader_core
@@ -52,6 +53,44 @@ class _DummyImage:
 
     def close(self) -> None:
         self.closed = True
+
+
+class _DummyApp:
+    """Minimal QApplication-like stand-in for theme/parent helpers."""
+
+    def __init__(self, active_window=None, stylesheet: str = "") -> None:
+        self._active_window = active_window
+        self._stylesheet = stylesheet
+
+    def activeWindow(self):
+        return self._active_window
+
+    def styleSheet(self) -> str:
+        return self._stylesheet
+
+
+class _DummyDialog:
+    """Minimal dialog stand-in with style and parent support."""
+
+    def __init__(self, parent=None) -> None:
+        self._parent = parent
+        self.stylesheet = None
+
+    def setStyleSheet(self, stylesheet: str) -> None:
+        self.stylesheet = stylesheet
+
+    def parentWidget(self):
+        return self._parent
+
+
+class _DummyWidget:
+    """Minimal widget stand-in with stylesheet getter."""
+
+    def __init__(self, stylesheet: str = "") -> None:
+        self._stylesheet = stylesheet
+
+    def styleSheet(self) -> str:
+        return self._stylesheet
 
 
 def test_select_scene_indices_short_circuits() -> None:
@@ -141,3 +180,63 @@ def test_read_senoquant_returns_empty_when_no_scene_selected(monkeypatch) -> Non
     monkeypatch.setattr(reader_core, "_iter_channel_layers", _unexpected)
     assert reader_core._read_senoquant("C:/tmp/sample.tif") == []
     assert image.closed is True
+
+
+def test_napari_dialog_parent_prefers_viewer_qt_window(monkeypatch) -> None:
+    """Use napari viewer window as dialog parent when available."""
+    qt_window = object()
+    viewer = types.SimpleNamespace(
+        window=types.SimpleNamespace(_qt_window=qt_window)
+    )
+    napari_mod = types.SimpleNamespace(current_viewer=lambda: viewer)
+    monkeypatch.setitem(sys.modules, "napari", napari_mod)
+
+    app = _DummyApp(active_window=object())
+    assert reader_core._napari_dialog_parent(app) is qt_window
+
+
+def test_napari_dialog_parent_falls_back_to_active_window(monkeypatch) -> None:
+    """Fall back to active app window when napari window is unavailable."""
+    monkeypatch.setitem(sys.modules, "napari", types.SimpleNamespace(current_viewer=lambda: None))
+
+    active = object()
+    app = _DummyApp(active_window=active)
+    assert reader_core._napari_dialog_parent(app) is active
+
+
+def test_apply_napari_dialog_theme_prefers_napari_stylesheet(monkeypatch) -> None:
+    """Prefer napari theme stylesheet over app stylesheet."""
+    napari_mod = types.SimpleNamespace(
+        current_viewer=lambda: types.SimpleNamespace(theme="dark")
+    )
+    napari_qt_mod = types.SimpleNamespace(get_stylesheet=lambda _theme: "napari-style")
+    monkeypatch.setitem(sys.modules, "napari", napari_mod)
+    monkeypatch.setitem(sys.modules, "napari.qt", napari_qt_mod)
+
+    dialog = _DummyDialog()
+    app = _DummyApp(stylesheet="app-style")
+    reader_core._apply_napari_dialog_theme(dialog, app)
+    assert dialog.stylesheet == "napari-style"
+
+
+def test_apply_napari_dialog_theme_falls_back_to_app_stylesheet(monkeypatch) -> None:
+    """Use app stylesheet when napari style cannot be resolved."""
+    monkeypatch.setitem(sys.modules, "napari", types.SimpleNamespace(current_viewer=lambda: None))
+    monkeypatch.setitem(sys.modules, "napari.qt", types.SimpleNamespace(get_stylesheet=lambda _theme: ""))
+
+    dialog = _DummyDialog()
+    app = _DummyApp(stylesheet="app-style")
+    reader_core._apply_napari_dialog_theme(dialog, app)
+    assert dialog.stylesheet == "app-style"
+
+
+def test_apply_napari_dialog_theme_falls_back_to_parent_stylesheet(monkeypatch) -> None:
+    """Use parent stylesheet when app stylesheet is empty."""
+    monkeypatch.setitem(sys.modules, "napari", types.SimpleNamespace(current_viewer=lambda: None))
+    monkeypatch.setitem(sys.modules, "napari.qt", types.SimpleNamespace(get_stylesheet=lambda _theme: ""))
+
+    parent = _DummyWidget(stylesheet="parent-style")
+    dialog = _DummyDialog(parent=parent)
+    app = _DummyApp(stylesheet="")
+    reader_core._apply_napari_dialog_theme(dialog, app)
+    assert dialog.stylesheet == "parent-style"
