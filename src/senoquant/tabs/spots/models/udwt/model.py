@@ -22,6 +22,7 @@ import numpy as np
 from scipy import ndimage as ndi
 from skimage.feature import peak_local_max
 from skimage.measure import label
+from skimage.morphology import h_maxima, remove_small_objects
 from skimage.segmentation import watershed
 
 from ..base import SenoQuantSpotDetector
@@ -48,6 +49,36 @@ Maximum number of a trous scales.
 EPS = 1e-12
 """float
 Small epsilon to avoid zero thresholds.
+"""
+
+WS_GAUSSIAN_SIGMA = 1.0
+"""float
+Gaussian smoothing sigma for watershed score maps.
+"""
+
+WS_H_FRACTION = 0.20
+"""float
+Fraction of score-map standard deviation used for h-maxima dynamics.
+"""
+
+WS_H_MIN = 0.05
+"""float
+Minimum h-maxima dynamics to suppress shallow local peaks.
+"""
+
+WS_MIN_BASIN_SIZE = 3
+"""int
+Minimum retained basin size (pixels/voxels) after watershed.
+"""
+
+WS_MERGE_WEAK_BOUNDARIES = True
+"""bool
+If True, perform one light binary-closing merge pass before watershed.
+"""
+
+WS_MERGE_CLOSING_ITERS = 1
+"""int
+Number of binary-closing iterations for weak-boundary merging.
 """
 
 
@@ -286,6 +317,7 @@ def _watershed_instances(
     *,
     min_distance: int,
     connectivity: int,
+    score: np.ndarray | None = None,
 ) -> np.ndarray:
     """Split touching detections with distance-transform watershed.
 
@@ -297,6 +329,9 @@ def _watershed_instances(
         Minimum spacing between watershed seed points.
     connectivity : int
         Pixel/voxel connectivity for marker fallback labeling.
+    score : numpy.ndarray or None, optional
+        Optional foreground score map used for marker generation and basin
+        flooding. When ``None``, the distance transform is used.
 
     Returns
     -------
@@ -305,26 +340,79 @@ def _watershed_instances(
     """
     if not np.any(binary):
         return np.zeros_like(binary, dtype=np.int32)
-    if not np.any(~binary):
-        return _binary_to_instances(binary, connectivity)
 
-    distance = ndi.distance_transform_edt(binary)
-    coordinates = peak_local_max(
-        distance,
-        labels=binary.astype(np.uint8),
-        min_distance=max(1, int(min_distance)),
-        exclude_border=False,
-    )
-    if coordinates.size == 0:
-        return _binary_to_instances(binary, connectivity)
+    # Keep the watershed mask strict and denoise tiny fragments.
+    foreground = np.asarray(binary > 0, dtype=bool)
+    min_basin_size = max(WS_MIN_BASIN_SIZE, int(min_distance) ** foreground.ndim)
+    foreground = remove_small_objects(foreground, min_size=min_basin_size)
+    if not np.any(foreground):
+        return np.zeros_like(binary, dtype=np.int32)
+    if not np.any(~foreground):
+        return _binary_to_instances(foreground, connectivity)
 
-    peaks = np.zeros(binary.shape, dtype=bool)
-    peaks[tuple(coordinates.T)] = True
-    markers = label(peaks, connectivity=connectivity).astype(np.int32, copy=False)
+    # Optional weak-boundary merge pass to reduce one-pixel over-splits.
+    # Keep this for score-driven watershed only so binary-only helper calls
+    # still preserve classic distance-based split behavior.
+    if (
+        score is not None
+        and WS_MERGE_WEAK_BOUNDARIES
+        and WS_MERGE_CLOSING_ITERS > 0
+    ):
+        structure = ndi.generate_binary_structure(foreground.ndim, 1)
+        foreground = ndi.binary_closing(
+            foreground,
+            structure=structure,
+            iterations=WS_MERGE_CLOSING_ITERS,
+        )
+        foreground = remove_small_objects(foreground, min_size=min_basin_size)
+        if not np.any(foreground):
+            return np.zeros_like(binary, dtype=np.int32)
+
+    distance = ndi.distance_transform_edt(foreground)
+    if score is None:
+        score_map = distance.astype(np.float32, copy=False)
+    else:
+        score_map = np.asarray(score, dtype=np.float32)
+        if score_map.shape != foreground.shape:
+            raise ValueError("Watershed score map shape does not match foreground.")
+        score_map = np.maximum(score_map, 0.0)
+    score_map *= foreground.astype(np.float32, copy=False)
+    score_map = ndi.gaussian_filter(score_map, sigma=WS_GAUSSIAN_SIGMA)
+
+    score_values = score_map[foreground]
+    if score_values.size == 0:
+        return np.zeros_like(binary, dtype=np.int32)
+    h_value = max(WS_H_MIN, float(np.std(score_values)) * WS_H_FRACTION)
+
+    peak_mask = h_maxima(score_map, h=h_value) & foreground
+    if not np.any(peak_mask):
+        return _binary_to_instances(foreground, connectivity)
+
+    markers = label(peak_mask, connectivity=connectivity).astype(np.int32, copy=False)
+    if score is None and markers.max() <= 1:
+        coordinates = peak_local_max(
+            distance,
+            labels=foreground.astype(np.uint8),
+            min_distance=max(1, int(min_distance)),
+            exclude_border=False,
+        )
+        if coordinates.size > 0:
+            peaks = np.zeros(foreground.shape, dtype=bool)
+            peaks[tuple(coordinates.T)] = True
+            markers = label(peaks, connectivity=connectivity).astype(
+                np.int32,
+                copy=False,
+            )
     if markers.max() == 0:
-        return _binary_to_instances(binary, connectivity)
+        return _binary_to_instances(foreground, connectivity)
 
-    labels_ws = watershed(-distance, markers, mask=binary)
+    labels_ws = watershed(
+        -score_map,
+        markers,
+        mask=foreground,
+    ).astype(np.int32, copy=False)
+    if not np.any(labels_ws > 0):
+        return np.zeros_like(binary, dtype=np.int32)
     return labels_ws.astype(np.int32, copy=False)
 
 
@@ -376,7 +464,12 @@ def _detect_2d(image: np.ndarray, params: _Params) -> np.ndarray:
     P = _multiscale_product(enabled_planes)
     binary = _detect_from_product(P, params.ld)
     min_distance = max(1, 2 ** max(0, num_scales - 2))
-    return _watershed_instances(binary, min_distance=min_distance, connectivity=2)
+    return _watershed_instances(
+        binary,
+        min_distance=min_distance,
+        connectivity=2,
+        score=np.abs(P),
+    )
 
 
 def _detect_2d_stack(stack: np.ndarray, params: _Params) -> np.ndarray:
@@ -456,7 +549,12 @@ def _detect_3d(volume: np.ndarray, params: _Params) -> np.ndarray:
     P = _multiscale_product(enabled_planes)
     binary = _detect_from_product(P, params.ld)
     min_distance = max(1, 2 ** max(0, num_scales - 2))
-    return _watershed_instances(binary, min_distance=min_distance, connectivity=3)
+    return _watershed_instances(
+        binary,
+        min_distance=min_distance,
+        connectivity=3,
+        score=np.abs(P),
+    )
 
 
 class UDWTDetector(SenoQuantSpotDetector):
