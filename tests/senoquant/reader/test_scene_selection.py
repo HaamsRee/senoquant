@@ -55,6 +55,15 @@ class _DummyImage:
         self.closed = True
 
 
+def _install_dummy_bioio(monkeypatch) -> None:
+    """Install a minimal bioio stub for tests that call _read_senoquant."""
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio",
+        types.SimpleNamespace(BioImage=object),
+    )
+
+
 class _DummyApp:
     """Minimal QApplication-like stand-in for theme/parent helpers."""
 
@@ -148,6 +157,7 @@ def test_checked_scene_indices_returns_checked(monkeypatch) -> None:
 
 def test_read_senoquant_reads_only_selected_scenes(monkeypatch) -> None:
     """Load layers only for selected scenes and close image handle."""
+    _install_dummy_bioio(monkeypatch)
     image = _DummyImage(["s0", "s1", "s2"])
     monkeypatch.setattr(reader_core, "_open_bioimage", lambda _path: image)
     monkeypatch.setattr(reader_core, "_select_scene_indices", lambda *_args: [1])
@@ -170,6 +180,7 @@ def test_read_senoquant_reads_only_selected_scenes(monkeypatch) -> None:
 
 def test_read_senoquant_returns_empty_when_no_scene_selected(monkeypatch) -> None:
     """Return no layers when user selects no scenes and still close image."""
+    _install_dummy_bioio(monkeypatch)
     image = _DummyImage(["s0", "s1"])
     monkeypatch.setattr(reader_core, "_open_bioimage", lambda _path: image)
     monkeypatch.setattr(reader_core, "_select_scene_indices", lambda *_args: [])
