@@ -11,7 +11,7 @@ Algorithm (high level)
 2) Form wavelet planes Wi = A_{i-1} - Ai.
 3) Apply WAT thresholding per scale (with per-scale sensitivity).
 4) Multiply thresholded planes to form the multiscale product PJ.
-5) Threshold |PJ| with ld and label connected components.
+5) Threshold |PJ| with ld and split instances by watershed.
 """
 
 from __future__ import annotations
@@ -20,7 +20,9 @@ from dataclasses import dataclass
 from functools import lru_cache
 import numpy as np
 from scipy import ndimage as ndi
+from skimage.feature import peak_local_max
 from skimage.measure import label
+from skimage.segmentation import watershed
 
 from ..base import SenoQuantSpotDetector
 from senoquant.utils import layer_data_asarray
@@ -261,6 +263,71 @@ def _detect_from_product(P: np.ndarray, ld: float) -> np.ndarray:
     return np.abs(P) > ld
 
 
+def _binary_to_instances(mask: np.ndarray, connectivity: int) -> np.ndarray:
+    """Convert a binary mask to integer instance labels.
+
+    Parameters
+    ----------
+    mask : numpy.ndarray
+        Binary input mask.
+    connectivity : int
+        Pixel/voxel connectivity passed to :func:`skimage.measure.label`.
+
+    Returns
+    -------
+    numpy.ndarray
+        Labeled instances as ``int32``.
+    """
+    return label(mask > 0, connectivity=connectivity).astype(np.int32, copy=False)
+
+
+def _watershed_instances(
+    binary: np.ndarray,
+    *,
+    min_distance: int,
+    connectivity: int,
+) -> np.ndarray:
+    """Split touching detections with distance-transform watershed.
+
+    Parameters
+    ----------
+    binary : numpy.ndarray
+        Binary foreground mask.
+    min_distance : int
+        Minimum spacing between watershed seed points.
+    connectivity : int
+        Pixel/voxel connectivity for marker fallback labeling.
+
+    Returns
+    -------
+    numpy.ndarray
+        Instance-labeled mask (``int32``).
+    """
+    if not np.any(binary):
+        return np.zeros_like(binary, dtype=np.int32)
+    if not np.any(~binary):
+        return _binary_to_instances(binary, connectivity)
+
+    distance = ndi.distance_transform_edt(binary)
+    coordinates = peak_local_max(
+        distance,
+        labels=binary.astype(np.uint8),
+        min_distance=max(1, int(min_distance)),
+        exclude_border=False,
+    )
+    if coordinates.size == 0:
+        return _binary_to_instances(binary, connectivity)
+
+    peaks = np.zeros(binary.shape, dtype=bool)
+    peaks[tuple(coordinates.T)] = True
+    markers = label(peaks, connectivity=connectivity).astype(np.int32, copy=False)
+    if markers.max() == 0:
+        return _binary_to_instances(binary, connectivity)
+
+    labels_ws = watershed(-distance, markers, mask=binary)
+    return labels_ws.astype(np.int32, copy=False)
+
+
 def _detect_2d(image: np.ndarray, params: _Params) -> np.ndarray:
     """Detect spots in a 2D image and return labeled instances.
 
@@ -308,7 +375,8 @@ def _detect_2d(image: np.ndarray, params: _Params) -> np.ndarray:
 
     P = _multiscale_product(enabled_planes)
     binary = _detect_from_product(P, params.ld)
-    return label(binary, connectivity=2).astype(np.int32, copy=False)
+    min_distance = max(1, 2 ** max(0, num_scales - 2))
+    return _watershed_instances(binary, min_distance=min_distance, connectivity=2)
 
 
 def _detect_2d_stack(stack: np.ndarray, params: _Params) -> np.ndarray:
@@ -387,7 +455,8 @@ def _detect_3d(volume: np.ndarray, params: _Params) -> np.ndarray:
 
     P = _multiscale_product(enabled_planes)
     binary = _detect_from_product(P, params.ld)
-    return label(binary, connectivity=3).astype(np.int32, copy=False)
+    min_distance = max(1, 2 ** max(0, num_scales - 2))
+    return _watershed_instances(binary, min_distance=min_distance, connectivity=3)
 
 
 class UDWTDetector(SenoQuantSpotDetector):

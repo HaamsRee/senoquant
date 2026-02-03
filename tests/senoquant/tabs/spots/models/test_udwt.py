@@ -94,6 +94,30 @@ def test_detect_2d_returns_labels() -> None:
     assert labels.dtype == np.int32
 
 
+def test_watershed_instances_splits_touching_regions() -> None:
+    """Split a single connected region into multiple instances."""
+    binary = np.zeros((11, 11), dtype=bool)
+    binary[2:9, 2:5] = True
+    binary[2:9, 6:9] = True
+    binary[5, 5] = True  # thin bridge so CC sees one object
+
+    cc_labels = udwt._binary_to_instances(binary, connectivity=2)
+    ws_labels = udwt._watershed_instances(binary, min_distance=1, connectivity=2)
+
+    assert cc_labels.max() == 1
+    assert ws_labels.max() >= 2
+    assert ws_labels.dtype == np.int32
+
+
+def test_watershed_instances_empty_mask() -> None:
+    """Return all-zero labels for empty masks."""
+    binary = np.zeros((7, 7), dtype=bool)
+    labels = udwt._watershed_instances(binary, min_distance=1, connectivity=2)
+    assert labels.shape == binary.shape
+    assert labels.dtype == np.int32
+    assert int(labels.max()) == 0
+
+
 def test_detector_rejects_rgb() -> None:
     """Reject RGB layers.
 

@@ -19,6 +19,7 @@ site/
 
 # Large model binaries (decide storage strategy)
 src/senoquant/tabs/segmentation/models/cpsam/cpsam
+src/senoquant/tabs/spots/ufish_utils/ufish.onnx
 
 # IDE
 .idea/
