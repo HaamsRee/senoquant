@@ -53,6 +53,17 @@ def make_probe_image(
     if model_path is None or input_layout is None:
         return probe
 
+    div_by = None
+    if div_by_cache is not None:
+        div_by = div_by_cache.get(model_path)
+    if div_by is None:
+        try:
+            div_by = infer_div_by(model_path, ndim=image.ndim)
+        except Exception:
+            div_by = None
+        if div_by_cache is not None and div_by is not None:
+            div_by_cache[model_path] = div_by
+
     patterns = None
     if valid_size_cache is not None:
         patterns = valid_size_cache.get(model_path)
@@ -68,24 +79,13 @@ def make_probe_image(
         if valid_size_cache is not None:
             valid_size_cache[model_path] = patterns
 
-    div_by = None
-    if div_by_cache is not None:
-        div_by = div_by_cache.get(model_path)
-    if div_by is None:
-        try:
-            div_by = infer_div_by(model_path, ndim=image.ndim)
-        except Exception:
-            div_by = None
-        if div_by_cache is not None and div_by is not None:
-            div_by_cache[model_path] = div_by
-
     desired = list(probe.shape)
     if patterns:
         desired = [
             max(1, snap_size(int(size), patterns[axis]))
             for axis, size in enumerate(desired)
         ]
-    elif div_by:
+    if div_by:
         desired = [
             max(int(d), (int(size) // int(d)) * int(d)) if d else int(size)
             for size, d in zip(desired, div_by)

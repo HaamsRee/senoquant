@@ -680,13 +680,37 @@ class SpotsTab(QWidget):
         if self._viewer is None or source_layer is None:
             return
         name = self._spot_label_name(source_layer, detector_name)
-        self._viewer.add_labels(mask, name=name)
-        labels_layer = self._viewer.layers[name]
         source_metadata = getattr(source_layer, "metadata", {})
-        layer_metadata = getattr(labels_layer, "metadata", {})
         merged_metadata: dict[str, object] = {}
         if isinstance(source_metadata, dict):
             merged_metadata.update(source_metadata)
+        merged_metadata["task"] = "spots"
+
+        labels_layer = None
+        if Labels is not None and hasattr(self._viewer, "add_layer"):
+            # Add a fully configured Labels layer object to avoid name-based lookup.
+            labels_layer = Labels(
+                mask,
+                name=name,
+                metadata=merged_metadata,
+            )
+            added_layer = self._viewer.add_layer(labels_layer)
+            if added_layer is not None:
+                labels_layer = added_layer
+        elif hasattr(self._viewer, "add_labels"):
+            try:
+                labels_layer = self._viewer.add_labels(
+                    mask,
+                    name=name,
+                    metadata=merged_metadata,
+                )
+            except TypeError:
+                labels_layer = self._viewer.add_labels(mask, name=name)
+
+        if labels_layer is None:
+            return
+
+        layer_metadata = getattr(labels_layer, "metadata", {})
         if isinstance(layer_metadata, dict):
             merged_metadata.update(layer_metadata)
         merged_metadata["task"] = "spots"
