@@ -22,13 +22,15 @@ def _clamp_threshold(value: float) -> float:
 
 
 def _normalize_unit(image: np.ndarray) -> np.ndarray:
-    """Normalize an image to float32 in [0, 1] for stable thresholding."""
+    """Normalize to float32 in [0, 1] using 0.5/99.5 percentiles."""
     data = np.asarray(image, dtype=np.float32)
-    min_val = float(np.min(data))
-    max_val = float(np.max(data))
-    if max_val <= min_val:
+    low, high = np.nanpercentile(data, [0.5, 99.5])
+    low = float(low)
+    high = float(high)
+    if high <= low:
         return np.zeros_like(data, dtype=np.float32)
-    return (data - min_val) / (max_val - min_val)
+    normalized = (data - low) / (high - low)
+    return np.clip(normalized, 0.0, 1.0).astype(np.float32, copy=False)
 
 
 def _markers_from_local_maxima(
