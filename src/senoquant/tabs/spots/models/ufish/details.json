@@ -1,0 +1,17 @@
+{
+  "name": "ufish",
+  "description": "U-FISH local-maxima seeded watershed detector",
+  "version": "0.1.0",
+  "order": 0,
+  "settings": [
+    {
+      "key": "threshold",
+      "label": "Threshold",
+      "type": "float",
+      "decimals": 2,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5
+    }
+  ]
+}
