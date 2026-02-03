@@ -41,12 +41,24 @@ def ensure_stardist_libs(  # noqa: C901, PLR0912, PLR0915
         sys.modules[stardist_pkg] = pkg
 
     base_pkg = f"{stardist_pkg}.lib"
-    lib_dirs = [utils_root / "_stardist" / "lib"]
+    lib_dirs: list[Path] = []
+    seen_dirs: set[Path] = set()
+
+    def _append_if_exists(path: Path) -> None:
+        if not path.exists():
+            return
+        resolved = path.resolve()
+        if resolved in seen_dirs:
+            return
+        seen_dirs.add(resolved)
+        lib_dirs.append(resolved)
+
+    _append_if_exists(utils_root / "_stardist" / "lib")
     for entry in list(sys.path):
         if not entry:
             continue
         try:
-            candidate = (
+            legacy_candidate = (
                 Path(entry)
                 / "senoquant"
                 / "tabs"
@@ -55,10 +67,11 @@ def ensure_stardist_libs(  # noqa: C901, PLR0912, PLR0915
                 / "_stardist"
                 / "lib"
             )
+            ext_candidate = Path(entry) / "senoquant_stardist_ext" / "lib"
         except (TypeError, ValueError, OSError):
             continue
-        if candidate.exists():
-            lib_dirs.append(candidate)
+        _append_if_exists(legacy_candidate)
+        _append_if_exists(ext_candidate)
 
     if base_pkg in sys.modules:
         pkg = sys.modules[base_pkg]

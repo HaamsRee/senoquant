@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import sys
 from types import MethodType
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+from senoquant.tabs.segmentation.models.hf import (
+    DEFAULT_REPO_ID,
+    ensure_hf_model,
+)
+
 try:  # pragma: no cover - optional dependency
     from ufish.api import UFish
 except ImportError:  # pragma: no cover - optional dependency
-    UFish = None
+    _repo_root = Path(__file__).resolve().parents[5]
+    _vendored_root = _repo_root / "_vendor" / "ufish"
+    if _vendored_root.exists():
+        vendored_root = str(_vendored_root)
+        if vendored_root not in sys.path:
+            sys.path.insert(0, vendored_root)
+        try:
+            from ufish.api import UFish
+        except ImportError:
+            UFish = None
+    else:
+        UFish = None
 
 try:  # pragma: no cover - optional dependency
     import onnxruntime as ort
@@ -36,15 +54,27 @@ class _UFishState:
         self.model: UFishType | None = None
         self.weights_loaded = False
         self.device: str | None = None
+        self.weights_path: str | None = None
 
 
 _UFISH_STATE = _UFishState()
+_UFISH_HF_FILENAME = "ufish.onnx"
 
 
 def _ensure_ufish_available() -> None:
     if UFish is None:  # pragma: no cover - import guard
         msg = "ufish is required for spot enhancement."
         raise ImportError(msg)
+
+
+def _resolve_default_weights_path() -> Path:
+    """Resolve the default UFish ONNX path, downloading from HF if needed."""
+    target_dir = Path(__file__).resolve().parent
+    return ensure_hf_model(
+        _UFISH_HF_FILENAME,
+        target_dir,
+        repo_id=DEFAULT_REPO_ID,
+    )
 
 
 def _preferred_providers() -> list[str]:
@@ -127,19 +157,30 @@ def _get_ufish(config: UFishConfig) -> UFishType:
         _patch_onnx_loader(cast("UFishType", _UFISH_STATE.model))
         _UFISH_STATE.weights_loaded = False
         _UFISH_STATE.device = config.device
+        _UFISH_STATE.weights_path = None
     return cast("UFishType", _UFISH_STATE.model)
 
 
 def _ensure_weights(model: UFishType, config: UFishConfig) -> None:
-    if _UFISH_STATE.weights_loaded:
-        return
     if config.weights_path:
-        model.load_weights(config.weights_path)
-    elif config.load_from_internet:
-        model.load_weights_from_internet()
+        weights_path = Path(config.weights_path).expanduser().resolve()
     else:
-        model.load_weights()
+        try:
+            weights_path = _resolve_default_weights_path()
+        except RuntimeError as exc:
+            msg = (
+                "Could not download UFish weights from Hugging Face. "
+                "Install `huggingface_hub`, configure network access, "
+                "or provide UFishConfig(weights_path=...)."
+            )
+            raise RuntimeError(msg) from exc
+
+    resolved_path = str(weights_path)
+    if _UFISH_STATE.weights_loaded and _UFISH_STATE.weights_path == resolved_path:
+        return
+    model.load_weights(resolved_path)
     _UFISH_STATE.weights_loaded = True
+    _UFISH_STATE.weights_path = resolved_path
 
 
 def enhance_image(

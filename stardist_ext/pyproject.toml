@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "senoquant-stardist-ext"
-version = "0.1.0"
+version = "0.1.1"
 description = "Prebuilt StarDist C/C++ extensions for SenoQuant"
 readme = "README.md"
 requires-python = ">=3.11"
