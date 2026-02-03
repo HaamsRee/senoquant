@@ -98,6 +98,8 @@ def export_spots(
     if not data.segmentations or not channels:
         return []
 
+    cross_map = _build_cell_cross_segmentation_map(viewer, data.segmentations)
+
     # --- Resolve a reference channel for physical pixel sizes ---
     first_channel_layer = None
     for channel in channels:
@@ -145,6 +147,7 @@ def export_spots(
             data.rois,
             label_name,
         )
+        _add_cross_reference_column(cell_rows, label_name, cell_ids, cross_map)
         cell_header = list(cell_rows[0].keys()) if cell_rows else []
 
         # --- Prepare containers and ROI masks for the spots table ---
@@ -217,6 +220,136 @@ def export_spots(
         outputs.append(spot_path)
 
     return outputs
+
+
+def _build_cell_cross_segmentation_map(
+    viewer: object, segmentations: Sequence[object]
+) -> dict[tuple[str, int], list[tuple[str, int]]]:
+    """Build overlap mapping for configured cell segmentations.
+
+    Parameters
+    ----------
+    viewer : object
+        Napari viewer instance containing labels layers.
+    segmentations : sequence of object
+        Segmentation configs with ``label`` attributes.
+
+    Returns
+    -------
+    dict
+        Mapping from ``(segmentation_name, label_id)`` to overlapping
+        ``(other_segmentation_name, other_label_id)`` entries.
+    """
+    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for segmentation in segmentations:
+        label_name = str(getattr(segmentation, "label", "")).strip()
+        if not label_name:
+            continue
+        labels_layer = _find_layer(viewer, label_name, "Labels")
+        if labels_layer is None:
+            continue
+        labels = layer_data_asarray(labels_layer)
+        if labels.size == 0:
+            continue
+        label_ids, _centroids = _compute_centroids(labels)
+        if label_ids.size == 0:
+            continue
+        all_segmentations[label_name] = (labels, label_ids)
+    return _build_cross_segmentation_map(all_segmentations)
+
+
+def _build_cross_segmentation_map(
+    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]]
+) -> dict[tuple[str, int], list[tuple[str, int]]]:
+    """Build bidirectional overlap mapping across segmentations.
+
+    Parameters
+    ----------
+    all_segmentations : dict
+        Mapping from segmentation name to ``(labels, label_ids)`` tuples.
+
+    Returns
+    -------
+    dict
+        Mapping from ``(seg_name, label_id)`` to list of overlapping
+        ``(other_seg_name, other_label_id)`` tuples.
+    """
+    cross_map: dict[tuple[str, int], list[tuple[str, int]]] = {}
+    valid_ids: dict[str, set[int]] = {}
+
+    for seg_name, (_labels, label_ids) in all_segmentations.items():
+        ids = {int(label_id) for label_id in np.asarray(label_ids, dtype=int)}
+        valid_ids[seg_name] = ids
+        for label_id in ids:
+            cross_map[(seg_name, label_id)] = []
+
+    seg_names = list(all_segmentations.keys())
+    for idx_a, seg_name_a in enumerate(seg_names):
+        labels_a, _label_ids_a = all_segmentations[seg_name_a]
+        for seg_name_b in seg_names[idx_a + 1 :]:
+            labels_b, _label_ids_b = all_segmentations[seg_name_b]
+            if labels_a.shape != labels_b.shape:
+                warnings.warn(
+                    "Spots export: segmentation shape mismatch for "
+                    f"'{seg_name_a}' vs '{seg_name_b}'. "
+                    "Skipping cross-segmentation overlap mapping for this pair.",
+                    RuntimeWarning,
+                )
+                continue
+
+            mask = (labels_a > 0) & (labels_b > 0)
+            if not np.any(mask):
+                continue
+
+            overlap_pairs = np.column_stack((labels_a[mask], labels_b[mask]))
+            unique_pairs = np.unique(overlap_pairs, axis=0)
+            for label_id_a, label_id_b in unique_pairs:
+                id_a = int(label_id_a)
+                id_b = int(label_id_b)
+                if (
+                    id_a not in valid_ids[seg_name_a]
+                    or id_b not in valid_ids[seg_name_b]
+                ):
+                    continue
+                cross_map[(seg_name_a, id_a)].append((seg_name_b, id_b))
+                cross_map[(seg_name_b, id_b)].append((seg_name_a, id_a))
+
+    return cross_map
+
+
+def _add_cross_reference_column(
+    rows: list[dict[str, object]],
+    segmentation_name: str,
+    label_ids: np.ndarray,
+    cross_map: dict[tuple[str, int], list[tuple[str, int]]],
+) -> str:
+    """Add cross-segmentation overlap references to cell rows.
+
+    Parameters
+    ----------
+    rows : list of dict
+        Cell table rows to update in-place.
+    segmentation_name : str
+        Name of the segmentation being exported.
+    label_ids : numpy.ndarray
+        Cell label ids corresponding to ``rows``.
+    cross_map : dict
+        Overlap mapping from :func:`_build_cross_segmentation_map`.
+
+    Returns
+    -------
+    str
+        Name of the added column (``"overlaps_with"``).
+    """
+    for row, label_id in zip(rows, label_ids):
+        overlaps = cross_map.get((segmentation_name, int(label_id)), [])
+        if overlaps:
+            row["overlaps_with"] = ";".join(
+                f"{seg_name}_{other_id}" for seg_name, other_id in overlaps
+            )
+        else:
+            row["overlaps_with"] = ""
+    return "overlaps_with"
 
 
 def _build_channel_entries(
