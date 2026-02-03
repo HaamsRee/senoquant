@@ -1,4 +1,21 @@
-"""UFish-based spot enhancement utilities."""
+"""UFish-based spot enhancement utilities.
+
+This module wraps UFish inference for SenoQuant spot detection workflows.
+It handles:
+
+- optional import of UFish from site-packages or vendored sources,
+- ONNX Runtime execution-provider selection,
+- model/weights caching between calls, and
+- default ONNX weight retrieval from the SenoQuant Hugging Face model repo.
+
+Notes
+-----
+Weight loading priority is:
+
+1. explicit ``UFishConfig.weights_path``,
+2. legacy ``UFishConfig.load_from_internet``, then
+3. default ``ufish.onnx`` resolved via :func:`ensure_hf_model`.
+"""
 
 from __future__ import annotations
 
@@ -42,7 +59,20 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 @dataclass(slots=True)
 class UFishConfig:
-    """Configuration for UFish enhancement."""
+    """Configuration for UFish enhancement.
+
+    Parameters
+    ----------
+    weights_path : str or None, optional
+        Explicit local path to ONNX/PyTorch weights. When provided, this path
+        is used directly and takes precedence over all other loading modes.
+    load_from_internet : bool, optional
+        Legacy compatibility mode that calls
+        ``UFish.load_weights_from_internet()`` directly.
+    device : {"cuda", "dml", "mps"} or None, optional
+        Preferred accelerator mode used to influence ONNX Runtime provider
+        ordering when constructing UFish sessions.
+    """
 
     weights_path: str | None = None
     load_from_internet: bool = False
@@ -50,7 +80,10 @@ class UFishConfig:
 
 
 class _UFishState:
+    """In-process cache for the UFish model and loaded weights."""
+
     def __init__(self) -> None:
+        """Initialize empty cached state."""
         self.model: UFishType | None = None
         self.weights_loaded = False
         self.device: str | None = None
@@ -62,13 +95,33 @@ _UFISH_HF_FILENAME = "ufish.onnx"
 
 
 def _ensure_ufish_available() -> None:
+    """Raise a helpful error when UFish cannot be imported.
+
+    Raises
+    ------
+    ImportError
+        If the ``ufish`` package is unavailable from both normal and vendored
+        import locations.
+    """
     if UFish is None:  # pragma: no cover - import guard
         msg = "ufish is required for spot enhancement."
         raise ImportError(msg)
 
 
 def _resolve_default_weights_path() -> Path:
-    """Resolve the default UFish ONNX path, downloading from HF if needed."""
+    """Resolve the default UFish ONNX path.
+
+    Returns
+    -------
+    pathlib.Path
+        Local path to ``ufish.onnx``. The file is downloaded to the
+        ``ufish_utils`` directory if it does not already exist.
+
+    Raises
+    ------
+    RuntimeError
+        If the Hugging Face download helper is unavailable or download fails.
+    """
     target_dir = Path(__file__).resolve().parent
     return ensure_hf_model(
         _UFISH_HF_FILENAME,
@@ -78,6 +131,14 @@ def _resolve_default_weights_path() -> Path:
 
 
 def _preferred_providers() -> list[str]:
+    """Return ONNX Runtime providers ordered by GPU preference.
+
+    Returns
+    -------
+    list[str]
+        Providers available in the current runtime, ordered from most
+        preferred accelerator to CPU fallback.
+    """
     if ort is None:
         return []
     available = set(ort.get_available_providers())
@@ -94,6 +155,18 @@ def _preferred_providers() -> list[str]:
 
 
 def _select_onnx_providers(device: str | None) -> list[str]:
+    """Choose execution providers for a requested device hint.
+
+    Parameters
+    ----------
+    device : str or None
+        Device hint from :class:`UFishConfig`.
+
+    Returns
+    -------
+    list[str]
+        Provider names to pass to ``onnxruntime.InferenceSession``.
+    """
     preferred = _preferred_providers()
     if not device:
         return preferred
@@ -124,6 +197,13 @@ def _select_onnx_providers(device: str | None) -> list[str]:
 
 
 def _patch_onnx_loader(model: UFishType) -> None:
+    """Monkey-patch UFish ONNX loader to use SenoQuant provider selection.
+
+    Parameters
+    ----------
+    model : UFishType
+        UFish instance whose private ``_load_onnx`` method will be replaced.
+    """
     if ort is None:
         return
     ort_any = cast("Any", ort)
@@ -146,6 +226,19 @@ def _patch_onnx_loader(model: UFishType) -> None:
 
 
 def _get_ufish(config: UFishConfig) -> UFishType:
+    """Return a cached UFish instance for the requested configuration.
+
+    Parameters
+    ----------
+    config : UFishConfig
+        Runtime configuration used to determine whether the cached model can be
+        reused or must be re-instantiated.
+
+    Returns
+    -------
+    UFishType
+        Ready-to-use UFish instance with patched ONNX loading behavior.
+    """
     _ensure_ufish_available()
     if _UFISH_STATE.model is None or _UFISH_STATE.device != config.device:
         ufish_cls = cast("type[UFishType]", UFish)
@@ -162,16 +255,60 @@ def _get_ufish(config: UFishConfig) -> UFishType:
 
 
 def _ensure_weights(model: UFishType, config: UFishConfig) -> None:
+    """Ensure model weights are loaded according to configuration.
+
+    Parameters
+    ----------
+    model : UFishType
+        Active UFish model instance.
+    config : UFishConfig
+        Weight source and device settings.
+
+    Raises
+    ------
+    RuntimeError
+        If neither Hugging Face/default loading nor fallback loading succeeds.
+    """
     if config.weights_path:
         weights_path = Path(config.weights_path).expanduser().resolve()
-    else:
+        resolved_path = str(weights_path)
+        if _UFISH_STATE.weights_loaded and _UFISH_STATE.weights_path == resolved_path:
+            return
+        model.load_weights(resolved_path)
+        _UFISH_STATE.weights_loaded = True
+        _UFISH_STATE.weights_path = resolved_path
+        return
+
+    if config.load_from_internet:
+        if _UFISH_STATE.weights_loaded and _UFISH_STATE.weights_path == "internet":
+            return
+        model.load_weights_from_internet()
+        _UFISH_STATE.weights_loaded = True
+        _UFISH_STATE.weights_path = "internet"
+        return
+
+    try:
+        weights_path = _resolve_default_weights_path()
+    except RuntimeError:
+        # Keep legacy behavior when HF download dependencies are unavailable.
+        if _UFISH_STATE.weights_loaded and _UFISH_STATE.weights_path == "default":
+            return
+        model.load_weights()
+        _UFISH_STATE.weights_loaded = True
+        _UFISH_STATE.weights_path = "default"
+        return
+    except Exception as exc:
         try:
-            weights_path = _resolve_default_weights_path()
-        except RuntimeError as exc:
+            if _UFISH_STATE.weights_loaded and _UFISH_STATE.weights_path == "default":
+                return
+            model.load_weights()
+            _UFISH_STATE.weights_loaded = True
+            _UFISH_STATE.weights_path = "default"
+            return
+        except Exception:
             msg = (
-                "Could not download UFish weights from Hugging Face. "
-                "Install `huggingface_hub`, configure network access, "
-                "or provide UFishConfig(weights_path=...)."
+                "Could not load UFish weights from local default or Hugging Face. "
+                "Provide UFishConfig(weights_path=...) or ensure model download access."
             )
             raise RuntimeError(msg) from exc
 
@@ -188,7 +325,29 @@ def enhance_image(
     *,
     config: UFishConfig | None = None,
 ) -> np.ndarray:
-    """Enhance an image using UFish and return the enhanced image."""
+    """Enhance an image using UFish.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        Input image array. UFish supports 2D images and common 3D stack
+        layouts handled by UFish internally.
+    config : UFishConfig or None, optional
+        Optional runtime configuration. If omitted, default behavior is used.
+
+    Returns
+    -------
+    numpy.ndarray
+        Enhanced image produced by UFish with the same dimensionality as the
+        input image.
+
+    Raises
+    ------
+    ImportError
+        If UFish cannot be imported.
+    RuntimeError
+        If weights cannot be loaded from configured/default sources.
+    """
     if config is None:
         config = UFishConfig()
     model = _get_ufish(config)

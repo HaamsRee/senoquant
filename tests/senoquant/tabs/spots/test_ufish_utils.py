@@ -31,12 +31,19 @@ class _DummyUFish:
 def _reset_state() -> None:
     ufish_core._UFISH_STATE.model = None
     ufish_core._UFISH_STATE.weights_loaded = False
+    ufish_core._UFISH_STATE.weights_path = None
 
 
-def test_enhance_image_default_weights(monkeypatch) -> None:
+def test_enhance_image_default_weights(monkeypatch, tmp_path) -> None:
     """Default path should call load_weights once and return enhanced image."""
     _reset_state()
     monkeypatch.setattr(ufish_core, "UFish", _DummyUFish)
+    default_weights = tmp_path / "ufish.onnx"
+    monkeypatch.setattr(
+        ufish_core,
+        "_resolve_default_weights_path",
+        lambda: default_weights,
+    )
 
     image = np.zeros((4, 4), dtype=np.float32)
     enhanced = ufish_core.enhance_image(image)
@@ -46,7 +53,7 @@ def test_enhance_image_default_weights(monkeypatch) -> None:
 
     model = ufish_core._UFISH_STATE.model
     assert isinstance(model, _DummyUFish)
-    assert model.load_calls == [()]
+    assert model.load_calls == [(str(default_weights),)]
     assert model.predict_calls == 1
 
 
