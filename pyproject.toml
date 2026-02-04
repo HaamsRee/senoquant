@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "senoquant"
-version = "1.0.0b2"
-description = "Napari plugin for spatial quantification of senescence markers in tissue imaging"
+version = "1.0.0b3"
+description = "napari plugin for spatial quantification of senescence markers in tissue imaging"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "BSD-3-Clause" }
@@ -67,10 +67,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/HaamsRee/senoquant-dev"
-Documentation = "https://haamsree.github.io/senoquant-dev/"
-Repository = "https://github.com/HaamsRee/senoquant-dev"
-"Bug Tracker" = "https://github.com/HaamsRee/senoquant-dev/issues"
+Homepage = "https://github.com/HaamsRee/senoquant"
+Documentation = "https://haamsree.github.io/senoquant/"
+Repository = "https://github.com/HaamsRee/senoquant"
+"Bug Tracker" = "https://github.com/HaamsRee/senoquant/issues"
 
 [project.entry-points."napari.manifest"]
 senoquant = "senoquant:napari.yaml"

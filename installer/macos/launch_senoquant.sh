@@ -64,7 +64,7 @@ fi
 
 # Verify napari is installed
 if ! "${PYTHON_EXE}" -c "import napari" 2>/dev/null; then
-    log "Napari not found. Running setup..."
+    log "napari not found. Running setup..."
     POST_INSTALL="${RESOURCES_DIR}/post_install.sh"
     if [ -f "${POST_INSTALL}" ]; then
         "${POST_INSTALL}" "${RESOURCES_DIR}" 2>&1 | tee -a "${LOG_FILE}"
@@ -84,7 +84,7 @@ if ! "${PYTHON_EXE}" -c "import napari" 2>/dev/null; then
     
     # Verify again
     if ! "${PYTHON_EXE}" -c "import napari" 2>/dev/null; then
-        log "ERROR: Napari import still failing"
+        log "ERROR: napari import still failing"
         read -p "Press ENTER to close this window..."
         exit 1
     fi
@@ -98,7 +98,7 @@ log "=============================================="
 NAPARI_STATUS=$?
 
 if [ $NAPARI_STATUS -ne 0 ]; then
-    log "ERROR: Napari exited with status $NAPARI_STATUS"
+    log "ERROR: napari exited with status $NAPARI_STATUS"
     log "Check ${LOG_FILE} for details"
     read -p "Press ENTER to close this window..."
     exit $NAPARI_STATUS

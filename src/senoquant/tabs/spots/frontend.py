@@ -118,7 +118,7 @@ class SpotsTab(QWidget):
     backend : SpotsBackend or None
         Backend instance used to discover and load detectors.
     napari_viewer : object or None
-        Napari viewer used to populate layer choices.
+        napari viewer used to populate layer choices.
     """
 
     def __init__(
@@ -759,7 +759,7 @@ class SpotsTab(QWidget):
         Parameters
         ----------
         layer : object or None
-            Napari layer to validate.
+            napari layer to validate.
         label : str
             User-facing label for notifications.
 

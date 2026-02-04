@@ -41,7 +41,7 @@ def export_marker(
     temp_dir : Path
         Temporary directory where outputs should be written.
     viewer : object, optional
-        Napari viewer instance used to resolve layers by name.
+        napari viewer instance used to resolve layers by name.
     export_format : str, optional
         File format for exports (``"csv"`` or ``"xlsx"``).
     enable_thresholds : bool, optional
@@ -225,7 +225,7 @@ def _find_layer(viewer, name: str, layer_type: str):
     Parameters
     ----------
     viewer : object
-        Napari viewer instance containing layers.
+        napari viewer instance containing layers.
     name : str
         Layer name to locate.
     layer_type : str
@@ -351,7 +351,7 @@ def _pixel_volume(layer, ndim: int) -> float:
     Parameters
     ----------
     layer : object
-        Napari image layer providing metadata.
+        napari image layer providing metadata.
     ndim : int
         Dimensionality of the image data.
 
@@ -400,7 +400,7 @@ def _pixel_sizes(layer, ndim: int) -> np.ndarray | None:
     Parameters
     ----------
     layer : object
-        Napari image layer providing metadata.
+        napari image layer providing metadata.
     ndim : int
         Dimensionality of the image data.
 
@@ -481,7 +481,7 @@ def _add_roi_columns(
     label_ids : numpy.ndarray
         Label ids corresponding to the output rows.
     viewer : object or None
-        Napari viewer used to resolve shapes layers.
+        napari viewer used to resolve shapes layers.
     rois : sequence of ROIConfig
         ROI configuration entries to evaluate.
     label_name : str
@@ -532,7 +532,7 @@ def _shapes_layer_mask(
     Parameters
     ----------
     layer : object
-        Napari shapes layer instance.
+        napari shapes layer instance.
     shape : tuple of int
         Target mask shape matching the labels array.
 

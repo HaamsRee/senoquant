@@ -2,6 +2,48 @@
 
 SenoQuant targets Python 3.11 and is designed to run inside [napari](https://napari.org/stable/index.html).
 
+## System requirements
+
+Before installing, make sure your system meets these requirements:
+
+- A 64-bit operating system.
+- A stable internet connection for first-time setup and model downloads.
+- Enough free disk space for the Python environment, dependencies, and cached models (several GB).
+
+### Platform support
+
+- **Windows installer**: 64-bit Windows (`x64`).
+- **macOS installer**: macOS 10.15 or later.
+- **macOS hardware**: Apple Silicon and Intel are both supported.
+- **Linux**: Installer support is under construction.
+
+### Runtime notes
+
+- **Manual installs** require Python 3.11.
+- **Windows** can use GPU acceleration when a compatible PyTorch/CUDA setup is available.
+- **Apple Silicon** can use MPS acceleration.
+- **Intel Macs** currently run CPU-only.
+
+### Recommended hardware
+
+These are practical recommendations for smooth use. They are not strict hard limits.
+
+- **CPU**: 8 cores (or better) is recommended. 4 cores is workable for small 2D datasets.
+- **System RAM**:
+  - 16 GB minimum for light 2D work.
+  - 32 GB recommended for routine multi-channel analysis.
+  - 64 GB or more recommended for large 3D stacks and batch processing.
+- **Discrete GPU (Windows/Linux, recommended)**:
+  - NVIDIA GPU with CUDA support.
+  - 8 GB VRAM recommended for most 2D workflows.
+  - 12 GB or more VRAM recommended for larger images, 3D workflows, or high-throughput batch runs.
+- **Storage**: SSD strongly recommended, with at least 50-100 GB free for environments, model cache, and outputs.
+
+Reference build targets:
+
+- **Good baseline workstation**: 8-core CPU, 32 GB RAM, NVIDIA RTX-class GPU with 8 GB VRAM.
+- **Heavy 3D or high-throughput batch workstation**: 12+ core CPU, 64 GB RAM, NVIDIA RTX-class GPU with 12-24 GB VRAM.
+
 ## Installer (recommended)
 
 ### Windows

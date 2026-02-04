@@ -14,11 +14,11 @@ tab modules.
 
 The main widget (`SenoQuantWidget`) composes five tabs:
 
-- Segmentation (`src/senoquant/tabs/segmentation`)
-- Spots (`src/senoquant/tabs/spots`)
-- Quantification (`src/senoquant/tabs/quantification`)
-- Batch (`src/senoquant/tabs/batch`)
-- Settings (`src/senoquant/tabs/settings`)
+- Segmentation (`src/senoquant/tabs/segmentation`).
+- Spots (`src/senoquant/tabs/spots`).
+- Quantification (`src/senoquant/tabs/quantification`).
+- Batch (`src/senoquant/tabs/batch`).
+- Settings (`src/senoquant/tabs/settings`).
 
 Each tab follows a frontend/backend split:
 

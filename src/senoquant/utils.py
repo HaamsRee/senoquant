@@ -11,7 +11,7 @@ def layer_data_asarray(layer, *, squeeze: bool = True) -> np.ndarray:
     Parameters
     ----------
     layer : object
-        Napari layer instance providing a ``data`` attribute.
+        napari layer instance providing a ``data`` attribute.
     squeeze : bool, optional
         Whether to remove singleton dimensions.
 

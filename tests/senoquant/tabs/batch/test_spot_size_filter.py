@@ -13,9 +13,9 @@ def test_batch_config_serialization_with_spot_filters() -> None:
         output_path="/test/output",
         spots=BatchSpotsConfig(
             enabled=True,
-            detector="udwt",
+            detector="ufish",
             channels=["DAPI"],
-            settings={"ld": 1.5},
+            settings={"threshold": 0.5},
             min_size=10,
             max_size=500,
         ),
@@ -44,16 +44,15 @@ def test_batch_spots_config_with_filters() -> None:
     """Test creating BatchSpotsConfig with size filters."""
     config = BatchSpotsConfig(
         enabled=True,
-        detector="udwt",
+        detector="ufish",
         channels=["Channel 0", "Channel 1"],
-        settings={"ld": 2.0},
+        settings={"threshold": 0.5},
         min_size=5,
         max_size=100,
     )
     assert config.enabled
-    assert config.detector == "udwt"
+    assert config.detector == "ufish"
     assert config.channels == ["Channel 0", "Channel 1"]
-    assert config.settings == {"ld": 2.0}
+    assert config.settings == {"threshold": 0.5}
     assert config.min_size == 5
     assert config.max_size == 100
-

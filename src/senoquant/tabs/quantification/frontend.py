@@ -56,7 +56,7 @@ class QuantificationTab(QWidget):
     backend : QuantificationBackend or None
         Backend instance for quantification workflows.
     napari_viewer : object or None
-        Napari viewer used to populate layer dropdowns.
+        napari viewer used to populate layer dropdowns.
     """
     def __init__(
         self,
@@ -76,7 +76,7 @@ class QuantificationTab(QWidget):
         backend : QuantificationBackend or None
             Backend instance for quantification workflows.
         napari_viewer : object or None
-            Napari viewer used to populate layer dropdowns.
+            napari viewer used to populate layer dropdowns.
         show_output_section : bool, optional
             Whether to show the output configuration controls.
         show_process_button : bool, optional

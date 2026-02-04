@@ -50,7 +50,7 @@ def export_spots(
     temp_dir : Path
         Temporary directory where outputs should be written.
     viewer : object, optional
-        Napari viewer instance used to resolve layers by name and read
+        napari viewer instance used to resolve layers by name and read
         layer data. When ``None``, export is skipped.
     export_format : str, optional
         File format for exports (``"csv"`` or ``"xlsx"``). Values are
@@ -106,6 +106,13 @@ def export_spots(
         first_channel_layer = _find_layer(viewer, channel.channel, "Image")
         if first_channel_layer is not None:
             break
+    file_path = ""
+    if first_channel_layer is not None:
+        metadata = getattr(first_channel_layer, "metadata", None)
+        if isinstance(metadata, dict):
+            raw_path = metadata.get("path")
+            if raw_path:
+                file_path = str(raw_path)
 
     for index, segmentation in enumerate(data.segmentations, start=0):
         # --- Resolve the cell segmentation labels layer ---
@@ -135,6 +142,8 @@ def export_spots(
         cell_rows = _initialize_rows(
             cell_ids, cell_centroids, cell_pixel_sizes
         )
+        for row in cell_rows:
+            row["file_path"] = file_path
         
         # --- Add morphological descriptors to the cell table ---
         add_morphology_columns(cell_rows, cell_labels, cell_ids, cell_pixel_sizes)
@@ -185,6 +194,7 @@ def export_spots(
                 spot_lookup,
                 spot_table_pixel_sizes,
                 spot_roi_columns,
+                file_path,
             )
 
         # --- Apply colocalization columns (if requested) ---
@@ -208,7 +218,9 @@ def export_spots(
             outputs.append(cell_path)
         if not spot_header:
             spot_header = _spot_header(
-                cell_labels.ndim, spot_table_pixel_sizes, spot_roi_columns
+                cell_labels.ndim,
+                spot_table_pixel_sizes,
+                spot_roi_columns,
             )
         if data.export_colocalization:
             if "colocalizes_with" not in spot_header:
@@ -230,7 +242,7 @@ def _build_cell_cross_segmentation_map(
     Parameters
     ----------
     viewer : object
-        Napari viewer instance containing labels layers.
+        napari viewer instance containing labels layers.
     segmentations : sequence of object
         Segmentation configs with ``label`` attributes.
 
@@ -363,7 +375,7 @@ def _build_channel_entries(
     Parameters
     ----------
     viewer : object
-        Napari viewer instance used to resolve layers.
+        napari viewer instance used to resolve layers.
     channels : list
         Spots channel configurations (image + labels names).
     cell_shape : tuple of int
@@ -431,6 +443,7 @@ def _append_channel_exports(
     spot_lookup: dict[tuple[int, int], dict[str, object]],
     spot_table_pixel_sizes: np.ndarray | None,
     spot_roi_columns: list[tuple[str, np.ndarray]],
+    file_path: str,
 ) -> None:
     """Compute and append per-channel cell/spot metrics.
 
@@ -458,6 +471,8 @@ def _append_channel_exports(
         Pixel sizes to use for spot physical units.
     spot_roi_columns : list of tuple
         ROI masks for spot ROI membership columns.
+    file_path : str
+        Source image path copied to exported spot rows.
     """
     channel_label = entry["channel_label"]
     channel_layer = entry["channel_layer"]
@@ -526,6 +541,7 @@ def _append_channel_exports(
         channel_label,
         spot_table_pixel_sizes,
         spot_roi_columns,
+        file_path,
     )
     if spot_rows_for_channel:
         if not spot_header:
@@ -661,7 +677,7 @@ def _find_layer(viewer, name: str, layer_type: str):
     Parameters
     ----------
     viewer : object
-        Napari viewer instance containing layers.
+        napari viewer instance containing layers.
     name : str
         Layer name to locate.
     layer_type : str
@@ -778,7 +794,7 @@ def _pixel_sizes(layer, ndim: int) -> np.ndarray | None:
     Parameters
     ----------
     layer : object
-        Napari layer providing ``metadata``.
+        napari layer providing ``metadata``.
     ndim : int
         Dimensionality of the labels or image array.
 
@@ -914,7 +930,7 @@ def _add_roi_columns(
     label_ids : numpy.ndarray
         Label ids corresponding to the output rows.
     viewer : object or None
-        Napari viewer used to resolve shapes layers.
+        napari viewer used to resolve shapes layers.
     rois : sequence of ROIConfig
         ROI configuration entries to evaluate.
     label_name : str
@@ -965,7 +981,7 @@ def _shapes_layer_mask(
     Parameters
     ----------
     layer : object
-        Napari shapes layer instance.
+        napari shapes layer instance.
     shape : tuple of int
         Target mask shape matching the labels array.
 
@@ -996,7 +1012,7 @@ def _shape_masks_array(
     Parameters
     ----------
     layer : object
-        Napari shapes layer instance.
+        napari shapes layer instance.
     shape : tuple of int
         Target mask shape.
 
@@ -1107,6 +1123,7 @@ def _spot_rows(
     channel_label: str,
     pixel_sizes: np.ndarray | None,
     roi_columns: list[tuple[str, np.ndarray]],
+    file_path: str,
 ) -> list[dict[str, object]]:
     """Build per-spot rows for export.
 
@@ -1129,6 +1146,8 @@ def _spot_rows(
         centroid coordinates and area/volume are included.
     roi_columns : list of tuple
         Precomputed ROI column names and boolean masks.
+    file_path : str
+        Source image path to include on each row.
 
     Returns
     -------
@@ -1148,6 +1167,7 @@ def _spot_rows(
             "spot_id": int(spot_id),
             "cell_id": int(cell_id),
             "channel": channel_label,
+            "file_path": file_path,
         }
         for axis, value in zip(axes, centroid):
             row[f"centroid_{axis}_pixels"] = float(value)
@@ -1208,7 +1228,7 @@ def _spot_roi_columns(
     Parameters
     ----------
     viewer : object or None
-        Napari viewer instance used to resolve shapes layers.
+        napari viewer instance used to resolve shapes layers.
     rois : sequence of ROIConfig
         ROI configuration entries to evaluate.
     label_name : str
@@ -1308,7 +1328,7 @@ def _spot_header(
     """
     axes = _axis_names(ndim)
     size_key_px, size_key_um, _scale = _spot_size_keys(ndim, pixel_sizes)
-    header = ["spot_id", "cell_id", "channel"]
+    header = ["spot_id", "cell_id", "channel", "file_path"]
     header.extend([f"centroid_{axis}_pixels" for axis in axes])
     if pixel_sizes is not None and pixel_sizes.size == len(axes):
         header.extend([f"centroid_{axis}_um" for axis in axes])

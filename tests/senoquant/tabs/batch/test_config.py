@@ -177,10 +177,10 @@ def test_batch_job_config_with_spots() -> None:
     config = BatchJobConfig(
         spots=BatchSpotsConfig(
             enabled=True,
-            detector="udwt",
+            detector="ufish",
             channels=["RFP", "Cy5"],
         ),
     )
     assert config.spots.enabled is True
-    assert config.spots.detector == "udwt"
+    assert config.spots.detector == "ufish"
     assert len(config.spots.channels) == 2

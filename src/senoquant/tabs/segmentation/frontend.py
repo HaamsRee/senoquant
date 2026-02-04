@@ -69,7 +69,7 @@ class SegmentationTab(QWidget):
     backend : SegmentationBackend or None
         Backend instance used to discover and load models.
     napari_viewer : object or None
-        Napari viewer used to populate layer choices.
+        napari viewer used to populate layer choices.
     settings_backend : SettingsBackend or None
         Settings store used for preload configuration.
     """
@@ -87,7 +87,7 @@ class SegmentationTab(QWidget):
         backend : SegmentationBackend or None
             Backend instance used to discover and load models.
         napari_viewer : object or None
-            Napari viewer used to populate layer choices.
+            napari viewer used to populate layer choices.
         settings_backend : SettingsBackend or None
             Settings store used for preload configuration.
         """
@@ -889,7 +889,7 @@ class SegmentationTab(QWidget):
         Parameters
         ----------
         layer : object or None
-            Napari layer to validate.
+            napari layer to validate.
         label : str
             User-facing label for notifications.
 

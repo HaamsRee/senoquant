@@ -1,309 +1,205 @@
-# Models & Detectors
+# Models and detectors
 
-SenoQuant discovers segmentation models and spot detectors at runtime by
-scanning folders under the respective `models` directories.
+This guide is the source-of-truth for adding new segmentation models and
+spot detectors.
 
-## Segmentation Models
+Model and detector discovery are folder-based and dynamic. The UI reads
+metadata from `details.json`, and runtime code is loaded from `model.py`.
 
-### Discovery Location
+## How discovery works
+
+### Segmentation models
+
+Folder location:
 
 `src/senoquant/tabs/segmentation/models/<model_name>/`
 
-### Discovery Rules
+Discovery behavior:
 
-- The folder name becomes the model identifier
-- `details.json` is required (defines metadata, settings, and task support)
-- `model.py` is optional but recommended for custom implementations
-  - If present, the first subclass of `SenoQuantSegmentationModel` is instantiated
-  - If absent, the base wrapper is used (metadata-only)
+- `SegmentationBackend.list_model_names(task=...)` scans subfolders.
+- A model is shown for a task only if `details.json` has
+  `tasks.<task>.supported = true`.
+- Runtime class loading looks for the first subclass of
+  `SenoQuantSegmentationModel` in `model.py`.
+- If `model.py` is missing, the base class is used, but `run()` is not
+  implemented, so the model is not runnable.
 
-### Metadata Structure
+### Spot detectors
 
-`details.json` defines UI settings, task support, and display ordering:
+Folder location:
+
+`src/senoquant/tabs/spots/models/<detector_name>/`
+
+Discovery behavior:
+
+- `SpotsBackend.list_detector_names()` scans subfolders.
+- Runtime class loading looks for the first subclass of
+  `SenoQuantSpotDetector` in `model.py`.
+- If `model.py` is missing, the base class is used, but `run()` is not
+  implemented, so the detector is not runnable.
+
+## Metadata schema (`details.json`)
+
+Both segmentation and spots use a `settings` list to auto-build the UI.
+
+Supported setting types:
+
+- Use `float`.
+- Use `int`.
+- Use `bool`.
+
+Supported dependency keys:
+
+- `enabled_by`: setting key of a controlling checkbox.
+- `disabled_by`: setting key of a controlling checkbox.
+
+Notes:
+
+- In current UI code, `enabled_by` and `disabled_by` are treated as a
+  single key string.
+- `order` controls dropdown sorting (lower comes first).
+
+### Segmentation-specific fields
+
+Example:
 
 ```json
 {
-  "name": "model_name",
-  "description": "Model description for UI tooltips",
+  "name": "my_model",
+  "description": "Custom segmentation model.",
   "version": "0.1.0",
-  "order": 1,
+  "order": 30,
   "tasks": {
-    "nuclear": {
-      "supported": true
-    },
+    "nuclear": { "supported": true },
     "cytoplasmic": {
       "supported": true,
       "input_modes": ["cytoplasmic", "nuclear+cytoplasmic", "nuclear"],
       "nuclear_channel_optional": false
     }
   },
-  "settings": [
-    {
-      "key": "param_name",
-      "label": "Parameter Label",
-      "type": "float",
-      "decimals": 2,
-      "min": 0.0,
-      "max": 1.0,
-      "default": 0.5,
-      "enabled_by": "other_setting",
-      "disabled_by": "another_setting"
-    }
-  ]
+  "settings": []
 }
 ```
 
-### Current Models
+`input_modes` behavior:
 
-| Model | Type | Dimensionality | Implementation |
-| --- | --- | --- | --- |
-| `default_2d` | Nuclear | 2D | StarDist ONNX |
-| `default_3d` | Nuclear | 3D | StarDist ONNX |
-| `cpsam` | Nuclear + Cytoplasmic | 2D/3D | Cellpose SAM |
-| `nuclear_dilation` | Cytoplasmic | Any | Morphological dilation |
-| `perinuclear_rings` | Cytoplasmic | Any | Morphological erosion/dilation |
+- `["cytoplasmic"]`: cytoplasmic image only.
+- Includes `nuclear+cytoplasmic`: uses both cytoplasmic and nuclear inputs.
+- `["nuclear"]`: nuclear-only cytoplasmic model (no cytoplasmic image).
 
-### Input Modes (Cytoplasmic Models)
+### Spots-specific fields
 
-- `"cytoplasmic"` - Requires cytoplasm image only
-- `"nuclear+cytoplasmic"` - Requires both cytoplasm and nuclear images
-- `"nuclear"` - Requires nuclear mask only (no image input)
-
-### Settings Schema
-
-**Supported types:**
-- `"float"` - Floating point number with configurable precision
-- `"int"` - Integer number
-- `"bool"` - Boolean checkbox
-
-**Optional fields:**
-- `enabled_by` (str or list): Enable this setting when another setting is true
-- `disabled_by` (str or list): Disable this setting when another setting is true
-- `order` (int): Display order in UI (lower = earlier)
-
-## Spot Detectors
-
-### Discovery Location
-
-`src/senoquant/tabs/spots/models/<detector_name>/`
-
-### Discovery Rules
-
-Same pattern as segmentation models:
-- Folder name becomes detector identifier
-- `details.json` is required
-- `model.py` is optional (implements `SenoQuantSpotDetector` subclass)
-
-### Metadata Structure
+Example:
 
 ```json
 {
-  "name": "detector_name",
-  "description": "Detector description",
+  "name": "my_detector",
+  "description": "Custom spot detector.",
   "version": "0.1.0",
-  "order": 1,
-  "settings": [
-    {
-      "key": "threshold",
-      "label": "Detection Threshold",
-      "type": "float",
-      "decimals": 2,
-      "min": 0.0,
-      "max": 10.0,
-      "default": 1.0
-    }
-  ]
+  "order": 30,
+  "settings": []
 }
 ```
 
-### Current Detectors
+## Add a new segmentation model
 
-| Detector | Algorithm | Best For |
-| --- | --- | --- |
-| `udwt` | Undecimated B3-spline wavelet | Multi-scale spot detection |
-| `rmp` | Rotational morphological processing | Spot detection with rotational analysis |
+1. Create the folder:
+   `src/senoquant/tabs/segmentation/models/my_model/`.
+2. Add `details.json` with `tasks` and `settings`.
+3. Add `model.py` with a subclass of `SenoQuantSegmentationModel`.
+4. Implement `run(self, **kwargs)` and return `{"masks": <label_array>}`.
+5. Restart napari and verify the model appears in the correct task dropdown.
 
-### Settings Schema
+Minimal template:
 
-Same as segmentation models but without task-specific fields:
-- Supports `"int"`, `"float"`, `"bool"` types
-- Supports `enabled_by` and `disabled_by` conditional logic
-- Uses `order` field for sorting
+```python
+from pathlib import Path
+from senoquant.tabs.segmentation.models.base import SenoQuantSegmentationModel
+from senoquant.utils import layer_data_asarray
 
-## Implementation Guide
 
-### Creating a Segmentation Model
+class MySegmentationModel(SenoQuantSegmentationModel):
+    def __init__(self, models_root: Path | None = None) -> None:
+        super().__init__("my_model", models_root=models_root)
 
-1. **Create folder structure:**
-   ```
-   src/senoquant/tabs/segmentation/models/my_model/
-     details.json
-     model.py  (optional)
-     onnx_models/  (optional, for ONNX models)
-   ```
+    def run(self, **kwargs) -> dict:
+        task = kwargs.get("task")
+        settings = kwargs.get("settings", {}) or {}
 
-2. **Define details.json:**
-   ```json
-   {
-     "name": "my_model",
-     "description": "My custom segmentation model",
-     "version": "0.1.0",
-     "order": 10,
-     "tasks": {
-       "nuclear": {"supported": true},
-       "cytoplasmic": {"supported": false}
-     },
-     "settings": [
-       {
-         "key": "threshold",
-         "label": "Threshold",
-         "type": "float",
-         "decimals": 2,
-         "min": 0.0,
-         "max": 1.0,
-         "default": 0.5
-       }
-     ]
-   }
-   ```
+        if task == "nuclear":
+            layer = kwargs.get("layer")
+            image = layer_data_asarray(layer)
+        elif task == "cytoplasmic":
+            # Segmentation tab passes `cytoplasmic_layer`.
+            # Batch currently passes `layer` for the same input.
+            cyto_layer = kwargs.get("cytoplasmic_layer") or kwargs.get("layer")
+            nuclear_layer = kwargs.get("nuclear_layer")
+            # pick the inputs your mode requires
+            image = layer_data_asarray(cyto_layer or nuclear_layer)
+        else:
+            raise ValueError(f"Unsupported task: {task}")
 
-3. **Implement model.py (optional):**
-   ```python
-   from pathlib import Path
-   from senoquant.tabs.segmentation.models.base import SenoQuantSegmentationModel
-   
-   class MyModel(SenoQuantSegmentationModel):
-       def __init__(self, models_root: Path | None = None):
-           super().__init__("my_model", models_root=models_root)
-       
-       def run(self, **kwargs):
-           task = kwargs.get("task")
-           layer = kwargs.get("layer")
-           settings = kwargs.get("settings", {})
-           
-           # Your segmentation logic here
-           image = layer.data
-           masks = my_segmentation_function(image, settings)
-           
-           return {"masks": masks}
-   ```
-
-### Creating a Spot Detector
-
-1. **Create folder structure:**
-   ```
-   src/senoquant/tabs/spots/models/my_detector/
-     details.json
-     model.py  (optional)
-   ```
-
-2. **Define details.json:**
-   ```json
-   {
-     "name": "my_detector",
-     "description": "My custom spot detector",
-     "version": "0.1.0",
-     "order": 10,
-     "settings": [
-       {
-         "key": "sensitivity",
-         "label": "Sensitivity",
-         "type": "float",
-         "decimals": 1,
-         "min": 0.0,
-         "max": 100.0,
-         "default": 50.0
-       }
-     ]
-   }
-   ```
-
-3. **Implement model.py (optional):**
-   ```python
-   from pathlib import Path
-   from senoquant.tabs.spots.models.base import SenoQuantSpotDetector
-   
-   class MyDetector(SenoQuantSpotDetector):
-       def __init__(self, models_root: Path | None = None):
-           super().__init__("my_detector", models_root=models_root)
-       
-       def run(self, **kwargs):
-           layer = kwargs.get("layer")
-           settings = kwargs.get("settings", {})
-           
-           # Your detection logic here
-           image = layer.data
-           mask = my_detection_function(image, settings)
-           
-           return {"mask": mask}
-   ```
-
-## StarDist ONNX Conversion
-
-### Overview
-
-SenoQuant includes utilities for converting TensorFlow StarDist models to ONNX format for faster CPU inference.
-
-### Location
-
-`src/senoquant/tabs/segmentation/stardist_onnx_utils/`
-
-### Requirements
-
-- Python 3.11
-- TensorFlow 2.x
-- tf2onnx
-- protobuf >=6.33.4 (must be installed AFTER TensorFlow)
-
-### Environment Setup
-
-```bash
-conda create -n stardist-convert python=3.11
-conda activate stardist-convert
-pip install uv
-uv pip install tensorflow tf2onnx
-uv pip install --upgrade "protobuf>=6.33.4"  # Force after TF
-uv pip install -e .
+        masks = my_segmentation_function(image, settings)
+        return {"masks": masks}
 ```
 
-### Conversion CLI
+Important runtime contracts:
 
-**2D Model:**
-```bash
-python -m senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.convert.cli \
-  --dim 2 \
-  --model 2D_versatile_fluo \
-  --output ./onnx_models
+- Nuclear runs pass `task="nuclear"` and `layer=<Image>`.
+- Cytoplasmic runs pass `task="cytoplasmic"` and:
+  - Segmentation tab: `cytoplasmic_layer`, optional `nuclear_layer`.
+  - Batch path: `layer`, optional `nuclear_layer`.
+  - nuclear-only models (`input_modes == ["nuclear"]`): `nuclear_layer`.
+
+## Add a new spots detector
+
+1. Create the folder:
+   `src/senoquant/tabs/spots/models/my_detector/`.
+2. Add `details.json`.
+3. Add `model.py` with a subclass of `SenoQuantSpotDetector`.
+4. Implement `run(self, **kwargs)` and return `{"mask": <label_array>}`.
+5. Restart napari and verify detector appears in Spots dropdown.
+
+Minimal template:
+
+```python
+from pathlib import Path
+from senoquant.tabs.spots.models.base import SenoQuantSpotDetector
+from senoquant.utils import layer_data_asarray
+
+
+class MyDetector(SenoQuantSpotDetector):
+    def __init__(self, models_root: Path | None = None) -> None:
+        super().__init__("my_detector", models_root=models_root)
+
+    def run(self, **kwargs) -> dict:
+        layer = kwargs.get("layer")
+        settings = kwargs.get("settings", {}) or {}
+        image = layer_data_asarray(layer)
+        mask = my_spot_detector(image, settings)
+        return {"mask": mask}
 ```
 
-**3D Model:**
-```bash
-python -m senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.convert.cli \
-  --dim 3 \
-  --model 3D_demo \
-  --output ./onnx_models
-```
+Important runtime contracts:
 
-### Compiled Extension
+- Detector runs receive `layer` and `settings`.
+- Output layer naming and metadata are handled in `SpotsTab`, not in the
+  detector.
+- Batch also applies optional min/max spot size filtering after detector run.
 
-StarDist ONNX models use a compiled C++ extension for NMS operations:
+## Quick validation checklist
 
-**Package:** `senoquant-stardist-ext`
+- Folder name, class constructor name, and `super("<name>")` all match.
+- `details.json` is valid JSON and contains task support (segmentation).
+- `run()` returns expected keys (`masks` for segmentation, `mask` for spots).
+- Settings keys in code match settings keys in `details.json`.
+- New model/detector appears in UI and can run on a sample image.
 
-**Installation:**
-```bash
-pip install senoquant-stardist-ext
-```
+## StarDist ONNX notes
 
-**Building from source:**
-```bash
-pip install -U scikit-build-core
-pip wheel ./stardist_ext -w ./wheelhouse
-pip install ./wheelhouse/senoquant_stardist_ext-*.whl
-```
+The StarDist conversion utilities and compiled extension still live under:
 
-### Platform Notes
+- `src/senoquant/tabs/segmentation/stardist_onnx_utils/`.
+- `stardist_ext/`.
 
-- **Linux**: Recommended for ONNX conversion (stable TensorFlow builds)
-- **macOS**: May have protobuf conflicts; prefer Linux for conversion
-- **Windows**: Supported via CI-built wheels
+For packaging details, see `docs/developer/packaging.md`.

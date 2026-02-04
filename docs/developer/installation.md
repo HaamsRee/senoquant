@@ -1,8 +1,8 @@
-# Manual Installation
+# Manual installation
 
 This guide covers manual installation using conda, pip, and uv for users who prefer a command-line setup or are developing SenoQuant.
 
-> **Note:** For most users, the **[Windows installer](../user/installation.md#windows)** is recommended as it simplifies setup and ensures GPU support.
+> **Note:** For most users, the **[installers](../user/installation.md)** are recommended as they simplify setup and ensure GPU support.
 
 ## Create an environment
 
@@ -49,7 +49,7 @@ pip install senoquant
 
 ### Optional dependencies
 
-- `uv pip install senoquant[gpu]` for GPU acceleration of the RMP spot detector (requires CUDA; Windows and Linux only).
+- `uv pip install senoquant[gpu]` for optional GPU-focused extras (requires CUDA; Windows and Linux only).
 - `uv pip install senoquant[all]` for full stack.
 
 ## Launch

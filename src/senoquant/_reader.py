@@ -1,4 +1,4 @@
-"""Napari reader entrypoint for SenoQuant."""
+"""napari reader entrypoint for SenoQuant."""
 
 from __future__ import annotations
 

@@ -17,7 +17,7 @@ This directory contains scripts to build a macOS installer for SenoQuant.
 Run the build script from the repository root:
 
 ```bash
-cd /path/to/senoquant-dev
+cd /path/to/senoquant
 bash installer/macos/build_macos_installer.sh
 ```
 
@@ -64,7 +64,7 @@ When you launch SenoQuant:
    - Creates Python environment with dependencies
    - May take **5-10 minutes** depending on internet speed
    - Log shown in Terminal: `SenoQuant.app/Contents/Resources/post_install.log`
-3. **Napari opens** once setup completes
+3. **napari opens** once setup completes
 4. **Terminal remains open** while napari runs
    - Close it when you're done with SenoQuant
 5. **Subsequent launches** skip setup and open immediately

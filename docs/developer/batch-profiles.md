@@ -1,4 +1,4 @@
-# Batch Profiles
+# Batch profiles
 
 Batch profiles are JSON files representing `BatchJobConfig`. They can be
 saved and loaded from the Batch tab.
@@ -33,7 +33,7 @@ saved and loaded from the Batch tab.
   },
   "spots": {
     "enabled": false,
-    "detector": "udwt",
+    "detector": "ufish",
     "channels": ["FITC"],
     "settings": {}
   },
@@ -49,7 +49,7 @@ Notes:
 
 - `extensions` is normalized in the backend (dots added, lowercased).
 - `channel_map` drives channel pickers in the Batch UI.
-- Segmentation and spot settings are stored as raw dictionaries keyed by
+- Segmentation and spot settings are stored as dictionaries keyed by
   `details.json` setting keys.
 - `quantification.features` uses the same serialized structure as the
   Quantification tab.

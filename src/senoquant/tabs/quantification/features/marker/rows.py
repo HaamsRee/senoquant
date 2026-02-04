@@ -593,7 +593,7 @@ class MarkerChannelRow(QGroupBox):
         slider : QWidget
             Range slider widget.
         layer : object
-            Napari image layer providing intensity bounds.
+            napari image layer providing intensity bounds.
         min_spin : QDoubleSpinBox or None
             Spin box that displays the minimum threshold value.
         max_spin : QDoubleSpinBox or None
@@ -628,7 +628,7 @@ class MarkerChannelRow(QGroupBox):
         Parameters
         ----------
         layer : object
-            Napari image layer providing contrast bounds and data.
+            napari image layer providing contrast bounds and data.
 
         Returns
         -------

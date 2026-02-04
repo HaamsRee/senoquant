@@ -75,7 +75,7 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
     Returns
     -------
     iterable of tuple
-        Napari layer tuples of the form ``(data, metadata, layer_type)``.
+        napari layer tuples of the form ``(data, metadata, layer_type)``.
 
     Notes
     -----
@@ -487,7 +487,7 @@ def _iter_channel_layers(
     Returns
     -------
     list of tuple
-        Napari layer tuples for each channel.
+        napari layer tuples for each channel.
     """
     dims = getattr(image, "dims", None)
     axes_present = _axes_present(image)

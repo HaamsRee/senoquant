@@ -125,7 +125,7 @@ def test_process_folder_runs_detection(tmp_path: Path, monkeypatch) -> None:
         output_path=str(output_dir),
         nuclear_model="nuclear",
         nuclear_channel=0,
-        spot_detector="udwt",
+        spot_detector="ufish",
         spot_channels=[0],
         channel_map=[BatchChannelConfig(name="Channel 0", index=0)],
     )
@@ -134,7 +134,7 @@ def test_process_folder_runs_detection(tmp_path: Path, monkeypatch) -> None:
     assert summary.failed == 0
     outputs = summary.results[0].outputs
     assert "Channel 0_nuclear_nuc_labels" in outputs or "0_nuclear_nuc_labels" in outputs
-    assert "Channel 0_udwt_spot_labels" in outputs or "0_udwt_spot_labels" in outputs
+    assert "Channel 0_ufish_spot_labels" in outputs or "0_ufish_spot_labels" in outputs
 
 
 def test_apply_quantification_viewer_sets_viewer() -> None:
@@ -205,7 +205,7 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
         nuclear_channel=0,
         cyto_model="cyto",
         cyto_channel=0,
-        spot_detector="udwt",
+        spot_detector="ufish",
         spot_channels=[0],
         quantification_features=[types.SimpleNamespace()],
         channel_map=[BatchChannelConfig(name="Channel 0", index=0)],

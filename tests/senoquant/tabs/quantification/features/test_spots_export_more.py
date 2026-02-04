@@ -108,6 +108,7 @@ def test_append_channel_exports_no_spots() -> None:
         spot_lookup,
         None,
         [],
+        "",
     )
 
     assert "ch_1_spot_count" in cell_header
@@ -149,6 +150,7 @@ def test_append_channel_exports_warns_on_mismatch() -> None:
             spot_lookup,
             None,
             [],
+            "",
         )
 
     assert spot_rows
@@ -237,6 +239,7 @@ def test_spot_header_and_rows(tmp_path: Path) -> None:
         "Chan",
         pixel_sizes,
         roi_columns,
+        "",
     )
     assert rows[0]["spot_area_um2"] == 24.0
 

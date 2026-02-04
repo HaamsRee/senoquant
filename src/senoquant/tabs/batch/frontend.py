@@ -94,7 +94,7 @@ class BatchTab(QWidget):
         backend : BatchBackend or None, optional
             Backend instance used to execute batch runs.
         napari_viewer : object or None, optional
-            Napari viewer instance for populating layer choices.
+            napari viewer instance for populating layer choices.
         """
         super().__init__()
         self._viewer = napari_viewer

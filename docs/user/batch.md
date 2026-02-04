@@ -1,208 +1,192 @@
-# Batch Processing
+# Batch processing
 
-The Batch tab automates segmentation, spot detection, and quantification across entire folders of images.
+The Batch tab runs segmentation, spot detection, and quantification across folders of images. It's currently a bit buggy and under active development, so please report issues on [GitHub](https://github.com/HaamsRee/senoquant/issues).
 
-## Interface Overview
+## Interface overview
 
-### Input Section
-
-**Controls:**
-
-- **Input folder** (browse button): Select folder containing images
-- **Extensions** (text field): Comma-separated file extensions (e.g., `.tif, .nd2, .czi`)
-- **Include subfolders** (checkbox): Recursively process nested folders
-- **Process all scenes** (checkbox): Process every scene in multi-scene files (unchecked = first scene only)
-
-### Channel Mapping
-
-Define channel names for easier configuration throughout the batch setup.
-
-**Table Columns:**
-- **Name**: User-friendly channel name (e.g., "DAPI", "FITC")
-- **Index**: Zero-based channel number in images
-- **+ button**: Add a new channel mapping
-- **× button** (per row): Remove this channel mapping
-
-**Usage:** Channel names appear in all dropdowns below (segmentation, spots), making configuration more intuitive.
-
-### Nuclear Segmentation
+### Input section
 
 **Controls:**
 
-- **Enable** (checkbox): Turn on/off nuclear segmentation
-- **Model** (dropdown): Select nuclear segmentation model
-- **Channel** (dropdown): Select channel (uses names from channel map if defined, or indices)
-- **Settings** (button): Opens dialog to configure model parameters
+- **Input folder** (browse field): Select the folder containing input images.
+- **Extensions** (text field): Comma-separated file extensions to include.
+- **Include subfolders** (checkbox): Recursively scan nested folders.
+- **Process all scenes** (checkbox): Process all scenes in multi-scene files.
+- **Load profile** and **Save profile** (buttons): Load or save batch settings as a JSON profile.
 
-### Cytoplasmic Segmentation
+**Behavior notes:**
 
-**Controls:**
+- If the extensions field is empty, all files are considered.
+- Extensions are normalized to lowercase and a leading dot is added if missing.
+- By default, the extensions field is pre-filled with common image formats.
 
-- **Enable** (checkbox): Turn on/off cytoplasmic segmentation
-- **Model** (dropdown): Select cytoplasmic segmentation model
-- **Channel** (dropdown): Select cytoplasm channel
-- **Nuclear channel** (dropdown): Select nuclear channel (required for some models like `nuclear_dilation`, `perinuclear_rings`)
-- **Settings** (button): Opens dialog to configure model parameters
+### Channels section
 
-### Spot Detection
-
-**Controls:**
-
-- **Enable** (checkbox): Turn on/off spot detection
-- **Detector** (dropdown): Select spot detection algorithm
-- **Channels** (multi-select list): Select one or more channels for spot detection
-- **Min size** (spin box): Minimum spot size filter in pixels (0 = disabled)
-- **Max size** (spin box): Maximum spot size filter in pixels (0 = disabled)
-- **Settings** (button): Opens dialog to configure detector parameters
-
-### Quantification
-
-Embedded quantification feature configuration (simplified version of Quantification tab):
+Use channel mappings to define reusable channel names for all dropdowns in the tab.
 
 **Controls:**
 
-- **Enable** (checkbox): Turn on/off quantification
-- **Add feature** (button): Opens dialog to configure a quantification feature
-- **Feature list**: Shows configured features
-- **Format** (dropdown): Choose `csv` or `xlsx` for quantification exports
+- **Add channel** (button): Add a new channel row.
+- **Name** (text field): Channel display name (for example, `DAPI`).
+- **Index** (spin box): Zero-based channel index in the source image.
+- **Delete** (button): Remove that mapping row.
 
-**Note:** ROI controls and threshold configuration are disabled in batch mode. Thresholds must be pre-configured in the feature settings.
+**Behavior notes:**
 
-### Output Section
+- If **Name** is left blank, Batch uses the index as the name (for example, `0`).
+- Channel names from this section drive nuclear/cytoplasmic/spot channel selectors and quantification layer choices.
+
+### Segmentation section
+
+#### Nuclear segmentation controls
+
+- **Run nuclear segmentation** (checkbox): Enable or disable nuclear segmentation.
+- **Nuclear model** (dropdown): Select a nuclear model.
+- **Nuclear channel** (dropdown): Select the image channel for nuclear segmentation.
+- **Edit nuclear settings** (button): Open the model settings dialog.
+
+#### Cytoplasmic segmentation controls
+
+- **Run cytoplasmic segmentation** (checkbox): Enable or disable cytoplasmic segmentation.
+- **Cytoplasmic model** (dropdown): Select a cytoplasmic model.
+- **Cytoplasmic channel** (dropdown): Select the image channel for cytoplasmic segmentation.
+- **Nuclear channel** (dropdown): Select a nuclear channel when required by the selected model.
+- **Edit cytoplasmic settings** (button): Open the model settings dialog.
+
+**Behavior notes:**
+
+- Cytoplasmic models that support `nuclear+cytoplasmic` input enable the nuclear channel selector.
+- For models where nuclear input is optional, the label updates to `Nuclear channel (optional)` and includes `(none)` as a valid choice.
+- For models where nuclear input is required, the label updates to `Nuclear channel (required)`.
+
+### Spot detection section
 
 **Controls:**
 
-- **Output folder** (browse button): Select destination folder for results
-- **Format** (dropdown): Mask output format - `tif` (TIFF) or `npy` (NumPy array)
-- **Overwrite** (checkbox): Overwrite existing outputs (unchecked = skip existing folders)
+- **Run spot detection** (checkbox): Enable or disable spot detection.
+- **Spot detector** (dropdown): Select the spot detector.
+- **Edit spot settings** (button): Open detector settings.
+- **Minimum spot size (px)** (spin box): Minimum label size after detection (`0` means no minimum filter).
+- **Maximum spot size (px)** (spin box): Maximum label size after detection (`0` means no maximum filter).
+- **Add spot channel** (button): Add a spot channel row.
+- **Spot channel row**: Channel dropdown plus **Delete** button.
 
-### Profiles
+**Behavior notes:**
+
+- Spot size filtering is applied after detector output.
+- If spot detection is enabled, at least one spot channel must be selected before run.
+
+### Quantification section
+
+The Batch tab embeds the Quantification feature editor with batch-safe options.
 
 **Controls:**
 
-- **Save profile** (button): Save current batch configuration to JSON file
-- **Load profile** (button): Load batch configuration from JSON file
+- **Run quantification** (checkbox): Enable or disable quantification.
+- Embedded feature editor: Add and configure **Markers** or **Spots** features.
 
-**Use case:** Save commonly used configurations for repeat analyses.
+**Batch-mode differences from the Quantification tab:**
 
-### Execution
+- Output-path controls are hidden.
+- The Process button is hidden.
+- ROI configuration is disabled.
+- Threshold controls are disabled.
+- Quantification format is set in the Batch **Output** section.
+
+### Output section
 
 **Controls:**
 
-- **Run batch** (button): Start batch processing
-- **Progress bar**: Shows completion percentage
-- **Status label**: Displays current file being processed
+- **Output folder** (browse field): Destination root for batch outputs.
+- **Segmentation format** (dropdown): `tif` or `npy` for mask outputs.
+- **Quantification format** (dropdown): `xlsx` or `csv`.
+- **Overwrite existing outputs** (checkbox): Control behavior when output folders already exist.
 
-**During execution:**
-- Progress bar updates in real-time
-- Status shows: "Processing {filename}..." or "Processing {filename} (Scene: {scene_id})..."
-- UI remains responsive (processing runs in background thread)
+**Behavior notes:**
 
-## Output Structure
+- If output folder is left empty, Batch defaults to `<input_folder>/batch-output`.
+- If overwrite is off and a target output folder already exists, that item is skipped.
 
-Batch creates organized output folders:
+### Run section
 
-```
-output_folder/
-  image_name_1/
-    {channel}_{model}_nuc_labels.tif
-    {channel}_{model}_cyto_labels.tif
-    {channel}_{detector}_spot_labels.tif
-    Feature_Name/
-      segmentation_1.xlsx
-      segmentation_2_cells.xlsx
-      segmentation_2_spots.xlsx
-  image_name_2/
-    ...
-```
+**Controls:**
 
-For multi-scene files with "Process all scenes" enabled:
+- **Run batch** (button): Start batch processing.
+- **Progress bar**: Shows percent completion.
+- **Status label**: Shows current status and per-item progress text.
 
-```
-output_folder/
-  image_name/
+**Behavior notes:**
+
+- Processing runs in a background thread.
+- Progress messages include file name and scene when relevant.
+- Completion reports processed, failed, and skipped item counts.
+- You must enable at least one processing path (segmentation, spots, or quantification).
+- If spot detection is enabled, at least one spot channel is required.
+
+## Processing behavior
+
+For each discovered image file (and each scene, if scene processing is enabled), Batch runs steps in this order:
+
+1. Nuclear segmentation (if enabled).
+2. Cytoplasmic segmentation (if enabled).
+3. Spot detection (if enabled).
+4. Quantification (if enabled and features are configured).
+
+Batch continues processing remaining items even if one item fails.
+
+## Output structure
+
+### Per-image output folders
+
+Batch writes outputs under:
+
+`<output_folder>/<image_base_name>/`
+
+If **Process all scenes** is enabled:
+
+`<output_folder>/<image_base_name>/<scene_name>/`
+
+### Segmentation and spots output names
+
+- Nuclear masks: `<channel>_<model>_nuc_labels.<tif|npy>`.
+- Cytoplasmic masks: `<channel>_<model>_cyto_labels.<tif|npy>`.
+- Spot masks: `<channel>_<detector>_spot_labels.<tif|npy>`.
+
+### Quantification output layout
+
+Quantification outputs are written into feature folders inside the same per-image (or per-scene) folder:
+
+`<output_folder>/<image_or_scene>/<feature_name_sanitized>/`
+
+Within each feature folder:
+
+- Markers feature: One file per segmentation.
+- Spots feature: `<segmentation_label>_cells.<format>` and `<segmentation_label>_spots.<format>`.
+
+Feature folder names are normalized to lowercase and spaces become underscores.
+
+### Example layout
+
+```text
+batch-output/
+  sample_01/
+    dapi_default_2d_nuc_labels.tif
+    fitc_ufish_spot_labels.tif
+    if_markers/
+      dapi_default_2d_nuc_labels.xlsx
+    if_spots/
+      dapi_default_2d_nuc_labels_cells.xlsx
+      dapi_default_2d_nuc_labels_spots.xlsx
+  sample_02/
     Scene_0/
-      {channel}_{model}_nuc_labels.tif
       ...
     Scene_1/
-      {channel}_{model}_nuc_labels.tif
       ...
 ```
 
-### File Naming Conventions
+## Tips
 
-**Segmentation masks:**
-- Nuclear: `{channel}_{model}_nuc_labels.{format}`
-- Cytoplasmic: `{channel}_{model}_cyto_labels.{format}`
-
-**Spot masks:**
-- `{channel}_{detector}_spot_labels.{format}`
-
-**Quantification:**
-- Markers: `{segmentation_label}.{format}`
-- Spots: `{segmentation_label}_cells.{format}` and `{segmentation_label}_spots.{format}`
-
-**Example:**
-- `DAPI_default_2d_nuc_labels.tif` - Nuclear segmentation on DAPI channel with default_2d model
-- `FITC_udwt_spot_labels.tif` - Spot detection on FITC channel with udwt detector
-
-## Tips & Best Practices
-
-**Extension filtering:**
-- Use exact extensions including the dot: `.tif` not `tif`
-- Multiple extensions: `.tif, .tiff, .nd2, .czi`
-- Extensions are normalized (case-insensitive, dots added automatically if missing)
-
-**Channel mapping:**
-- Define meaningful names for easier configuration
-- Indices are 0-based (first channel = 0)
-- If no mapping defined, use numeric indices directly
-
-**Multi-scene processing:**
-- Enable to process all scenes separately
-- Each scene gets its own subfolder
-- Useful for multi-position experiments
-
-**Overwrite behavior:**
-- Unchecked: Skips folders that already exist (allows resuming interrupted batches)
-- Checked: Replaces all contents in existing folders
-
-**Performance:**
-- Batch processes files sequentially (one at a time)
-- Large images may require significant memory
-- Consider breaking very large batches into smaller chunks
-
-**Error handling:**
-- Failed files don't stop the entire batch
-- Check progress messages for file-specific errors
-- Successful outputs are still saved even if some files fail
-
-## Workflow Example
-
-1. **Prepare:**
-   - Open napari and load one test image
-   - Test segmentation/spot detection parameters interactively
-   - Note optimal settings
-
-2. **Configure Batch:**
-   - Set input folder and extensions
-   - Add channel mappings
-   - Enable and configure nuclear/cytoplasmic segmentation
-   - Enable and configure spot detection
-   - Add quantification features
-   - Set output folder
-
-3. **Save Profile:**
-   - Click "Save profile"
-   - Name it descriptively (e.g., "p21_senescence_analysis.json")
-
-4. **Run:**
-   - Click "Run batch"
-   - Monitor progress bar
-   - Check status messages for any errors
-
-5. **Reuse:**
-   - For future analyses, click "Load profile"
-   - Select your saved JSON file
-   - Adjust input/output paths as needed
-   - Run again
+- Keep channel mapping complete before configuring feature dropdowns.
+- Verify detector/model settings on one representative image before full batch runs.
+- Use profiles for repeat experiments and parameter reuse.
+- Leave overwrite off when resuming interrupted runs.
