@@ -17,7 +17,7 @@
       "key": "extraction_kernel_length",
       "label": "Extraction kernel length",
       "type": "int",
-      "min": 1,
+      "min": 3,
       "max": 9999,
       "default": 10
     },
