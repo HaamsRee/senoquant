@@ -50,7 +50,7 @@ Reference build targets:
 
 The **Windows installer** is the easiest and most reliable way to install SenoQuant on Windows.
 
-1. Download the **Windows installer** (`.exe`) from the [latest GitHub Release](https://github.com/senoquant/senoquant/releases).
+1. Download the **Windows installer** (`.exe`) from the [latest GitHub Release](https://github.com/HaamsRee/senoquant/releases).
 2. Run the installer and choose an install location (user profile locations like LocalAppData are recommended).
 3. After installation completes, launch **SenoQuant** from the Start Menu or the desktop icon.
 
@@ -62,7 +62,7 @@ The **Windows installer** is the easiest and most reliable way to install SenoQu
 
 The **macOS installer** provides a native PKG installer that sets up SenoQuant with all dependencies.
 
-1. Download the **macOS installer** (`.pkg`) from the [latest GitHub Release](https://github.com/senoquant/senoquant/releases).
+1. Download the **macOS installer** (`.pkg`) from the [latest GitHub Release](https://github.com/HaamsRee/senoquant/releases).
 2. Double-click the PKG file and follow the installation prompts.
 3. The app installs to `~/Applications/SenoQuant.app`.
 4. Launch **SenoQuant** from Spotlight, Launchpad, or your Applications folder.
