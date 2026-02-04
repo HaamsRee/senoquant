@@ -34,7 +34,7 @@ napari --with senoquant
 
 - Or drag-and-drop the file into the napari window.
 
-**Expected result:** Each channel appears as a separate layer in the layer list. If you're opening a multi-scene file, select the desired scene from the popup.
+**Expected result:** Each channel appears as a separate layer in the layer list. If you're opening a multi-scene file, select the desired scene(s) from the popup.
 
 ### 2. Open SenoQuant
 
