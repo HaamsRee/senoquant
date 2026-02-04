@@ -62,6 +62,12 @@ Full documentation is available at [https://haamsree.github.io/senoquant/](https
 
 See the [contributing guide](https://haamsree.github.io/senoquant/developer/contributing/) for development setup instructions.
 
+## How to cite
+
+If you use SenoQuant in your research, please cite it using the metadata in `CITATION.cff`.
+
+On GitHub, open the repository page and click `Cite this repository` in the right sidebar to copy a formatted citation.
+
 ## Acknowledgements
 
 SenoQuant builds on and integrates excellent open-source projects.

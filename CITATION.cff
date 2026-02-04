@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use SenoQuant in your research, please cite this software."
+title: "SenoQuant"
+type: software
+authors:
+  - name: "SenoQuant Contributors"
+version: "1.0.0b3"
+license: "BSD-3-Clause"
+repository-code: "https://github.com/HaamsRee/senoquant"
+url: "https://haamsree.github.io/senoquant/"
+abstract: "napari plugin for segmentation, spot detection, and spatial quantification of senescence markers in tissue imaging."
