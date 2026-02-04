@@ -169,7 +169,7 @@ COMPONENT_PLIST="${DIST_ROOT}/component.plist"
 STAGING_DIR="${DIST_ROOT}/pkg_staging"
 
 # Get version from pyproject.toml
-VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b3")
+VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b4")
 PKG_ID="org.senoquant.SenoQuant"
 
 if [ ! -d "${APP_DIR}" ]; then

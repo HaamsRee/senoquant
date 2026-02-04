@@ -51,6 +51,7 @@ nav:
       - Architecture: developer/architecture.md
       - Installers: developer/installer.md
       - Models & Detectors: developer/models.md
+      - StarDist ONNX Conversion: developer/stardist-onnx.md
       - Quantification Features: developer/quantification-features.md
       - Visualization Tab: developer/visualization.md
       - Adding Tabs: developer/adding-tabs.md

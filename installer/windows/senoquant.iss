@@ -1,5 +1,5 @@
 #define AppName "SenoQuant"
-#define AppVersion ReadIni(SourcePath + "\..\..\pyproject.toml", "project", "version", "1.0.0b3")
+#define AppVersion ReadIni(SourcePath + "\..\..\pyproject.toml", "project", "version", "1.0.0b4")
 #define AppPublisher "SenoQuant Contributors"
 #define AppExe "launch_senoquant.bat"
 #define SourceDir "..\\..\\dist\\windows-installer\\senoquant"

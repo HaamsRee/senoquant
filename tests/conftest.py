@@ -1194,16 +1194,34 @@ def _ensure_torch(force: bool = True) -> None:
         def close(self) -> None:
             return None
 
+    def _get_device(value) -> str:
+        if value is None:
+            return "cpu"
+        tagged = getattr(value, "_sq_device", None)
+        if tagged is not None:
+            return str(tagged)
+        detected = getattr(value, "device", None)
+        if detected is None:
+            return "cpu"
+        try:
+            return str(detected)
+        except Exception:
+            return "cpu"
+
     class _Tensor(np.ndarray):
         """NumPy-backed tensor stub with minimal torch-like API."""
 
         def __new__(cls, value, dtype=None, device: str | None = None):
             arr = np.asarray(value, dtype=dtype).view(cls)
-            arr.device = device or "cpu"
+            arr._sq_device = str(device) if device is not None else _get_device(value)
             return arr
 
         def __array_finalize__(self, obj):
-            self.device = getattr(obj, "device", "cpu")
+            self._sq_device = _get_device(obj)
+
+        @property
+        def device(self) -> str:
+            return getattr(self, "_sq_device", "cpu")
 
         def to(self, device=None, dtype=None, **_kwargs):
             target_device = self.device if device is None else device
@@ -1254,21 +1272,21 @@ def _ensure_torch(force: bool = True) -> None:
         base = np.asarray(value, dtype=dtype)
         target_device = device
         if target_device is None:
-            target_device = getattr(value, "device", "cpu")
+            target_device = _get_device(value)
         return _Tensor(base, device=str(target_device))
 
     def _asarray(value, dtype=None, device=None, **_kwargs):
         return _to_tensor(value, dtype=dtype, device=device)
 
     def _cat(values, dim=0):
-        device = getattr(values[0], "device", "cpu") if values else "cpu"
+        device = _get_device(values[0]) if values else "cpu"
         return _to_tensor(
             np.concatenate([np.asarray(v) for v in values], axis=dim),
             device=device,
         )
 
     def _stack(values, dim=0):
-        device = getattr(values[0], "device", "cpu") if values else "cpu"
+        device = _get_device(values[0]) if values else "cpu"
         return _to_tensor(
             np.stack([np.asarray(v) for v in values], axis=dim),
             device=device,
@@ -1280,11 +1298,11 @@ def _ensure_torch(force: bool = True) -> None:
             return np.max(arr)
         max_vals = np.max(arr, axis=dim, keepdims=keepdim)
         max_idx = np.argmax(arr, axis=dim)
-        device = getattr(values, "device", "cpu")
+        device = _get_device(values)
         return _to_tensor(max_vals, device=device), _to_tensor(max_idx, device=device)
 
     def _identity_op(value, *_args, **_kwargs):
-        return _to_tensor(value, device=getattr(value, "device", "cpu"))
+        return _to_tensor(value, device=_get_device(value))
 
     def _pad(value, pad, mode="constant", **_kwargs):
         arr = np.asarray(value)
@@ -1295,10 +1313,10 @@ def _ensure_torch(force: bool = True) -> None:
             left, right = pad
             pad_width = [(0, 0)] * (arr.ndim - 1) + [(left, right)]
         else:
-            return _to_tensor(arr, device=getattr(value, "device", "cpu"))
+            return _to_tensor(arr, device=_get_device(value))
         np_mode = "reflect" if mode == "reflect" else "constant"
         padded = np.pad(arr, pad_width, mode=np_mode)
-        return _to_tensor(padded, device=getattr(value, "device", "cpu"))
+        return _to_tensor(padded, device=_get_device(value))
 
     torch.Tensor = _Tensor
     torch.float = np.float32
@@ -1327,11 +1345,11 @@ def _ensure_torch(force: bool = True) -> None:
     )
     torch.zeros_like = lambda value, **_kwargs: _to_tensor(
         np.zeros_like(np.asarray(value)),
-        device=_kwargs.get("device", getattr(value, "device", "cpu")),
+        device=_kwargs.get("device", _get_device(value)),
     )
     torch.ones_like = lambda value, **_kwargs: _to_tensor(
         np.ones_like(np.asarray(value)),
-        device=_kwargs.get("device", getattr(value, "device", "cpu")),
+        device=_kwargs.get("device", _get_device(value)),
     )
     torch.cat = _cat
     torch.stack = _stack
@@ -1348,11 +1366,11 @@ def _ensure_torch(force: bool = True) -> None:
     )
     torch.sqrt = lambda value: _to_tensor(
         np.sqrt(np.asarray(value)),
-        device=getattr(value, "device", "cpu"),
+        device=_get_device(value),
     )
     torch.flatten = lambda value: _to_tensor(
         np.ravel(np.asarray(value)),
-        device=getattr(value, "device", "cpu"),
+        device=_get_device(value),
     )
     torch.no_grad = lambda: _NoGrad()
     torch.load = lambda *_args, **_kwargs: {}
