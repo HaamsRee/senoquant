@@ -65,7 +65,6 @@ dependencies = [
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
   "matplotlib>=3.8",
-  "pandas>=2.0",
   "umap-learn>=0.5",
 ]
 
