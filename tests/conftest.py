@@ -937,6 +937,232 @@ def _ensure_cellpose(force: bool = True) -> None:
     sys.modules["cellpose.models"] = models
 
 
+def _ensure_torch(force: bool = True) -> None:
+    """Provide a lightweight torch stub."""
+    if not force:
+        try:
+            import torch  # noqa: F401
+            return
+        except Exception:
+            pass
+
+    torch = types.ModuleType("torch")
+    nn = types.ModuleType("torch.nn")
+    functional = types.ModuleType("torch.nn.functional")
+    onnx = types.ModuleType("torch.onnx")
+    optim = types.ModuleType("torch.optim")
+    utils = types.ModuleType("torch.utils")
+    tensorboard = types.ModuleType("torch.utils.tensorboard")
+    data = types.ModuleType("torch.utils.data")
+
+    def _shape_args(*shape):
+        if len(shape) == 1 and isinstance(shape[0], tuple):
+            return shape[0]
+        return shape
+
+    class _NoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, *_args) -> bool:
+            return False
+
+    class _Module:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.training = True
+
+        def __call__(self, *args, **kwargs):
+            return self.forward(*args, **kwargs)
+
+        def forward(self, *args, **_kwargs):
+            return args[0] if args else None
+
+        def parameters(self) -> list:
+            return []
+
+        def cuda(self, *_args, **_kwargs):
+            return self
+
+        def to(self, *_args, **_kwargs):
+            return self
+
+        def eval(self):
+            self.training = False
+            return self
+
+        def train(self, mode: bool = True):
+            self.training = bool(mode)
+            return self
+
+        def load_state_dict(self, *_args, **_kwargs) -> None:
+            return None
+
+        def state_dict(self) -> dict:
+            return {}
+
+    class _Identity(_Module):
+        pass
+
+    class _Sequential(_Module):
+        def __init__(self, *modules) -> None:
+            super().__init__()
+            self._modules = modules
+
+        def forward(self, x, *_args, **_kwargs):
+            out = x
+            for module in self._modules:
+                out = module(out)
+            return out
+
+    class _ModuleList(list):
+        pass
+
+    class _Optimizer:
+        def __init__(self, *_args, **_kwargs) -> None:
+            return None
+
+        def zero_grad(self) -> None:
+            return None
+
+        def step(self) -> None:
+            return None
+
+    class _DataLoader(list):
+        pass
+
+    class _SummaryWriter:
+        def __init__(self, *_args, **_kwargs) -> None:
+            return None
+
+        def add_scalar(self, *_args, **_kwargs) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    def _asarray(value, dtype=None):
+        arr = np.asarray(value)
+        if dtype is not None:
+            arr = arr.astype(dtype)
+        return arr
+
+    def _cat(values, dim=0):
+        return np.concatenate([np.asarray(v) for v in values], axis=dim)
+
+    def _stack(values, dim=0):
+        return np.stack([np.asarray(v) for v in values], axis=dim)
+
+    def _max(values, dim=None, keepdim=False):
+        arr = np.asarray(values)
+        if dim is None:
+            return np.max(arr)
+        max_vals = np.max(arr, axis=dim, keepdims=keepdim)
+        max_idx = np.argmax(arr, axis=dim)
+        return max_vals, max_idx
+
+    def _identity_op(value, *_args, **_kwargs):
+        return np.asarray(value)
+
+    torch.Tensor = np.ndarray
+    torch.float = np.float32
+    torch.float32 = np.float32
+    torch.device = lambda value: value
+    torch.as_tensor = _asarray
+    torch.tensor = _asarray
+    torch.from_numpy = lambda value: np.asarray(value)
+    torch.rand = lambda *shape, **_kwargs: np.random.rand(
+        *_shape_args(*shape)
+    ).astype(np.float32)
+    torch.zeros = lambda *shape, **_kwargs: np.zeros(
+        _shape_args(*shape),
+        dtype=np.float32,
+    )
+    torch.ones = lambda *shape, **_kwargs: np.ones(
+        _shape_args(*shape),
+        dtype=np.float32,
+    )
+    torch.zeros_like = lambda value, **_kwargs: np.zeros_like(np.asarray(value))
+    torch.ones_like = lambda value, **_kwargs: np.ones_like(np.asarray(value))
+    torch.cat = _cat
+    torch.stack = _stack
+    torch.mean = lambda value, dim=None, keepdim=False: np.mean(
+        np.asarray(value),
+        axis=dim,
+        keepdims=keepdim,
+    )
+    torch.max = _max
+    torch.sum = lambda value, *args, **kwargs: np.sum(
+        np.asarray(value),
+        *args,
+        **kwargs,
+    )
+    torch.sqrt = lambda value: np.sqrt(np.asarray(value))
+    torch.flatten = lambda value: np.ravel(np.asarray(value))
+    torch.no_grad = lambda: _NoGrad()
+    torch.load = lambda *_args, **_kwargs: {}
+    torch.save = lambda *_args, **_kwargs: None
+    torch.set_grad_enabled = lambda *_args, **_kwargs: None
+    torch.cuda = types.SimpleNamespace(is_available=lambda: False)
+    torch.backends = types.SimpleNamespace(
+        mps=types.SimpleNamespace(is_available=lambda: False)
+    )
+    torch.hub = types.SimpleNamespace(download_url_to_file=lambda *_a, **_k: None)
+    torch.jit = types.SimpleNamespace(trace=lambda model, *_a, **_k: model)
+
+    onnx.export = lambda *_args, **_kwargs: None
+    torch.onnx = onnx
+
+    nn.Module = _Module
+    nn.Sequential = _Sequential
+    nn.ModuleList = _ModuleList
+    nn.Identity = _Identity
+    nn.Conv2d = _Identity
+    nn.BatchNorm2d = _Identity
+    nn.ReLU = _Identity
+    nn.MaxPool2d = _Identity
+    nn.Upsample = _Identity
+    nn.Sigmoid = _Identity
+    nn.AdaptiveAvgPool2d = _Identity
+    nn.AdaptiveMaxPool2d = _Identity
+    nn.Linear = _Identity
+
+    def _nn_getattr(_name: str):
+        return _Identity
+
+    nn.__getattr__ = _nn_getattr
+    nn.functional = functional
+
+    functional.pad = _identity_op
+    functional.interpolate = _identity_op
+    functional.max_pool2d = _identity_op
+    functional.grid_sample = _identity_op
+    functional.relu = lambda value, *_a, **_k: np.maximum(np.asarray(value), 0)
+    functional.sigmoid = lambda value: 1.0 / (1.0 + np.exp(-np.asarray(value)))
+    functional.softmax = lambda value, *_a, **_k: np.asarray(value)
+    functional.__getattr__ = lambda _name: _identity_op
+
+    optim.Optimizer = _Optimizer
+    optim.Adam = _Optimizer
+
+    tensorboard.SummaryWriter = _SummaryWriter
+    data.DataLoader = _DataLoader
+    utils.tensorboard = tensorboard
+    utils.data = data
+
+    torch.nn = nn
+    torch.optim = optim
+    torch.utils = utils
+
+    sys.modules["torch"] = torch
+    sys.modules["torch.nn"] = nn
+    sys.modules["torch.nn.functional"] = functional
+    sys.modules["torch.onnx"] = onnx
+    sys.modules["torch.optim"] = optim
+    sys.modules["torch.utils"] = utils
+    sys.modules["torch.utils.tensorboard"] = tensorboard
+    sys.modules["torch.utils.data"] = data
+
+
 class DummyLayerList:
     """List-like container emulating napari layer list."""
 
@@ -993,6 +1219,7 @@ _ensure_qtpy(force=True)
 _ensure_superqt(force=True)
 _ensure_onnxruntime(force=True)
 _ensure_cellpose(force=True)
+_ensure_torch(force=True)
 
 
 def _ensure_cupy_stub() -> None:
