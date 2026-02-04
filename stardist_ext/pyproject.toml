@@ -4,12 +4,12 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "senoquant-stardist-ext"
-version = "0.1.0"
+version = "0.1.1"
 description = "Prebuilt StarDist C/C++ extensions for SenoQuant"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
-authors = [{ name = "SenoQuant Team" }]
+authors = [{ name = "SenoQuant Contributors" }]
 keywords = ["napari", "stardist", "segmentation", "image-processing", "native-extensions"]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -26,9 +26,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/HaamsRee/senoquant-dev"
-Repository = "https://github.com/HaamsRee/senoquant-dev"
-Issues = "https://github.com/HaamsRee/senoquant-dev/issues"
+Homepage = "https://github.com/HaamsRee/senoquant"
+Repository = "https://github.com/HaamsRee/senoquant"
+Issues = "https://github.com/HaamsRee/senoquant/issues"
 
 [tool.scikit-build]
 cmake.minimum-version = "3.18"

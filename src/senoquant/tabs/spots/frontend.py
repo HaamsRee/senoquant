@@ -118,7 +118,7 @@ class SpotsTab(QWidget):
     backend : SpotsBackend or None
         Backend instance used to discover and load detectors.
     napari_viewer : object or None
-        Napari viewer used to populate layer choices.
+        napari viewer used to populate layer choices.
     """
 
     def __init__(
@@ -491,11 +491,15 @@ class SpotsTab(QWidget):
         detector = self._backend.get_detector(detector_name)
         layer = self._get_layer_by_name(self._layer_combo.currentText())
         settings = self._collect_settings()
+
+        def run_detector() -> dict:
+            return detector.run(layer=layer, settings=settings)
+
         self._start_background_run(
             run_button=self._run_button,
             run_text="Run",
             detector_name=detector_name,
-            run_callable=lambda: detector.run(layer=layer, settings=settings),
+            run_callable=run_detector,
             on_success=lambda result: self._handle_run_result(
                 layer, detector_name, result
             ),
@@ -653,8 +657,41 @@ class SpotsTab(QWidget):
         if self._viewer is None or source_layer is None:
             return
         name = self._spot_label_name(source_layer, detector_name)
-        self._viewer.add_labels(mask, name=name)
-        labels_layer = self._viewer.layers[name]
+        source_metadata = getattr(source_layer, "metadata", {})
+        merged_metadata: dict[str, object] = {}
+        if isinstance(source_metadata, dict):
+            merged_metadata.update(source_metadata)
+        merged_metadata["task"] = "spots"
+
+        labels_layer = None
+        if Labels is not None and hasattr(self._viewer, "add_layer"):
+            # Add a fully configured Labels layer object to avoid name-based lookup.
+            labels_layer = Labels(
+                mask,
+                name=name,
+                metadata=merged_metadata,
+            )
+            added_layer = self._viewer.add_layer(labels_layer)
+            if added_layer is not None:
+                labels_layer = added_layer
+        elif hasattr(self._viewer, "add_labels"):
+            try:
+                labels_layer = self._viewer.add_labels(
+                    mask,
+                    name=name,
+                    metadata=merged_metadata,
+                )
+            except TypeError:
+                labels_layer = self._viewer.add_labels(mask, name=name)
+
+        if labels_layer is None:
+            return
+
+        layer_metadata = getattr(labels_layer, "metadata", {})
+        if isinstance(layer_metadata, dict):
+            merged_metadata.update(layer_metadata)
+        merged_metadata["task"] = "spots"
+        labels_layer.metadata = merged_metadata
         labels_layer.contour = 1
 
     def _apply_size_filter(self, mask: np.ndarray) -> np.ndarray:
@@ -722,7 +759,7 @@ class SpotsTab(QWidget):
         Parameters
         ----------
         layer : object or None
-            Napari layer to validate.
+            napari layer to validate.
         label : str
             User-facing label for notifications.
 

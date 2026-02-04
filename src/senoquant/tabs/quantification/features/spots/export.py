@@ -50,7 +50,7 @@ def export_spots(
     temp_dir : Path
         Temporary directory where outputs should be written.
     viewer : object, optional
-        Napari viewer instance used to resolve layers by name and read
+        napari viewer instance used to resolve layers by name and read
         layer data. When ``None``, export is skipped.
     export_format : str, optional
         File format for exports (``"csv"`` or ``"xlsx"``). Values are
@@ -98,12 +98,21 @@ def export_spots(
     if not data.segmentations or not channels:
         return []
 
+    cross_map = _build_cell_cross_segmentation_map(viewer, data.segmentations)
+
     # --- Resolve a reference channel for physical pixel sizes ---
     first_channel_layer = None
     for channel in channels:
         first_channel_layer = _find_layer(viewer, channel.channel, "Image")
         if first_channel_layer is not None:
             break
+    file_path = ""
+    if first_channel_layer is not None:
+        metadata = getattr(first_channel_layer, "metadata", None)
+        if isinstance(metadata, dict):
+            raw_path = metadata.get("path")
+            if raw_path:
+                file_path = str(raw_path)
 
     for index, segmentation in enumerate(data.segmentations, start=0):
         # --- Resolve the cell segmentation labels layer ---
@@ -133,6 +142,8 @@ def export_spots(
         cell_rows = _initialize_rows(
             cell_ids, cell_centroids, cell_pixel_sizes
         )
+        for row in cell_rows:
+            row["file_path"] = file_path
         
         # --- Add morphological descriptors to the cell table ---
         add_morphology_columns(cell_rows, cell_labels, cell_ids, cell_pixel_sizes)
@@ -145,6 +156,7 @@ def export_spots(
             data.rois,
             label_name,
         )
+        _add_cross_reference_column(cell_rows, label_name, cell_ids, cross_map)
         cell_header = list(cell_rows[0].keys()) if cell_rows else []
 
         # --- Prepare containers and ROI masks for the spots table ---
@@ -182,6 +194,7 @@ def export_spots(
                 spot_lookup,
                 spot_table_pixel_sizes,
                 spot_roi_columns,
+                file_path,
             )
 
         # --- Apply colocalization columns (if requested) ---
@@ -205,7 +218,9 @@ def export_spots(
             outputs.append(cell_path)
         if not spot_header:
             spot_header = _spot_header(
-                cell_labels.ndim, spot_table_pixel_sizes, spot_roi_columns
+                cell_labels.ndim,
+                spot_table_pixel_sizes,
+                spot_roi_columns,
             )
         if data.export_colocalization:
             if "colocalizes_with" not in spot_header:
@@ -219,6 +234,136 @@ def export_spots(
     return outputs
 
 
+def _build_cell_cross_segmentation_map(
+    viewer: object, segmentations: Sequence[object]
+) -> dict[tuple[str, int], list[tuple[str, int]]]:
+    """Build overlap mapping for configured cell segmentations.
+
+    Parameters
+    ----------
+    viewer : object
+        napari viewer instance containing labels layers.
+    segmentations : sequence of object
+        Segmentation configs with ``label`` attributes.
+
+    Returns
+    -------
+    dict
+        Mapping from ``(segmentation_name, label_id)`` to overlapping
+        ``(other_segmentation_name, other_label_id)`` entries.
+    """
+    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for segmentation in segmentations:
+        label_name = str(getattr(segmentation, "label", "")).strip()
+        if not label_name:
+            continue
+        labels_layer = _find_layer(viewer, label_name, "Labels")
+        if labels_layer is None:
+            continue
+        labels = layer_data_asarray(labels_layer)
+        if labels.size == 0:
+            continue
+        label_ids, _centroids = _compute_centroids(labels)
+        if label_ids.size == 0:
+            continue
+        all_segmentations[label_name] = (labels, label_ids)
+    return _build_cross_segmentation_map(all_segmentations)
+
+
+def _build_cross_segmentation_map(
+    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]]
+) -> dict[tuple[str, int], list[tuple[str, int]]]:
+    """Build bidirectional overlap mapping across segmentations.
+
+    Parameters
+    ----------
+    all_segmentations : dict
+        Mapping from segmentation name to ``(labels, label_ids)`` tuples.
+
+    Returns
+    -------
+    dict
+        Mapping from ``(seg_name, label_id)`` to list of overlapping
+        ``(other_seg_name, other_label_id)`` tuples.
+    """
+    cross_map: dict[tuple[str, int], list[tuple[str, int]]] = {}
+    valid_ids: dict[str, set[int]] = {}
+
+    for seg_name, (_labels, label_ids) in all_segmentations.items():
+        ids = {int(label_id) for label_id in np.asarray(label_ids, dtype=int)}
+        valid_ids[seg_name] = ids
+        for label_id in ids:
+            cross_map[(seg_name, label_id)] = []
+
+    seg_names = list(all_segmentations.keys())
+    for idx_a, seg_name_a in enumerate(seg_names):
+        labels_a, _label_ids_a = all_segmentations[seg_name_a]
+        for seg_name_b in seg_names[idx_a + 1 :]:
+            labels_b, _label_ids_b = all_segmentations[seg_name_b]
+            if labels_a.shape != labels_b.shape:
+                warnings.warn(
+                    "Spots export: segmentation shape mismatch for "
+                    f"'{seg_name_a}' vs '{seg_name_b}'. "
+                    "Skipping cross-segmentation overlap mapping for this pair.",
+                    RuntimeWarning,
+                )
+                continue
+
+            mask = (labels_a > 0) & (labels_b > 0)
+            if not np.any(mask):
+                continue
+
+            overlap_pairs = np.column_stack((labels_a[mask], labels_b[mask]))
+            unique_pairs = np.unique(overlap_pairs, axis=0)
+            for label_id_a, label_id_b in unique_pairs:
+                id_a = int(label_id_a)
+                id_b = int(label_id_b)
+                if (
+                    id_a not in valid_ids[seg_name_a]
+                    or id_b not in valid_ids[seg_name_b]
+                ):
+                    continue
+                cross_map[(seg_name_a, id_a)].append((seg_name_b, id_b))
+                cross_map[(seg_name_b, id_b)].append((seg_name_a, id_a))
+
+    return cross_map
+
+
+def _add_cross_reference_column(
+    rows: list[dict[str, object]],
+    segmentation_name: str,
+    label_ids: np.ndarray,
+    cross_map: dict[tuple[str, int], list[tuple[str, int]]],
+) -> str:
+    """Add cross-segmentation overlap references to cell rows.
+
+    Parameters
+    ----------
+    rows : list of dict
+        Cell table rows to update in-place.
+    segmentation_name : str
+        Name of the segmentation being exported.
+    label_ids : numpy.ndarray
+        Cell label ids corresponding to ``rows``.
+    cross_map : dict
+        Overlap mapping from :func:`_build_cross_segmentation_map`.
+
+    Returns
+    -------
+    str
+        Name of the added column (``"overlaps_with"``).
+    """
+    for row, label_id in zip(rows, label_ids):
+        overlaps = cross_map.get((segmentation_name, int(label_id)), [])
+        if overlaps:
+            row["overlaps_with"] = ";".join(
+                f"{seg_name}_{other_id}" for seg_name, other_id in overlaps
+            )
+        else:
+            row["overlaps_with"] = ""
+    return "overlaps_with"
+
+
 def _build_channel_entries(
     viewer: object,
     channels: list,
@@ -230,7 +375,7 @@ def _build_channel_entries(
     Parameters
     ----------
     viewer : object
-        Napari viewer instance used to resolve layers.
+        napari viewer instance used to resolve layers.
     channels : list
         Spots channel configurations (image + labels names).
     cell_shape : tuple of int
@@ -298,6 +443,7 @@ def _append_channel_exports(
     spot_lookup: dict[tuple[int, int], dict[str, object]],
     spot_table_pixel_sizes: np.ndarray | None,
     spot_roi_columns: list[tuple[str, np.ndarray]],
+    file_path: str,
 ) -> None:
     """Compute and append per-channel cell/spot metrics.
 
@@ -325,6 +471,8 @@ def _append_channel_exports(
         Pixel sizes to use for spot physical units.
     spot_roi_columns : list of tuple
         ROI masks for spot ROI membership columns.
+    file_path : str
+        Source image path copied to exported spot rows.
     """
     channel_label = entry["channel_label"]
     channel_layer = entry["channel_layer"]
@@ -393,6 +541,7 @@ def _append_channel_exports(
         channel_label,
         spot_table_pixel_sizes,
         spot_roi_columns,
+        file_path,
     )
     if spot_rows_for_channel:
         if not spot_header:
@@ -528,7 +677,7 @@ def _find_layer(viewer, name: str, layer_type: str):
     Parameters
     ----------
     viewer : object
-        Napari viewer instance containing layers.
+        napari viewer instance containing layers.
     name : str
         Layer name to locate.
     layer_type : str
@@ -645,7 +794,7 @@ def _pixel_sizes(layer, ndim: int) -> np.ndarray | None:
     Parameters
     ----------
     layer : object
-        Napari layer providing ``metadata``.
+        napari layer providing ``metadata``.
     ndim : int
         Dimensionality of the labels or image array.
 
@@ -781,7 +930,7 @@ def _add_roi_columns(
     label_ids : numpy.ndarray
         Label ids corresponding to the output rows.
     viewer : object or None
-        Napari viewer used to resolve shapes layers.
+        napari viewer used to resolve shapes layers.
     rois : sequence of ROIConfig
         ROI configuration entries to evaluate.
     label_name : str
@@ -832,7 +981,7 @@ def _shapes_layer_mask(
     Parameters
     ----------
     layer : object
-        Napari shapes layer instance.
+        napari shapes layer instance.
     shape : tuple of int
         Target mask shape matching the labels array.
 
@@ -863,7 +1012,7 @@ def _shape_masks_array(
     Parameters
     ----------
     layer : object
-        Napari shapes layer instance.
+        napari shapes layer instance.
     shape : tuple of int
         Target mask shape.
 
@@ -974,6 +1123,7 @@ def _spot_rows(
     channel_label: str,
     pixel_sizes: np.ndarray | None,
     roi_columns: list[tuple[str, np.ndarray]],
+    file_path: str,
 ) -> list[dict[str, object]]:
     """Build per-spot rows for export.
 
@@ -996,6 +1146,8 @@ def _spot_rows(
         centroid coordinates and area/volume are included.
     roi_columns : list of tuple
         Precomputed ROI column names and boolean masks.
+    file_path : str
+        Source image path to include on each row.
 
     Returns
     -------
@@ -1015,6 +1167,7 @@ def _spot_rows(
             "spot_id": int(spot_id),
             "cell_id": int(cell_id),
             "channel": channel_label,
+            "file_path": file_path,
         }
         for axis, value in zip(axes, centroid):
             row[f"centroid_{axis}_pixels"] = float(value)
@@ -1075,7 +1228,7 @@ def _spot_roi_columns(
     Parameters
     ----------
     viewer : object or None
-        Napari viewer instance used to resolve shapes layers.
+        napari viewer instance used to resolve shapes layers.
     rois : sequence of ROIConfig
         ROI configuration entries to evaluate.
     label_name : str
@@ -1175,7 +1328,7 @@ def _spot_header(
     """
     axes = _axis_names(ndim)
     size_key_px, size_key_um, _scale = _spot_size_keys(ndim, pixel_sizes)
-    header = ["spot_id", "cell_id", "channel"]
+    header = ["spot_id", "cell_id", "channel", "file_path"]
     header.extend([f"centroid_{axis}_pixels" for axis in axes])
     if pixel_sizes is not None and pixel_sizes.size == len(axes):
         header.extend([f"centroid_{axis}_um" for axis in axes])

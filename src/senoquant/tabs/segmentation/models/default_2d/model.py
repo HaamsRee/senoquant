@@ -237,7 +237,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         Parameters
         ----------
         layer : object or None
-            Napari layer to convert.
+            napari layer to convert.
         required : bool
             Whether a missing layer should raise an error.
 
@@ -327,7 +327,17 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         ndim = image.ndim
         div_by = self._div_by_cache.get(model_path)
         if div_by is None:
-            div_by = (16,) * ndim
+            try:
+                from senoquant.tabs.segmentation.stardist_onnx_utils.onnx_framework.inspect import (
+                    infer_div_by,
+                )
+            except Exception:
+                div_by = (16,) * ndim
+            else:
+                try:
+                    div_by = infer_div_by(model_path, ndim=ndim)
+                except Exception:
+                    div_by = (16,) * ndim
             self._div_by_cache[model_path] = div_by
 
         overlap = self._overlap_cache.get(model_path)
@@ -379,8 +389,9 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
 
             tile_shape = snap_shape(tile_shape, patterns)
         tile_shape = tuple(
-            max(16, (ts // 16) * 16)
-            for ts in tile_shape
+            max(int(div), (int(ts) // int(div)) * int(div))
+            if int(div) > 0 else int(ts)
+            for ts, div in zip(tile_shape, div_by)
         )
         overlap = tuple(
             max(0, min(int(ov), max(0, ts - 1)))

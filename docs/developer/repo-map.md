@@ -1,20 +1,26 @@
-# Repo Map
+# Repo map
 
 High-level layout of the repository:
 
-- `src/senoquant/` - Python package root.
-  - `_widget.py` - main napari widget.
-  - `_reader.py` - napari reader entrypoint.
-  - `napari.yaml` - plugin declaration.
-  - `reader/` - BioIO-based reader implementation.
-  - `tabs/` - UI tabs (segmentation, spots, quantification, batch, settings).
+- `src/senoquant/` - package root.
+  - `_widget.py` - main tabbed napari widget (`SenoQuantWidget`).
+  - `_reader.py` + `reader/` - BioIO-backed napari reader pipeline.
+  - `napari.yaml` - plugin command/widget/reader registration.
+  - `tabs/` - plugin tabs:
+    - `segmentation/`.
+    - `spots/`.
+    - `quantification/`.
+    - `batch/`.
+    - `settings/`.
+- `tests/` - pytest suite (tab UIs, backends, exports, reader, model helpers).
+- `docs/` - MkDocs content (`user/`, `developer/`, `api/`).
 - `stardist_ext/` - compiled StarDist extension source.
-- `tests/` - tests (currently empty).
-- `wheelhouse/` - local wheel output for the extension build.
-- `res/` - resource assets (if present).
+- `wheelhouse/` - local wheel artifacts (optional, build output).
+- `res/` - extra resources (optional).
 
-Tab subdirectories follow a consistent structure:
+Common tab layout:
 
-- `frontend.py` - Qt UI widgets and event handling.
-- `backend.py` - processing logic and discovery.
-- `models/` - model or detector implementations plus metadata.
+- `frontend.py` - Qt widgets and UI event handling.
+- `backend.py` - pure logic, discovery, and processing orchestration.
+- `models/` (where applicable) - model/detector folders with `details.json`
+  and optional `model.py`.

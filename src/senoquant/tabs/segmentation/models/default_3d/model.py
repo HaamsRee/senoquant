@@ -243,7 +243,7 @@ class StarDistOnnxModel(SenoQuantSegmentationModel):
         Parameters
         ----------
         layer : object or None
-            Napari layer to convert.
+            napari layer to convert.
         required : bool
             Whether a missing layer should raise an error.
 

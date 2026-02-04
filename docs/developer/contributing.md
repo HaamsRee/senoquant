@@ -1,10 +1,10 @@
 # Contributing
 
-Thank you for your interest in contributing to SenoQuant! This guide will help you set up your development environment and understand the project workflow.
+Thank you for your interest in contributing to SenoQuant. This guide helps you set up a development environment and follow the project workflow.
 
-## Development Setup
+## Development setup
 
-### Environment Creation
+### Environment creation
 
 ```bash
 conda create -n senoquant-dev python=3.11
@@ -14,74 +14,76 @@ uv pip install "napari[all]"
 uv pip install -e .
 ```
 
-### Verify Installation
+### Verify installation
 
-Launch napari and open the plugin from the `Plugins` menu:
+Launch napari and open the plugin from the `Plugins` menu.
 
 ```bash
 napari
 ```
 
-Select `Plugins` → `SenoQuant` to verify the plugin loads correctly.
+Select `Plugins` -> `SenoQuant` to verify the plugin loads correctly.
 
 ## Testing
 
-### Running Tests
+### Running tests
 
-The project uses `pytest` with an 80% coverage requirement:
+The project uses `pytest` with an 80% coverage requirement.
 
 ```bash
 conda activate senoquant-dev
 pytest
 ```
 
-### Test Configuration
+### Test configuration
 
-- **Config file**: `pytest.ini` specifies coverage thresholds and test discovery
-- **Fixtures**: `tests/conftest.py` provides stubs for headless GUI dependencies (DummySignal, mock napari layers)
-- **Coverage**: Tests require ≥80% line coverage to pass
+- **Config file**: `pytest.ini` specifies coverage thresholds and test discovery.
+- **Fixtures**: `tests/conftest.py` provides stubs for headless GUI dependencies (DummySignal and mock napari layers).
+- **Coverage**: Tests require >=80% line coverage to pass.
 
-### Writing Tests
+### Writing tests
 
 When adding new functionality:
 
-1. **Create test modules** in the corresponding `tests/` subdirectory
-2. **Use fixtures** from `conftest.py` for napari layer mocks
-3. **Leverage `tmp_path`** for isolated file operations
-4. **Mock external dependencies** (BioIO, Qt signals) where appropriate
+1. **Create test modules** in the corresponding `tests/` subdirectory.
+2. **Use fixtures** from `conftest.py` for napari layer mocks.
+3. **Leverage `tmp_path`** for isolated file operations.
+4. **Mock external dependencies** (BioIO and Qt signals) where appropriate.
 
 Example test structure:
+
 ```python
 def test_new_feature(tmp_path):
-    # Arrange
+    # Arrange.
     test_file = tmp_path / "test.tif"
     test_file.write_bytes(b"fake data")
-    
-    # Act
+
+    # Act.
     result = my_function(test_file)
-    
-    # Assert
+
+    # Assert.
     assert result is not None
 ```
 
-### Headless Testing
+### Headless testing
 
-Tests run without a display server:
-- Qt dependencies are stubbed in `conftest.py`
-- Avoid importing GUI modules at top level in test files
-- Use `pytest-qt` plugin for Qt-specific testing if needed
+Tests run without a display server.
+
+- Qt dependencies are stubbed in `conftest.py`.
+- Avoid importing GUI modules at top level in test files.
+- Use `pytest-qt` for Qt-specific testing when needed.
 
 ## Documentation
 
-### Building Documentation Locally
+### Building documentation locally
 
-Install documentation dependencies:
+Install documentation dependencies.
 
 ```bash
 pip install mkdocs mkdocs-material mkdocstrings[python]
 ```
 
-Serve documentation locally for live preview:
+Serve documentation locally for live preview.
 
 ```bash
 mkdocs serve
@@ -89,135 +91,142 @@ mkdocs serve
 
 Visit `http://127.0.0.1:8000` to view the docs.
 
-Build static site:
+Build the static site.
 
 ```bash
 mkdocs build
 ```
 
-### Documentation Structure
+### Documentation structure
 
-- **User Guide** (`docs/user/`): End-user documentation for each plugin tab
-- **Developer Guide** (`docs/developer/`): Architecture, models, features, and contribution info
-- **API Reference** (`docs/api/`): Auto-generated via mkdocstrings (do not edit manually)
+- **User guide** (`docs/user/`): End-user documentation for each plugin tab.
+- **Developer guide** (`docs/developer/`): Architecture, models, features, and contribution details.
+- **API reference** (`docs/api/`): Auto-generated via mkdocstrings (do not edit manually).
 
-### Writing Documentation
+### Writing documentation
 
-- Use **Markdown** with Material for MkDocs extensions
-- Include **code examples** with proper syntax highlighting
-- Add **screenshots** to `docs/assets/` for UI documentation
-- Reference **specific line numbers** when linking to code: `[file.py](file.py#L10)`
+- Use **Markdown** with Material for MkDocs extensions.
+- Include **code examples** with proper syntax highlighting.
+- Add **screenshots** to `docs/assets/` for UI documentation.
+- Reference specific line numbers when linking to code, for example: `[file.py](file.py#L10)`.
 
-## Code Conventions
+## Code conventions
 
-### Style Guidelines
+### Style guidelines
 
-- **Type hints**: Use modern Python 3.11+ type annotations
-- **Docstrings**: NumPy style for public APIs
-- **Imports**: Use absolute imports from `senoquant`
-- **File paths**: Always use `pathlib.Path` (not string paths)
+- **Type hints**: Use modern Python 3.11+ type annotations.
+- **Docstrings**: Use NumPy style for public APIs.
+- **Imports**: Use absolute imports from `senoquant`.
+- **File paths**: Use `pathlib.Path` instead of string paths.
 
-### Architecture Patterns
+### Architecture patterns
 
-- **Frontend/Backend split**: Each tab has `frontend.py` (Qt UI) and `backend.py` (pure logic)
-- **Settings schema**: Define in `details.json` with `type`, `min`, `max`, `default` keys
-- **Model discovery**: Place models in `models/<name>/` with `details.json` + optional `model.py`
-- **Dataclasses**: Use `@dataclass(slots=True)` for config objects
+- **Frontend/backend split**: Each tab has `frontend.py` (Qt UI) and `backend.py` (pure logic).
+- **Settings schema**: Define settings in `details.json` with `type`, `min`, `max`, and `default` keys.
+- **Model discovery**: Place models in `models/<name>/` with `details.json` and optional `model.py`.
+- **Dataclasses**: Use `@dataclass(slots=True)` for config objects.
 
-### Naming Conventions
+### Naming conventions
 
-- **Segmentation outputs**: `<image>_<model>_nuc_labels` or `<image>_<model>_cyto_labels`
-- **Spot outputs**: `<image>_<detector>_spot_labels`
-- **Private methods**: Prefix with `_` (e.g., `_compute_internal()`)
-- **Signals**: Qt signals use past tense (e.g., `segmentation_completed`, `error_occurred`)
+- **Segmentation outputs**: `<image>_<model>_nuc_labels` or `<image>_<model>_cyto_labels`.
+- **Spot outputs**: `<image>_<detector>_spot_labels`.
+- **Private methods**: Prefix with `_` (for example, `_compute_internal()`).
+- **Signals**: Qt signals use past tense (for example, `segmentation_completed` and `error_occurred`).
 
 ## Dependencies
 
-### Core Dependencies
+### Core dependencies
 
-- **napari**: Not pinned in `pyproject.toml`; install separately
-- **Qt**: Via QtPy (supports PyQt5/PyQt6/PySide2/PySide6)
-- **BioIO**: Format-agnostic image reader with 50+ plugins
-- **ONNX Runtime**: For StarDist model inference
+- **napari**: Not pinned in `pyproject.toml`; install separately.
+- **Qt**: Via QtPy (supports PyQt5, PyQt6, PySide2, and PySide6).
+- **BioIO**: Format-agnostic image reader with 50+ plugins.
+- **ONNX Runtime**: For StarDist model inference.
 
-### Optional Dependencies
+### Optional dependencies
 
 Defined in `pyproject.toml`:
 
-- `.[distributed]`: Dask for parallel processing
-- `.[gpu]`: GPU acceleration extras
-- `.[all]`: Full stack including napari and optional deps
+- `.[distributed]`: Dask for parallel processing.
+- `.[gpu]`: GPU acceleration extras.
+- `.[all]`: Full stack including napari and optional dependencies.
 
-### BioIO Reader Plugins
+### BioIO reader plugins
 
-For reliable format support, install dedicated readers:
+For reliable format support, install dedicated readers.
 
 ```bash
 pip install bioio-tifffile bioio-ome-tiff bioio-nd2 bioio-lif bioio-czi
 ```
 
-See [Data & Readers](../user/data.md) for complete list.
+See [Data & Readers](../user/data.md) for the complete list.
 
-## Adding New Features
+## Extending SenoQuant
 
-### Segmentation Model
+### Segmentation model
 
-1. **Create folder**: `src/senoquant/tabs/segmentation/models/my_model/`
-2. **Add metadata**: `details.json` with model info, tasks, and settings
-3. **Implement logic** (optional): `model.py` subclassing `SenoQuantSegmentationModel`
-4. **Test**: Verify model appears in Segmentation tab dropdown
+1. **Create folder**: `src/senoquant/tabs/segmentation/models/my_model/`.
+2. **Add metadata**: `details.json` with model info, tasks, and settings.
+3. **Implement logic**: `model.py` subclassing `SenoQuantSegmentationModel`.
+4. **Test**: Verify the model appears in the Segmentation tab dropdown.
 
-See [Models & Detectors](models.md) for detailed guide.
+See [Models & Detectors](models.md) for the detailed guide.
 
-### Spot Detector
+### Spot detector
 
-Same pattern as segmentation models but in `src/senoquant/tabs/spots/models/`.
+Use the same pattern as segmentation models under `src/senoquant/tabs/spots/models/`.
 
-### Quantification Feature
+### Quantification feature
 
-1. **Create module**: `src/senoquant/tabs/quantification/features/my_feature/`
-2. **Define data class**: Subclass `FeatureData` for configuration state
-3. **Implement feature**: Subclass `SenoQuantFeature` with `build()` and `export()` methods
-4. **Register**: Add to `FEATURE_DATA_FACTORY` in `features/__init__.py`
+1. **Create module**: `src/senoquant/tabs/quantification/features/my_feature/`.
+2. **Define data class**: Subclass `FeatureData` for configuration state.
+3. **Implement feature**: Subclass `SenoQuantFeature` with `build()` and `export()` methods.
+4. **Register**: Add to `FEATURE_DATA_FACTORY` in `features/__init__.py`.
+5. **Batch profiles**: Update batch feature serialize/deserialize cases in `src/senoquant/tabs/batch/config.py`.
 
-See [Quantification Features](quantification-features.md) for detailed guide.
+See [Quantification features](quantification-features.md) for the detailed guide.
 
-## Submitting Changes
+### New tab
 
-### Pull Request Checklist
+Create a new tab package under `src/senoquant/tabs/`, export it from `src/senoquant/tabs/__init__.py`, and wire it into `src/senoquant/_widget.py`.
 
-- [ ] Tests pass locally (`pytest`)
-- [ ] Code follows style conventions
-- [ ] New features have test coverage
-- [ ] Documentation updated (user docs, docstrings, developer guides)
-- [ ] No breaking changes to batch config format (maintain backward compatibility)
+See [Adding tabs](adding-tabs.md) for the full wiring checklist.
 
-### Commit Messages
+## Submitting changes
 
-Use descriptive commit messages:
+### Pull request checklist
 
+- [ ] Tests pass locally (`pytest`).
+- [ ] Code follows style conventions.
+- [ ] New features have test coverage.
+- [ ] Documentation is updated (user docs, docstrings, and developer guides).
+- [ ] No breaking changes to the batch config format (maintain backward compatibility).
+
+### Commit messages
+
+Use descriptive commit messages.
+
+```text
+Improve U-FISH spot detector threshold behavior
+
+- Adjust threshold handling for edge cases.
+- Update detector settings help text.
+- Add regression tests for low-signal images.
 ```
-Add RMP spot detector with rotational morphology
 
-- Implement rotational morphological processing algorithm
-- Add settings UI for angle step and threshold
-- Include tests for normalization and watershed
-```
+## Common pitfalls
 
-## Common Pitfalls
+1. **BioIO reader failures on large files**: Install dedicated plugins (`bioio-ome-tiff`, `bioio-nd2`, and others).
+2. **Protobuf version conflicts**: Reinstall protobuf after TensorFlow when doing ONNX conversion.
+3. **Headless testing**: `conftest.py` stubs handle missing Qt/napari; avoid top-level GUI imports in test files.
+4. **Model not discovered**: Check folder naming and confirm `details.json` exists.
+5. **Batch quantification failures**: Verify the `BatchViewer` shim has correct layer names.
 
-1. **BioIO reader failures on large files**: Install dedicated plugins (`bioio-ome-tiff`, `bioio-nd2`, etc.)
-2. **Protobuf version conflicts**: Always reinstall protobuf AFTER TensorFlow when doing ONNX conversion
-3. **Headless testing**: Import stubs in `conftest.py` handle missing Qt/napari; don't import GUI modules at top level in tests
-4. **Model not discovered**: Check folder name matches expectations; ensure `details.json` exists
-5. **Batch quantification failures**: Verify `BatchViewer` shim has correct layer names
+## Getting help
 
-## Getting Help
-
-- **GitHub Issues**: Report bugs or request features
-- **Discussions**: Ask questions or share use cases
-- **Documentation**: Consult user and developer guides
+- **GitHub issues**: Report bugs or request features.
+- **Discussions**: Ask questions or share use cases.
+- **Documentation**: Consult the user and developer guides.
 
 ## License
 
-SenoQuant is released under the MIT License. By contributing, you agree to license your contributions under the same license.
+SenoQuant is released under the BSD 3-Clause License. By contributing, you agree to license your contributions under the same license.

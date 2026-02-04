@@ -48,6 +48,47 @@ def test_segmentation_tab_validation() -> None:
     assert tab._validate_single_channel_layer(rgb_layer, "Layer") is False
 
 
+def test_segmentation_labels_include_task_metadata() -> None:
+    """Tag generated segmentation labels with task metadata."""
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    settings = SettingsBackend()
+    settings.set_preload_models(False)
+    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    source = DummyLayer(np.zeros((4, 4)), "img", metadata={"path": "file.tif"})
+
+    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "nuc")
+    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "cyto")
+
+    nuc_layer = viewer.layers["img_model_nuc_labels"]
+    cyto_layer = viewer.layers["img_model_cyto_labels"]
+    assert nuc_layer.metadata.get("task") == "nuclear"
+    assert cyto_layer.metadata.get("task") == "cytoplasmic"
+    assert nuc_layer.metadata.get("path") == "file.tif"
+
+
+def test_segmentation_labels_metadata_without_name_lookup() -> None:
+    """Populate metadata even when viewer renames duplicate labels."""
+
+    class _SanitizingViewer(DummyViewer):
+        def add_labels(self, data, name: str, metadata=None):
+            layer = DummyLayer(np.asarray(data), f"{name}_1", metadata=metadata or {})
+            self.layers.append(layer)
+            return layer
+
+    viewer = _SanitizingViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    settings = SettingsBackend()
+    settings.set_preload_models(False)
+    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    source = DummyLayer(np.zeros((4, 4)), "img", metadata={"path": "file.tif"})
+
+    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "nuc")
+
+    labels_layer = viewer.layers[-1]
+    assert labels_layer.name == "img_model_nuc_labels_1"
+    assert labels_layer.metadata.get("task") == "nuclear"
+    assert labels_layer.metadata.get("path") == "file.tif"
+
+
 def test_spots_tab_instantiates() -> None:
     """Instantiate the spots tab UI.
 

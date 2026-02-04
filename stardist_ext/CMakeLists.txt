@@ -77,7 +77,9 @@ if(OpenMP_CXX_FOUND AND NOT APPLE AND NOT MSVC)
     target_link_libraries(stardist3d PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
-set(INSTALL_SUBDIR "senoquant/tabs/segmentation/stardist_onnx_utils/_stardist/lib")
+# Install extension binaries under a dedicated top-level package path to
+# avoid creating a namespace collision with the editable ``senoquant`` package.
+set(INSTALL_SUBDIR "senoquant_stardist_ext/lib")
 
 install(TARGETS stardist2d stardist3d
     LIBRARY DESTINATION "${INSTALL_SUBDIR}"

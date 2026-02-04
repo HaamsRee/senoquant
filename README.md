@@ -1,85 +1,79 @@
 # SenoQuant
 
-![tests](https://github.com/HaamsRee/senoquant-dev/actions/workflows/tests.yml/badge.svg)
+![tests](https://github.com/HaamsRee/senoquant/actions/workflows/tests.yml/badge.svg)
 [![PyPI version](https://badge.fury.io/py/senoquant.svg)](https://badge.fury.io/py/senoquant)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-SenoQuant is a versatile Napari plugin designed for comprehensive, accurate,
+SenoQuant is a versatile [napari](https://napari.org/stable/index.html) plugin designed for comprehensive, accurate,
 and unbiased spatial quantification and prediction of senescence markers
 across diverse tissue contexts.
 
 ## Features
 
-- **Multi-Model Segmentation**: Nuclear and cytoplasmic segmentation with 5 built-in models
-   - StarDist ONNX (2D/3D)
-   - Cellpose SAM
-   - Morphological operations (dilation, perinuclear rings)
-- **Spot Detection**: Detect and quantify punctate senescence markers
-   - Undecimated B3-spline wavelet (UDWT)
-   - Rotational morphological processing (RMP)
-- **Quantification**: Extract intensity, morphology, and spot metrics
-   - Per-cell marker intensities
-   - Morphological descriptors
-   - Spot counting and colocalization
-- **Batch Processing**: Automated analysis of entire image folders
-   - Profile save/load for reproducibility
-   - Multi-scene file support
-- **File Format Support**: Microscopy formats via BioIO
-   - OME-TIFF, ND2, LIF, CZI, Zarr, and more
+- Segment nuclei and cytoplasm with built-in models, including StarDist ONNX, Cellpose SAM, and morphology-based models.
+- Detect punctate spots with a U-FISH-based detector.
+- Quantify marker intensity, morphology, spot counts, and spot colocalization.
+- Run batch workflows across folders, including profile save/load and multi-scene support.
+- Read microscopy formats via BioIO, including OME-TIFF, ND2, LIF, CZI, Zarr, and more.
+- *Upcoming*: Integrate custom models for predicting senescence markers.
 
 ## Installation
 
-### Windows (Recommended)
+### Installer (recommended)
 
-**Download the SenoQuant Installer (.exe)** from the [latest release](https://github.com/HaamsRee/senoquant-dev/releases/latest).
+#### Windows
 
-The installer automatically sets up a Python environment with napari, SenoQuant, and GPU PyTorch support. Simply run the `.exe` and follow the prompts. After installation, launch SenoQuant from the Start menu.
+Download the Windows installer (`.exe`) from the [latest release](https://github.com/HaamsRee/senoquant/releases/latest).
 
-### macOS & Linux
+#### macOS
 
-🚧 **Installers for macOS and Linux are under construction.** For command-line installation using `pip` or `uv`, see the [Installation Guide](https://haamsree.github.io/senoquant-dev/user/installation/).
+Download the macOS installer (`.pkg`) from the [latest release](https://github.com/HaamsRee/senoquant/releases/latest).
 
-**Note:** The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (~1.3 GB) from Hugging Face. Subsequent launches will be faster as models are cached locally.
+#### Linux
 
-## Quick Start
+Installer support for Linux is under construction.
 
-1. **Launch SenoQuant:**  
-    Click "SenoQuant" from the Start menu (Windows installer)
+### Manual installation
 
-2. **Open your image:**  
-    File → Open File(s)... → Select your image. Or drag-and-drop into napari.
+For conda/pip/uv setup, see the [developer installation guide](https://haamsree.github.io/senoquant/developer/installation/).
 
-3. **Open SenoQuant plugin:**  
-    Should automatically open. If not, Plugins → SenoQuant
+## Quick start
 
-4. **Run segmentation:**  
-    Segmentation tab → Select nuclear channel → Choose model → Run
+Use the documentation workflow for the most up-to-date instructions.
 
-5. **Detect spots (optional):**  
-    Spots tab → Select channel → Choose detector → Run
-
-6. **Export quantification:**  
-    Quantification tab → Configure features → Process
-
-7. **Batch process (optional):**  
-    Batch tab → Configure settings → Run batch
-
-For command-line launch and installation methods, see the [Quick Start Guide](https://haamsree.github.io/senoquant-dev/user/quickstart/).
+- Start with the [installation guide](https://haamsree.github.io/senoquant/user/installation/).
+- Follow the [quick start guide](https://haamsree.github.io/senoquant/user/quickstart/).
+- Then use tab-specific guides for [segmentation](https://haamsree.github.io/senoquant/user/segmentation/), [spots](https://haamsree.github.io/senoquant/user/spots/), [quantification](https://haamsree.github.io/senoquant/user/quantification/), and [batch](https://haamsree.github.io/senoquant/user/batch/).
 
 ## Documentation
 
-Full documentation is available at [https://haamsree.github.io/senoquant-dev/](https://haamsree.github.io/senoquant-dev/)
+Full documentation is available at [https://haamsree.github.io/senoquant/](https://haamsree.github.io/senoquant/).
 
-- [Installation Guide](https://haamsree.github.io/senoquant-dev/user/installation/)
-- [Quick Start Tutorial](https://haamsree.github.io/senoquant-dev/user/quickstart/)
-- [Segmentation Models](https://haamsree.github.io/senoquant-dev/user/segmentation/)
-- [Spot Detection](https://haamsree.github.io/senoquant-dev/user/spots/)
-- [Quantification Features](https://haamsree.github.io/senoquant-dev/user/quantification/)
-- [Batch Processing](https://haamsree.github.io/senoquant-dev/user/batch/)
-- [API Reference](https://haamsree.github.io/senoquant-dev/api/)
+- [Installation guide](https://haamsree.github.io/senoquant/user/installation/).
+- [Quick start tutorial](https://haamsree.github.io/senoquant/user/quickstart/).
+- [Segmentation models](https://haamsree.github.io/senoquant/user/segmentation/).
+- [Spot detection](https://haamsree.github.io/senoquant/user/spots/).
+- [Quantification features](https://haamsree.github.io/senoquant/user/quantification/).
+- [Batch processing](https://haamsree.github.io/senoquant/user/batch/).
+- [API reference](https://haamsree.github.io/senoquant/api/).
 
 ## Development
 
-See the [Contributing Guide](https://haamsree.github.io/senoquant-dev/developer/contributing/) for development setup instructions.
+See the [contributing guide](https://haamsree.github.io/senoquant/developer/contributing/) for development setup instructions.
 
+## How to cite
+
+If you use SenoQuant in your research, please cite it using the metadata in `CITATION.cff`.
+
+On GitHub, open the repository page and click `Cite this repository` in the right sidebar to copy a formatted citation.
+
+## Acknowledgements
+
+SenoQuant builds on and integrates excellent open-source projects.
+
+- [napari](https://napari.org/).
+- [StarDist](https://github.com/stardist/stardist).
+- [Cellpose](https://github.com/MouseLand/cellpose).
+- [U-FISH](https://github.com/UFISH-Team/U-FISH).
+- [BioIO](https://github.com/bioio-devs/bioio).

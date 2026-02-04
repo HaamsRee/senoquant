@@ -69,7 +69,7 @@ class SegmentationTab(QWidget):
     backend : SegmentationBackend or None
         Backend instance used to discover and load models.
     napari_viewer : object or None
-        Napari viewer used to populate layer choices.
+        napari viewer used to populate layer choices.
     settings_backend : SettingsBackend or None
         Settings store used for preload configuration.
     """
@@ -87,7 +87,7 @@ class SegmentationTab(QWidget):
         backend : SegmentationBackend or None
             Backend instance used to discover and load models.
         napari_viewer : object or None
-            Napari viewer used to populate layer choices.
+            napari viewer used to populate layer choices.
         settings_backend : SettingsBackend or None
             Settings store used for preload configuration.
         """
@@ -889,7 +889,7 @@ class SegmentationTab(QWidget):
         Parameters
         ----------
         layer : object or None
-            Napari layer to validate.
+            napari layer to validate.
         label : str
             User-facing label for notifications.
 
@@ -972,13 +972,50 @@ class SegmentationTab(QWidget):
         if self._viewer is None or source_layer is None or masks is None:
             return
         label_name = f"{source_layer.name}_{model_name}_{label_type}_labels"
-        self._viewer.add_labels(
-            masks,
-            name=label_name,
-        )
+        task_value = {
+            "nuc": "nuclear",
+            "cyto": "cytoplasmic",
+        }.get(label_type)
+        source_metadata = getattr(source_layer, "metadata", {})
+        merged_metadata: dict[str, object] = {}
+        if isinstance(source_metadata, dict):
+            merged_metadata.update(source_metadata)
+        if task_value:
+            merged_metadata["task"] = task_value
 
-        # Get the labels layer and set contour = 2
-        labels_layer = self._viewer.layers[label_name]
+        labels_layer = None
+        if Labels is not None and hasattr(self._viewer, "add_layer"):
+            # Add a fully configured Labels layer object to avoid name-based lookup.
+            labels_layer = Labels(
+                masks,
+                name=label_name,
+                metadata=merged_metadata,
+            )
+            added_layer = self._viewer.add_layer(labels_layer)
+            if added_layer is not None:
+                labels_layer = added_layer
+        elif hasattr(self._viewer, "add_labels"):
+            try:
+                labels_layer = self._viewer.add_labels(
+                    masks,
+                    name=label_name,
+                    metadata=merged_metadata,
+                )
+            except TypeError:
+                labels_layer = self._viewer.add_labels(
+                    masks,
+                    name=label_name,
+                )
+
+        if labels_layer is None:
+            return
+
+        layer_metadata = getattr(labels_layer, "metadata", {})
+        if isinstance(layer_metadata, dict):
+            merged_metadata.update(layer_metadata)
+        if task_value:
+            merged_metadata["task"] = task_value
+        labels_layer.metadata = merged_metadata
         labels_layer.contour = 2
 
 

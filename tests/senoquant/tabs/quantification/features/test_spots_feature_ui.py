@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import types
 
-from tests.conftest import DummyLayout
+from qtpy.QtWidgets import QComboBox
+
+from tests.conftest import DummyLayout, DummyViewer, Labels
 from senoquant.tabs.quantification.features.base import FeatureConfig
 from senoquant.tabs.quantification.features.spots.config import (
     SpotsChannelConfig,
     SpotsFeatureData,
     SpotsSegmentationConfig,
 )
+from senoquant.tabs.quantification.features.spots.dialog import SpotsChannelsDialog
 from senoquant.tabs.quantification.features.spots.feature import SpotsFeature
 
 
@@ -67,3 +70,31 @@ def test_spots_feature_opens_dialog() -> None:
 
     feature._open_channels_dialog()
     assert "channels_dialog" in feature._ui
+
+
+def test_spots_dialog_filters_labels_by_metadata_with_suffix_fallback() -> None:
+    """Filter cellular/spots labels using metadata first."""
+    viewer = DummyViewer(
+        [
+            Labels([[1]], "cell_from_metadata", metadata={"task": "nuclear"}),
+            Labels([[1]], "spot_from_metadata", metadata={"task": "spots"}),
+            Labels([[1]], "legacy_cyto_labels"),
+            Labels([[1]], "legacy_spot_labels"),
+            Labels([[1]], "misleading_spot_labels", metadata={"task": "cytoplasmic"}),
+        ]
+    )
+    dialog = SpotsChannelsDialog.__new__(SpotsChannelsDialog)
+    dialog._tab = types.SimpleNamespace(_viewer=viewer)
+
+    cellular_combo = QComboBox()
+    dialog._refresh_labels_combo(cellular_combo, filter_type="cellular")
+    assert "cell_from_metadata" in cellular_combo._items
+    assert "legacy_cyto_labels" in cellular_combo._items
+    assert "spot_from_metadata" not in cellular_combo._items
+    assert "misleading_spot_labels" in cellular_combo._items
+
+    spots_combo = QComboBox()
+    dialog._refresh_labels_combo(spots_combo, filter_type="spots")
+    assert "spot_from_metadata" in spots_combo._items
+    assert "legacy_spot_labels" in spots_combo._items
+    assert "misleading_spot_labels" not in spots_combo._items

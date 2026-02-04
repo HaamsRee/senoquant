@@ -41,7 +41,7 @@ def export_marker(
     temp_dir : Path
         Temporary directory where outputs should be written.
     viewer : object, optional
-        Napari viewer instance used to resolve layers by name.
+        napari viewer instance used to resolve layers by name.
     export_format : str, optional
         File format for exports (``"csv"`` or ``"xlsx"``).
     enable_thresholds : bool, optional
@@ -76,6 +76,23 @@ def export_marker(
         if metadata_path is not None:
             outputs.append(metadata_path)
 
+    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for segmentation in data.segmentations:
+        seg_name = segmentation.label.strip()
+        if not seg_name:
+            continue
+        seg_layer = _find_layer(viewer, seg_name, "Labels")
+        if seg_layer is None:
+            continue
+        seg_labels = layer_data_asarray(seg_layer)
+        if seg_labels.size == 0:
+            continue
+        seg_label_ids, _seg_centroids = _compute_centroids(seg_labels)
+        if seg_label_ids.size == 0:
+            continue
+        all_segmentations[seg_name] = (seg_labels, seg_label_ids)
+    cross_map = _build_cross_segmentation_map(all_segmentations)
+
     for index, segmentation in enumerate(data.segmentations, start=0):
         label_name = segmentation.label.strip()
         if not label_name:
@@ -103,7 +120,7 @@ def export_marker(
                     break
         rows = _initialize_rows(label_ids, centroids, pixel_sizes)
         _add_roi_columns(rows, labels, label_ids, viewer, data.rois, label_name)
-        morph_columns = add_morphology_columns(
+        _morph_columns = add_morphology_columns(
             rows, labels, label_ids, pixel_sizes
         )
         
@@ -115,11 +132,12 @@ def export_marker(
                 metadata = getattr(first_channel_layer, "metadata", {})
                 file_path = metadata.get("path")
         
-        # Determine segmentation type from label name or config
-        seg_type = getattr(segmentation, "task", "nuclear")
-        ref_columns = _add_reference_columns(
+        # Determine segmentation type from labels metadata with suffix fallback.
+        seg_type = _segmentation_type_from_layer(labels_layer, label_name)
+        _ref_columns = _add_reference_columns(
             rows, labels, label_ids, file_path, seg_type
         )
+        _add_cross_reference_column(rows, label_name, label_ids, cross_map)
         
         header = list(rows[0].keys()) if rows else []
 
@@ -207,7 +225,7 @@ def _find_layer(viewer, name: str, layer_type: str):
     Parameters
     ----------
     viewer : object
-        Napari viewer instance containing layers.
+        napari viewer instance containing layers.
     name : str
         Layer name to locate.
     layer_type : str
@@ -222,6 +240,40 @@ def _find_layer(viewer, name: str, layer_type: str):
         if layer.__class__.__name__ == layer_type and layer.name == name:
             return layer
     return None
+
+
+def _segmentation_type_from_layer(layer: object, label_name: str) -> str:
+    """Return segmentation type from layer metadata or legacy suffixes.
+
+    Parameters
+    ----------
+    layer : object
+        Labels layer object.
+    label_name : str
+        Labels layer name used for fallback suffix parsing.
+
+    Returns
+    -------
+    str
+        Segmentation type ("nuclear" or "cytoplasmic").
+
+    Notes
+    -----
+    Metadata value ``metadata["task"]`` is authoritative when valid.
+    Legacy layer-name suffixes are used as fallback for older layers.
+    """
+    metadata = getattr(layer, "metadata", None)
+    if isinstance(metadata, dict):
+        task = metadata.get("task")
+        if isinstance(task, str):
+            normalized = task.strip().lower()
+            if normalized in {"nuclear", "cytoplasmic"}:
+                return normalized
+    if label_name.endswith("_cyto_labels"):
+        return "cytoplasmic"
+    if label_name.endswith("_nuc_labels"):
+        return "nuclear"
+    return "nuclear"
 
 
 def _compute_centroids(labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -299,7 +351,7 @@ def _pixel_volume(layer, ndim: int) -> float:
     Parameters
     ----------
     layer : object
-        Napari image layer providing metadata.
+        napari image layer providing metadata.
     ndim : int
         Dimensionality of the image data.
 
@@ -348,7 +400,7 @@ def _pixel_sizes(layer, ndim: int) -> np.ndarray | None:
     Parameters
     ----------
     layer : object
-        Napari image layer providing metadata.
+        napari image layer providing metadata.
     ndim : int
         Dimensionality of the image data.
 
@@ -429,7 +481,7 @@ def _add_roi_columns(
     label_ids : numpy.ndarray
         Label ids corresponding to the output rows.
     viewer : object or None
-        Napari viewer used to resolve shapes layers.
+        napari viewer used to resolve shapes layers.
     rois : sequence of ROIConfig
         ROI configuration entries to evaluate.
     label_name : str
@@ -480,7 +532,7 @@ def _shapes_layer_mask(
     Parameters
     ----------
     layer : object
-        Napari shapes layer instance.
+        napari shapes layer instance.
     shape : tuple of int
         Target mask shape matching the labels array.
 
@@ -776,25 +828,46 @@ def _build_cross_segmentation_map(
     -----
     This function identifies which labels from different segmentations
     overlap spatially, enabling cross-referencing between tables.
+    The resulting mapping is bidirectional: if ``A:1`` overlaps ``B:2``,
+    both keys receive a reference to the other.
     """
     cross_map: dict[tuple[str, int], list[tuple[str, int]]] = {}
+    valid_ids: dict[str, set[int]] = {}
+
+    for seg_name, (_labels, label_ids) in all_segmentations.items():
+        ids = {int(label_id) for label_id in np.asarray(label_ids, dtype=int)}
+        valid_ids[seg_name] = ids
+        for label_id in ids:
+            cross_map[(seg_name, label_id)] = []
 
     seg_names = list(all_segmentations.keys())
     for i, seg1_name in enumerate(seg_names):
-        labels1, label_ids1 = all_segmentations[seg1_name]
-        for label_id1 in label_ids1:
-            cross_map[(seg1_name, int(label_id1))] = []
-            # Check overlaps with all other segmentations
-            for seg2_name in seg_names[i + 1 :]:
-                labels2, _label_ids2 = all_segmentations[seg2_name]
-                # Find which labels in seg2 overlap with label_id1
-                mask1 = labels1 == label_id1
-                overlapping_labels2 = np.unique(labels2[mask1])
-                overlapping_labels2 = overlapping_labels2[overlapping_labels2 > 0]
-                for label_id2 in overlapping_labels2:
-                    cross_map[(seg1_name, int(label_id1))].append(
-                        (seg2_name, int(label_id2)),
-                    )
+        labels1, _label_ids1 = all_segmentations[seg1_name]
+        # Check overlaps with all other segmentations.
+        for seg2_name in seg_names[i + 1 :]:
+            labels2, _label_ids2 = all_segmentations[seg2_name]
+            if labels1.shape != labels2.shape:
+                warnings.warn(
+                    "Marker export: segmentation shape mismatch for "
+                    f"'{seg1_name}' vs '{seg2_name}'. "
+                    "Skipping cross-segmentation overlap mapping for this pair.",
+                    RuntimeWarning,
+                )
+                continue
+
+            mask = (labels1 > 0) & (labels2 > 0)
+            if not np.any(mask):
+                continue
+
+            overlap_pairs = np.column_stack((labels1[mask], labels2[mask]))
+            unique_pairs = np.unique(overlap_pairs, axis=0)
+            for label_id1, label_id2 in unique_pairs:
+                id1 = int(label_id1)
+                id2 = int(label_id2)
+                if id1 not in valid_ids[seg1_name] or id2 not in valid_ids[seg2_name]:
+                    continue
+                cross_map[(seg1_name, id1)].append((seg2_name, id2))
+                cross_map[(seg2_name, id2)].append((seg1_name, id1))
 
     return cross_map
 

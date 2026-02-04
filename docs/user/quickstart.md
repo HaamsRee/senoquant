@@ -5,6 +5,7 @@ This guide walks through the basic workflow for analyzing senescence markers in 
 ## Prerequisites
 
 - napari installed with SenoQuant.
+- System meets the [installation requirements](installation.md#system-requirements).
 - Multi-channel microscopy image (supported formats: `.tif`, `.czi`, `.lif`, `.nd2`, etc.).
 - Channels containing: Nuclei, IF markers, and/or spots.
 
@@ -12,7 +13,7 @@ This guide walks through the basic workflow for analyzing senescence markers in 
 
 ### 1. Launch napari and load image
 
-**Windows (Installer):**
+**If you used the Installer:**
 
 - Launch **SenoQuant** from the Start Menu or the desktop icon.
 
@@ -28,9 +29,12 @@ napari --with senoquant
 **Load your image:**
 
 - `File` → `Open File(s)...` → Select your image.
+
+    > A popup may appear for you to select the appropriate reader plugin. Choose `senoquant`.
+
 - Or drag-and-drop the file into the napari window.
 
-**Expected result:** Each channel appears as a separate layer in the layer list.
+**Expected result:** Each channel appears as a separate layer in the layer list. If you're opening a multi-scene file, select the desired scene(s) from the popup.
 
 ### 2. Open SenoQuant
 
@@ -79,8 +83,8 @@ If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):
 
 1. Switch to the **Spots** tab.
 2. Select **Image Layer**: Choose the channel with spots.
-3. Select **Detector**: `udwt` or `rmp`. `rmp` is much slower (especially if you don't have CUDA and the associated dependencies installed) but may yield better results for noisy images.
-4. Adjust detection settings (e.g., `Product threshold(ld)`).
+3. Select **Detector**: `ufish`.
+4. Adjust detection settings (for example, `Threshold`).
 
     > The default settings work well for most images.
 

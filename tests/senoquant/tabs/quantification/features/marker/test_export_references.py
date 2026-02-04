@@ -1,12 +1,21 @@
 """Tests for marker export reference columns functionality."""
 
+import csv
 import numpy as np
 import pytest
 
+from tests.conftest import DummyViewer, Image, Labels
+from senoquant.tabs.quantification.features.base import FeatureConfig
+from senoquant.tabs.quantification.features.marker.config import (
+    MarkerChannelConfig,
+    MarkerFeatureData,
+    MarkerSegmentationConfig,
+)
 from senoquant.tabs.quantification.features.marker.export import (
     _add_reference_columns,
     _build_cross_segmentation_map,
     _add_cross_reference_column,
+    export_marker,
 )
 
 
@@ -52,6 +61,88 @@ class TestAddReferenceColumns:
         _add_reference_columns(rows, labels, label_ids, None, "cytoplasmic")
 
         assert rows[0]["segmentation_type"] == "cytoplasmic"
+
+
+def test_export_segmentation_type_uses_layer_metadata(tmp_path):
+    """Use labels metadata task for segmentation_type export."""
+    labels = np.array([[0, 1], [0, 2]], dtype=np.int32)
+    image = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    viewer = DummyViewer(
+        [
+            Labels(labels, "cells", metadata={"task": "cytoplasmic"}),
+            Image(image, "chan1"),
+        ]
+    )
+    data = MarkerFeatureData(
+        segmentations=[MarkerSegmentationConfig(label="cells")],
+        channels=[MarkerChannelConfig(name="Ch1", channel="chan1")],
+    )
+    feature = FeatureConfig(name="Markers", type_name="Markers", data=data)
+
+    outputs = list(export_marker(feature, tmp_path, viewer=viewer, export_format="csv"))
+    csv_paths = [path for path in outputs if path.suffix == ".csv"]
+    assert csv_paths
+
+    with csv_paths[0].open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert rows
+    assert all(row.get("segmentation_type") == "cytoplasmic" for row in rows)
+
+
+def test_export_marker_adds_cross_segmentation_overlap_column(tmp_path):
+    """Export includes overlaps_with for multi-segmentation marker tables."""
+    nuc_labels = np.array(
+        [[1, 1, 0], [0, 2, 2]],
+        dtype=np.int32,
+    )
+    cyto_labels = np.array(
+        [[1, 1, 3], [0, 0, 3]],
+        dtype=np.int32,
+    )
+    image = np.array(
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+        dtype=np.float32,
+    )
+
+    viewer = DummyViewer(
+        [
+            Labels(nuc_labels, "nuclear"),
+            Labels(cyto_labels, "cytoplasmic"),
+            Image(image, "chan1"),
+        ]
+    )
+    data = MarkerFeatureData(
+        segmentations=[
+            MarkerSegmentationConfig(label="nuclear"),
+            MarkerSegmentationConfig(label="cytoplasmic"),
+        ],
+        channels=[MarkerChannelConfig(name="Ch1", channel="chan1")],
+    )
+    feature = FeatureConfig(name="Markers", type_name="Markers", data=data)
+
+    outputs = list(export_marker(feature, tmp_path, viewer=viewer, export_format="csv"))
+    csv_paths = {path.stem: path for path in outputs if path.suffix == ".csv"}
+    assert "nuclear" in csv_paths
+    assert "cytoplasmic" in csv_paths
+
+    with csv_paths["nuclear"].open("r", encoding="utf-8", newline="") as handle:
+        nuc_rows = list(csv.DictReader(handle))
+    with csv_paths["cytoplasmic"].open(
+        "r", encoding="utf-8", newline=""
+    ) as handle:
+        cyto_rows = list(csv.DictReader(handle))
+
+    assert nuc_rows and cyto_rows
+    assert all("overlaps_with" in row for row in nuc_rows)
+    assert all("overlaps_with" in row for row in cyto_rows)
+
+    nuc_by_label = {row["label_id"]: row["overlaps_with"] for row in nuc_rows}
+    cyto_by_label = {row["label_id"]: row["overlaps_with"] for row in cyto_rows}
+    assert nuc_by_label["1"] == "cytoplasmic_1"
+    assert nuc_by_label["2"] == "cytoplasmic_3"
+    assert cyto_by_label["1"] == "nuclear_1"
+    assert cyto_by_label["3"] == "nuclear_2"
 
 
 class TestBuildCrossSegmentationMap:
@@ -103,6 +194,17 @@ class TestBuildCrossSegmentationMap:
         assert ("cytoplasmic", 1) in overlaps_nuc2
         assert ("cytoplasmic", 2) in overlaps_nuc2
 
+        assert ("cytoplasmic", 1) in cross_map
+        overlaps_cyto1 = cross_map[("cytoplasmic", 1)]
+        assert ("nuclear", 1) in overlaps_cyto1
+        assert ("nuclear", 2) in overlaps_cyto1
+
+        assert ("cytoplasmic", 2) in cross_map
+        overlaps_cyto2 = cross_map[("cytoplasmic", 2)]
+        assert ("nuclear", 1) in overlaps_cyto2
+        assert ("nuclear", 2) in overlaps_cyto2
+        assert ("nuclear", 3) in overlaps_cyto2
+
     def test_no_overlap(self):
         """Test segmentations with no overlapping labels."""
         nuc_labels = np.array(
@@ -123,6 +225,7 @@ class TestBuildCrossSegmentationMap:
 
         # No overlaps expected
         assert cross_map[("nuclear", 1)] == []
+        assert cross_map[("cytoplasmic", 2)] == []
 
 
 class TestAddCrossReferenceColumn:
@@ -235,13 +338,11 @@ class TestCrossSegmentationIntegration:
         ]
         cyto_label_ids = np.array([1, 2])
 
-        # Add cross-references to cyto rows
-        # (Note: cyto rows would not have entries in cross_map
-        # since we only built forward references above)
+        # Add cross-references to cyto rows.
         _add_cross_reference_column(
             cyto_rows, "cytoplasmic", cyto_label_ids, cross_map
         )
 
-        # Both cyto regions will have empty overlaps (no backward references)
-        assert cyto_rows[0]["overlaps_with"] == ""
+        # Cyto region 1 overlaps nuclear 1; cyto region 2 has no overlap.
+        assert cyto_rows[0]["overlaps_with"] == "nuclear_1"
         assert cyto_rows[1]["overlaps_with"] == ""

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "senoquant"
-version = "1.0.0b2"
-description = "Napari plugin for spatial quantification of senescence markers in tissue imaging"
+version = "1.0.0b3"
+description = "napari plugin for spatial quantification of senescence markers in tissue imaging"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "BSD-3-Clause" }
@@ -52,6 +52,7 @@ dependencies = [
   "bioio-tifffile>=1.3.0",
   "bioio-tiff-glob>=1.2.0",
   "numpy>=1.23,<=1.26.4",
+  "pandas>=2.0",
   "cellpose==4.0.8",
   "onnx>=1.16",
   "onnxruntime>=1.21.0; platform_system == 'Darwin'",
@@ -60,7 +61,7 @@ dependencies = [
   "huggingface_hub>=0.23.0",
   "scikit-image>=0.22,<0.25",
   "scipy>=1.8",
-  "senoquant-stardist-ext>=0.1.0",
+  "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
   "matplotlib>=3.8",
@@ -69,10 +70,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/HaamsRee/senoquant-dev"
-Documentation = "https://haamsree.github.io/senoquant-dev/"
-Repository = "https://github.com/HaamsRee/senoquant-dev"
-"Bug Tracker" = "https://github.com/HaamsRee/senoquant-dev/issues"
+Homepage = "https://github.com/HaamsRee/senoquant"
+Documentation = "https://haamsree.github.io/senoquant/"
+Repository = "https://github.com/HaamsRee/senoquant"
+"Bug Tracker" = "https://github.com/HaamsRee/senoquant/issues"
 
 [project.entry-points."napari.manifest"]
 senoquant = "senoquant:napari.yaml"
@@ -93,6 +94,7 @@ all = [
   "bioio-tifffile>=1.3.0",
   "bioio-tiff-glob>=1.2.0",
   "numpy>=1.23,<=1.26.4",
+  "pandas>=2.0",
   "cellpose==4.0.8",
   "onnx>=1.16",
   "onnxruntime>=1.21.0; platform_system == 'Darwin'",
@@ -101,7 +103,7 @@ all = [
   "huggingface_hub>=0.23.0",
   "scikit-image>=0.22,<0.25",
   "scipy>=1.8",
-  "senoquant-stardist-ext>=0.1.0",
+  "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
   "cupy-cuda12x>=12.0",
@@ -118,7 +120,9 @@ senoquant = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "_vendor/ufish"]
+include = ["senoquant*", "ufish*"]
+namespaces = false
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.pyc", "__pycache__/*", ".DS_Store"]

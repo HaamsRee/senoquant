@@ -75,7 +75,7 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
     Returns
     -------
     iterable of tuple
-        Napari layer tuples of the form ``(data, metadata, layer_type)``.
+        napari layer tuples of the form ``(data, metadata, layer_type)``.
 
     Notes
     -----
@@ -91,25 +91,208 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
 
     base_name = Path(path).name
     image = _open_bioimage(path)
-    layers: list[tuple] = []
-    colormap_cycle = _colormap_cycle()
-    scenes = image.scenes
+    try:
+        layers: list[tuple] = []
+        colormap_cycle = _colormap_cycle()
+        scenes = list(getattr(image, "scenes", []) or [])
+        selected_scene_indices = _select_scene_indices(path, scenes)
+        if not selected_scene_indices:
+            return layers
 
-    for scene_idx, scene_id in enumerate(scenes):
-        image.set_scene(scene_id)
-        layers.extend(
-            _iter_channel_layers(
-                image,
-                base_name=base_name,
-                scene_id=scene_id,
-                scene_idx=scene_idx,
-                total_scenes=len(scenes),
-                path=path,
-                colormap_cycle=colormap_cycle,
+        for scene_idx in selected_scene_indices:
+            scene_id = scenes[scene_idx]
+            image.set_scene(scene_id)
+            layers.extend(
+                _iter_channel_layers(
+                    image,
+                    base_name=base_name,
+                    scene_id=scene_id,
+                    scene_idx=scene_idx,
+                    total_scenes=len(scenes),
+                    path=path,
+                    colormap_cycle=colormap_cycle,
+                )
             )
+
+        return layers
+    finally:
+        if hasattr(image, "close"):
+            try:
+                image.close()
+            except Exception:
+                pass
+
+
+def _select_scene_indices(path: str, scenes: list[str]) -> list[int]:
+    """Return scene indices selected by the user for loading."""
+    if not scenes:
+        return []
+    if len(scenes) == 1:
+        return [0]
+
+    selected = _prompt_scene_selection(path, scenes)
+    if selected is None:
+        return []
+    return selected
+
+
+def _prompt_scene_selection(path: str, scenes: list[str]) -> list[int] | None:
+    """Show a scene-selection dialog and return selected indices.
+
+    Returns
+    -------
+    list[int] or None
+        Selected scene indices. Returns ``None`` when the dialog is cancelled.
+        If Qt is not available, all scenes are selected.
+    """
+    try:
+        from qtpy.QtCore import Qt
+        from qtpy.QtWidgets import (
+            QApplication,
+            QDialog,
+            QDialogButtonBox,
+            QHBoxLayout,
+            QLabel,
+            QListWidget,
+            QListWidgetItem,
+            QMessageBox,
+            QPushButton,
+            QVBoxLayout,
+        )
+    except Exception:
+        return list(range(len(scenes)))
+
+    app = QApplication.instance()
+    if app is None:
+        return list(range(len(scenes)))
+
+    dialog = QDialog(_napari_dialog_parent(app))
+    dialog.setWindowTitle("Select scenes to load")
+    dialog.setMinimumWidth(520)
+    _apply_napari_dialog_theme(dialog, app)
+
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(QLabel(f"File: {Path(path).name}"))
+    layout.addWidget(QLabel(f"Select scenes to load ({len(scenes)} total):"))
+
+    scene_list = QListWidget(dialog)
+    for index, scene_id in enumerate(scenes):
+        scene_name = str(scene_id).strip() or f"Scene {index}"
+        item = QListWidgetItem(f"{index}: {scene_name}")
+        item.setData(Qt.UserRole, index)
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(Qt.Checked)
+        scene_list.addItem(item)
+    scene_list.setMinimumHeight(300)
+    layout.addWidget(scene_list)
+
+    controls = QHBoxLayout()
+    select_all_button = QPushButton("Select all")
+    clear_all_button = QPushButton("Clear all")
+    controls.addWidget(select_all_button)
+    controls.addWidget(clear_all_button)
+    controls.addStretch(1)
+    layout.addLayout(controls)
+
+    select_all_button.clicked.connect(
+        lambda: _set_scene_checks(scene_list, Qt.Checked)
+    )
+    clear_all_button.clicked.connect(lambda: _set_scene_checks(scene_list, Qt.Unchecked))
+
+    buttons = QDialogButtonBox(
+        QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dialog
+    )
+    layout.addWidget(buttons)
+
+    def _accept_if_valid() -> None:
+        checked = _checked_scene_indices(scene_list)
+        if checked:
+            dialog.accept()
+            return
+        QMessageBox.warning(
+            dialog,
+            "No scenes selected",
+            "Select at least one scene to load.",
         )
 
-    return layers
+    buttons.accepted.connect(_accept_if_valid)
+    buttons.rejected.connect(dialog.reject)
+
+    if dialog.exec() != QDialog.Accepted:
+        return None
+    return _checked_scene_indices(scene_list)
+
+
+def _napari_dialog_parent(app):
+    """Return a good parent window for napari-linked dialogs."""
+    try:
+        import napari
+
+        viewer = napari.current_viewer()
+    except Exception:
+        viewer = None
+    if viewer is not None:
+        window = getattr(viewer, "window", None)
+        qt_window = getattr(window, "_qt_window", None)
+        if qt_window is not None:
+            return qt_window
+    return app.activeWindow()
+
+
+def _apply_napari_dialog_theme(dialog, app) -> None:
+    """Apply napari/app stylesheet so popup theming is consistent."""
+    stylesheet = ""
+    try:
+        import napari
+
+        viewer = napari.current_viewer()
+        theme_id = getattr(viewer, "theme", None) if viewer is not None else None
+        if theme_id:
+            try:
+                from napari.qt import get_stylesheet
+
+                stylesheet = str(get_stylesheet(theme_id) or "")
+            except Exception:
+                stylesheet = ""
+    except Exception:
+        stylesheet = ""
+
+    if not stylesheet:
+        try:
+            stylesheet = str(app.styleSheet() or "")
+        except Exception:
+            stylesheet = ""
+    if not stylesheet:
+        try:
+            parent = dialog.parentWidget()
+            stylesheet = str(parent.styleSheet() if parent is not None else "")
+        except Exception:
+            stylesheet = ""
+
+    if stylesheet:
+        dialog.setStyleSheet(stylesheet)
+
+
+def _set_scene_checks(scene_list, state) -> None:
+    """Set check state for all scene list items."""
+    for row in range(scene_list.count()):
+        item = scene_list.item(row)
+        if item is not None:
+            item.setCheckState(state)
+
+
+def _checked_scene_indices(scene_list) -> list[int]:
+    """Return checked scene indices from a QListWidget."""
+    from qtpy.QtCore import Qt
+
+    selected: list[int] = []
+    for row in range(scene_list.count()):
+        item = scene_list.item(row)
+        if item is None:
+            continue
+        if item.checkState() == Qt.Checked:
+            selected.append(int(item.data(Qt.UserRole)))
+    return selected
 
 
 def _open_bioimage(path: str):
@@ -304,7 +487,7 @@ def _iter_channel_layers(
     Returns
     -------
     list of tuple
-        Napari layer tuples for each channel.
+        napari layer tuples for each channel.
     """
     dims = getattr(image, "dims", None)
     axes_present = _axes_present(image)
