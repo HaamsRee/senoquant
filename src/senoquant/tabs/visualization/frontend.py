@@ -755,9 +755,10 @@ class VisualizationTab(QWidget):
 
         process = getattr(self._backend, "process", None)
         if callable(process):
+            input_path = Path(self._input_path.text())
             result = process(
                 self._feature_configs,
-                self._input_path.text(),
+                input_path,
                 self._output_path_input.text(),
                 self._save_name_input.text(),
                 self._format_combo.currentText(),

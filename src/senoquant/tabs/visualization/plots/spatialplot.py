@@ -8,10 +8,10 @@ from typing import Iterable
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from .base import FeatureData, SenoQuantPlot
+from .base import PlotData, SenoQuantPlot
 
 
-class SpatialPlotData(FeatureData):
+class SpatialPlotData(PlotData):
     """Configuration data for spatial plot."""
 
     pass
@@ -31,7 +31,7 @@ class SpatialPlot(SenoQuantPlot):
     def plot(
         self, 
         temp_dir: Path, 
-        input_path: str, 
+        input_path: Path, 
         export_format: str,
         markers: list[str] | None = None,
         thresholds: dict[str, float] | None = None,
@@ -42,7 +42,7 @@ class SpatialPlot(SenoQuantPlot):
         ----------
         temp_dir : Path
             Temporary directory to write plot output.
-        input_path : str
+        input_path : Path
             Path to input CSV file or folder containing CSV files.
         export_format : str
             Output format ("png", "svg", or "pdf").
@@ -59,7 +59,7 @@ class SpatialPlot(SenoQuantPlot):
         try:
             print(f"[SpatialPlot] Starting with input_path={input_path}")
             # Find the first data file (CSV or Excel) in the input folder
-            data_files = list(Path(input_path).glob("*.csv")) + list(Path(input_path).glob("*.xlsx")) + list(Path(input_path).glob("*.xls"))
+            data_files = list(input_path.glob("*.csv")) + list(input_path.glob("*.xlsx")) + list(input_path.glob("*.xls"))
             print(f"[SpatialPlot] Found {len(data_files)} data files")
             if not data_files:
                 print(f"[SpatialPlot] No CSV/Excel files found in {input_path}")
@@ -72,7 +72,7 @@ class SpatialPlot(SenoQuantPlot):
             else:
                 df = pd.read_csv(data_file)
             print(f"[SpatialPlot] Loaded dataframe with shape {df.shape}")
-            if df.empty or len(df) == 0:
+            if df.empty:
                 print(f"[SpatialPlot] DataFrame is empty")
                 return []
             

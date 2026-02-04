@@ -78,7 +78,7 @@ class VisualizationBackend:
     def process(
         self,
         plots: Iterable[object],
-        input_path: str,
+        input_path: Path,
         output_path: str,
         output_name: str,
         export_format: str,
@@ -94,8 +94,8 @@ class VisualizationBackend:
         plots : iterable of object
             Plot UI contexts with ``state`` and ``plot_handler``.
             Each handler should implement ``plot(temp_dir, input_path, export_format)``.
-        input_path : str
-            Path to the input CSV file for plotting.
+        input_path : Path
+            Path to the input folder containing quantification files.
         output_path : str
             Base output folder path.
         output_name : str
@@ -123,7 +123,7 @@ class VisualizationBackend:
         plot implementations to either return specific files or simply write
         into the provided temporary directory.
         """
-        input_root = Path(input_path).parent
+        input_root = input_path.parent
         # Treat `output_path` as the folder and `output_name` as an optional
         # filename base. Resolve output_root without using output_name so
         # output_name can be applied as a file name rather than a subfolder.

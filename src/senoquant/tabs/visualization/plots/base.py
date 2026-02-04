@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..frontend import PlotUIContext
 
 
-class FeatureData:
+class PlotData:
     """Base class for plot-specific configuration data.
 
     Notes
@@ -34,13 +34,13 @@ class PlotConfig:
         Unique identifier for the plot instance.
     type_name : str
         Plot type name (e.g., ``"UMAP"``).
-    data : FeatureData
+    data : PlotData
         Plot-specific configuration payload.
     """
 
     plot_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     type_name: str = ""
-    data: FeatureData = field(default_factory=FeatureData)
+    data: PlotData = field(default_factory=PlotData)
 
 
 class SenoQuantPlot:
@@ -71,7 +71,7 @@ class SenoQuantPlot:
     def plot(
         self, 
         temp_dir: Path, 
-        input_path: str, 
+        input_path: Path, 
         export_format: str,
         markers: list[str] | None = None,
         thresholds: dict[str, float] | None = None,
@@ -82,10 +82,10 @@ class SenoQuantPlot:
         ----------
         temp_dir : Path
             Temporary directory where outputs should be written.
-        input_path : str
-            Path to the input CSV file for plotting.
+        input_path : Path
+            Path to the folder containing CSV or Excel files for plotting.
         export_format : str
-            File format requested by the user (``"png"`` or ``"svg"``).
+            File format requested by the user (``"png"``, ``"svg"``, or ``"pdf"``).
         markers : list of str, optional
             List of selected markers to include.
         thresholds : dict, optional

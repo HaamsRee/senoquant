@@ -6,7 +6,7 @@ import importlib
 import pkgutil
 from typing import Iterable
 
-from .base import PlotConfig, FeatureData, SenoQuantPlot
+from .base import PlotConfig, PlotData, SenoQuantPlot
 from .spatialplot import SpatialPlotData
 from .umap import UMAPData
 
@@ -48,13 +48,13 @@ def get_feature_registry() -> dict[str, type[SenoQuantPlot]]:
         )
     )
 
-FEATURE_DATA_FACTORY: dict[str, type[FeatureData]] = {
+FEATURE_DATA_FACTORY: dict[str, type[PlotData]] = {
     "UMAP": UMAPData,
     "Spatial Plot": SpatialPlotData,
 }
 
 
-def build_feature_data(feature_type: str) -> FeatureData:
+def build_feature_data(feature_type: str) -> PlotData:
     """Create a plot data instance for the specified plot type.
 
     Parameters
@@ -64,16 +64,16 @@ def build_feature_data(feature_type: str) -> FeatureData:
 
     Returns
     -------
-    FeatureData
+    PlotData
         Plot-specific configuration instance.
     """
-    data_cls = FEATURE_DATA_FACTORY.get(feature_type, FeatureData)
+    data_cls = FEATURE_DATA_FACTORY.get(feature_type, PlotData)
     return data_cls()
 
 
 __all__ = [
     "PlotConfig",
-    "FeatureData",
+    "PlotData",
     "SenoQuantPlot",
     "build_feature_data",
     "get_feature_registry",
