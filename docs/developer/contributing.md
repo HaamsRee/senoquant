@@ -146,8 +146,6 @@ mkdocs build
 
 Defined in `pyproject.toml`:
 
-- `.[distributed]`: Dask for parallel processing.
-- `.[gpu]`: GPU acceleration extras.
 - `.[all]`: Full stack including napari and optional dependencies.
 
 ### BioIO reader plugins

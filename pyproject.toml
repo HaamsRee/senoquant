@@ -60,6 +60,7 @@ dependencies = [
   "openpyxl>=3.1",
   "huggingface_hub>=0.23.0",
   "scikit-image>=0.22,<0.25",
+  "PyWavelets>=1.5",
   "scipy>=1.8",
   "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
@@ -76,7 +77,6 @@ Repository = "https://github.com/HaamsRee/senoquant"
 senoquant = "senoquant:napari.yaml"
 
 [project.optional-dependencies]
-gpu = ["cupy-cuda12x>=12.0", "cucim>=23.4"]
 all = [
   "napari[all]",
   "bioio>=3.2.0",
@@ -99,12 +99,11 @@ all = [
   "openpyxl>=3.1",
   "huggingface_hub>=0.23.0",
   "scikit-image>=0.22,<0.25",
+  "PyWavelets>=1.5",
   "scipy>=1.8",
   "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
-  "cupy-cuda12x>=12.0",
-  "cucim>=23.4",
 ]
 
 [tool.setuptools.package-data]
