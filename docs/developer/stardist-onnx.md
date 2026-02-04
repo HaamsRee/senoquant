@@ -146,11 +146,18 @@ Command:
 ## Troubleshooting
 
 - **`TensorFlow is required to export StarDist models.`**
-  - Install TensorFlow in the active env.
+
+    - Install TensorFlow in the active env.
+
 - **`tf2onnx is required to export StarDist models.`**
-  - Install `tf2onnx` in the same env.
+
+    - Install `tf2onnx` in the same env.
+
 - **protobuf-related conversion errors**
-  - Reinstall/align protobuf with your TensorFlow/tf2onnx stack.
+
+    - Reinstall/align protobuf with your TensorFlow/tf2onnx stack.
+
 - **Runtime inference errors after conversion**
-  - Verify model IO with `inspect.cli`.
-  - Verify output model path matches SenoQuant model lookup conventions.
+
+    - Verify model IO with `inspect.cli`.
+    - Verify output model path matches SenoQuant model lookup conventions.
