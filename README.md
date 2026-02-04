@@ -76,3 +76,4 @@ SenoQuant builds on and integrates excellent open-source projects.
 - [StarDist](https://github.com/stardist/stardist).
 - [Cellpose](https://github.com/MouseLand/cellpose).
 - [U-FISH](https://github.com/UFISH-Team/U-FISH).
+- [BioIO](https://github.com/bioio-devs/bioio).
