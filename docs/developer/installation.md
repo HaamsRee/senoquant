@@ -49,7 +49,6 @@ pip install senoquant
 
 ### Optional dependencies
 
-- `uv pip install senoquant[gpu]` for optional GPU-focused extras (requires CUDA; Windows and Linux only).
 - `uv pip install senoquant[all]` for full stack.
 
 ## Launch

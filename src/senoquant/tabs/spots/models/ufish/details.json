@@ -2,8 +2,23 @@
   "name": "ufish",
   "description": "U-FISH local-maxima seeded watershed detector",
   "version": "0.1.0",
-  "order": 0,
+  "order": 1,
   "settings": [
+    {
+      "key": "denoise_enabled",
+      "label": "Denoise input",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "spot_size",
+      "label": "Spot size",
+      "type": "float",
+      "decimals": 2,
+      "min": 0.25,
+      "max": 4.0,
+      "default": 1.0
+    },
     {
       "key": "threshold",
       "label": "Threshold",

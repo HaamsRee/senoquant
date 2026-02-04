@@ -20,6 +20,7 @@ Weight loading priority is:
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 import sys
 from types import MethodType
@@ -92,6 +93,7 @@ class _UFishState:
 
 _UFISH_STATE = _UFishState()
 _UFISH_HF_FILENAME = "ufish.onnx"
+_LOGGER = logging.getLogger(__name__)
 
 
 def _ensure_ufish_available() -> None:
@@ -353,5 +355,33 @@ def enhance_image(
     model = _get_ufish(config)
     _ensure_weights(model, config)
     image = np.asarray(image)
-    _pred_spots, enhanced = model.predict(image)
+    model_any = cast("Any", model)
+    predict_chunks = getattr(model_any, "predict_chunks", None)
+
+    def _run_inference() -> tuple[Any, Any]:
+        if callable(predict_chunks):
+            return predict_chunks(image)
+        return model_any.predict(image)
+
+    try:
+        _pred_spots, enhanced = _run_inference()
+    except Exception as exc:
+        # If ONNX inference fails on GPU, retry once on CPU provider.
+        weight_path = getattr(model_any, "weight_path", None)
+        can_retry_on_cpu = (
+            ort is not None
+            and isinstance(weight_path, str)
+            and weight_path.endswith(".onnx")
+            and hasattr(model_any, "_load_onnx")
+            and "CPUExecutionProvider" in set(ort.get_available_providers())
+        )
+        if not can_retry_on_cpu:
+            raise
+        _LOGGER.warning(
+            "UFish inference failed; retrying with ONNX CPUExecutionProvider. "
+            "Original error: %s",
+            exc,
+        )
+        model_any._load_onnx(weight_path, providers=["CPUExecutionProvider"])
+        _pred_spots, enhanced = _run_inference()
     return np.asarray(enhanced)

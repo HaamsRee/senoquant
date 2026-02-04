@@ -651,6 +651,9 @@ class SpotsTab(QWidget):
         if mask is not None:
             filtered_mask = self._apply_size_filter(mask)
             self._add_labels_layer(layer, filtered_mask, detector_name)
+        debug_images = result.get("debug_images")
+        if isinstance(debug_images, dict):
+            self._add_debug_image_layers(layer, detector_name, debug_images)
 
     def _add_labels_layer(self, source_layer, mask, detector_name: str) -> None:
         """Add a labels layer for the detector mask."""
@@ -693,6 +696,57 @@ class SpotsTab(QWidget):
         merged_metadata["task"] = "spots"
         labels_layer.metadata = merged_metadata
         labels_layer.contour = 1
+
+    def _add_debug_image_layers(
+        self,
+        source_layer,
+        detector_name: str,
+        debug_images: dict,
+    ) -> None:
+        """Add debug image layers emitted by a detector run."""
+        if self._viewer is None:
+            return
+        source_name = getattr(source_layer, "name", "") if source_layer is not None else ""
+        source_name = source_name.strip() if isinstance(source_name, str) else ""
+
+        for debug_key, debug_image in debug_images.items():
+            if debug_image is None:
+                continue
+            image_data = np.asarray(debug_image)
+            if image_data.size == 0:
+                continue
+            layer_name = f"{detector_name}_{debug_key}"
+            if source_name:
+                layer_name = f"{source_name}_{layer_name}"
+            if layer_name in self._viewer.layers:
+                self._viewer.layers.remove(layer_name)
+
+            metadata = {"task": "spots", "debug": True}
+            image_layer = None
+            if Image is not None and hasattr(self._viewer, "add_layer"):
+                image_layer = Image(
+                    image_data,
+                    name=layer_name,
+                    metadata=metadata,
+                )
+                added_layer = self._viewer.add_layer(image_layer)
+                if added_layer is not None:
+                    image_layer = added_layer
+            elif hasattr(self._viewer, "add_image"):
+                try:
+                    image_layer = self._viewer.add_image(
+                        image_data,
+                        name=layer_name,
+                        metadata=metadata,
+                    )
+                except TypeError:
+                    image_layer = self._viewer.add_image(
+                        image_data,
+                        name=layer_name,
+                    )
+
+            if image_layer is not None:
+                image_layer.visible = True
 
     def _apply_size_filter(self, mask: np.ndarray) -> np.ndarray:
         """Filter spots by size based on min/max settings.
