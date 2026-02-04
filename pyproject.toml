@@ -106,6 +106,8 @@ all = [
   "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
+  "matplotlib>=3.8",
+  "umap-learn>=0.5",
 ]
 
 [tool.setuptools.package-data]

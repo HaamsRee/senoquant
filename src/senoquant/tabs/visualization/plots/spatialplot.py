@@ -5,9 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-import matplotlib.pyplot as plt
-import pandas as pd
-
 from .base import PlotData, SenoQuantPlot
 
 
@@ -57,6 +54,19 @@ class SpatialPlot(SenoQuantPlot):
             Paths to generated plot files.
         """
         try:
+            try:
+                import pandas as pd
+            except ImportError:
+                print("[SpatialPlot] pandas is not installed; skipping plot generation.")
+                return []
+            try:
+                import matplotlib.pyplot as plt
+            except ImportError:
+                print(
+                    "[SpatialPlot] matplotlib is not installed; skipping plot generation."
+                )
+                return []
+
             print(f"[SpatialPlot] Starting with input_path={input_path}")
             # Find the first data file (CSV or Excel) in the input folder
             data_files = list(input_path.glob("*.csv")) + list(input_path.glob("*.xlsx")) + list(input_path.glob("*.xls"))

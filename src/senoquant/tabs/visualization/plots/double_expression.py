@@ -5,9 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-import matplotlib.pyplot as plt
-import pandas as pd
-
 try:
     from napari.utils.notifications import show_error
 except ImportError:
@@ -62,6 +59,27 @@ class DoubleExpressionPlot(SenoQuantPlot):
             Paths to generated plot files.
         """
         try:
+            try:
+                import pandas as pd
+            except ImportError:
+                msg = (
+                    "[DoubleExpressionPlot] pandas is not installed; "
+                    "skipping plot generation."
+                )
+                print(msg)
+                show_error(msg)
+                return []
+            try:
+                import matplotlib.pyplot as plt
+            except ImportError:
+                msg = (
+                    "[DoubleExpressionPlot] matplotlib is not installed; "
+                    "skipping plot generation."
+                )
+                print(msg)
+                show_error(msg)
+                return []
+
             print(f"[DoubleExpressionPlot] Starting with input_path={input_path}")
             
             if not markers or len(markers) != 2:

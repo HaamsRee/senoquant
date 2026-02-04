@@ -120,8 +120,15 @@ class Qt:
     ScrollBarAlwaysOff = 0
     ScrollBarAsNeeded = 1
     AlignTop = 2
+    AlignCenter = 3
     Vertical = 3
     Horizontal = 4
+    KeepAspectRatio = 5
+    SmoothTransformation = 6
+    ItemIsUserCheckable = 1 << 0
+    ItemIsEnabled = 1 << 1
+    Checked = 2
+    Unchecked = 0
 
 
 class QTimer:
@@ -334,6 +341,8 @@ class QWidget:
     def __init__(self, *_args, **_kwargs) -> None:
         self._layout = None
         self._visible = True
+        self._width = 640
+        self._height = 480
 
     def setLayout(self, layout) -> None:
         self._layout = layout
@@ -342,9 +351,13 @@ class QWidget:
         self._visible = bool(visible)
 
     def setMinimumWidth(self, *_args, **_kwargs) -> None:
+        if _args:
+            self._width = max(self._width, int(_args[0]))
         return None
 
     def setMinimumHeight(self, *_args, **_kwargs) -> None:
+        if _args:
+            self._height = max(self._height, int(_args[0]))
         return None
 
     def setMaximumHeight(self, *_args, **_kwargs) -> None:
@@ -390,6 +403,8 @@ class QWidget:
         return DummySize(0, 0)
 
     def setFixedHeight(self, *_args, **_kwargs) -> None:
+        if _args:
+            self._height = int(_args[0])
         return None
 
     def setUpdatesEnabled(self, *_args, **_kwargs) -> None:
@@ -406,6 +421,12 @@ class QWidget:
 
     def parentWidget(self):
         return None
+
+    def width(self) -> int:
+        return int(self._width)
+
+    def height(self) -> int:
+        return int(self._height)
 
 
 class QFrame(QWidget):
@@ -682,9 +703,23 @@ class QLabel(QWidget):
     def __init__(self, *_args, **_kwargs) -> None:
         super().__init__()
         self._text = ""
+        self._pixmap = None
+        self._alignment = None
 
     def setText(self, text: str) -> None:
         self._text = text
+
+    def text(self) -> str:
+        return self._text
+
+    def setAlignment(self, alignment) -> None:
+        self._alignment = alignment
+
+    def setOpenExternalLinks(self, *_args, **_kwargs) -> None:
+        return None
+
+    def setPixmap(self, pixmap) -> None:
+        self._pixmap = pixmap
 
 
 class QProgressBar(QWidget):
@@ -742,6 +777,9 @@ class QDialog(QWidget):
     def accept(self) -> None:
         self.accepted.emit()
 
+    def exec(self) -> int:
+        return 0
+
 
 class QFileDialog:
     """File dialog stub."""
@@ -749,6 +787,118 @@ class QFileDialog:
     @staticmethod
     def getExistingDirectory(*_args, **_kwargs) -> str:
         return ""
+
+    @staticmethod
+    def getOpenFileName(*_args, **_kwargs):
+        return "", ""
+
+    @staticmethod
+    def getSaveFileName(*_args, **_kwargs):
+        return "", ""
+
+
+class QPixmap:
+    """Pixmap stub."""
+
+    def __init__(self, path: str = "") -> None:
+        self._path = path
+        self._null = not bool(path)
+
+    def isNull(self) -> bool:
+        return self._null
+
+    def scaled(self, *_args, **_kwargs):
+        return self
+
+
+class QHeaderView(QWidget):
+    """Header view stub."""
+
+    ResizeToContents = 0
+    Stretch = 1
+
+    def setSectionResizeMode(self, *_args, **_kwargs) -> None:
+        return None
+
+    def setVisible(self, *_args, **_kwargs) -> None:
+        return None
+
+
+class QTableWidgetItem:
+    """Table widget item stub."""
+
+    def __init__(self, text: str = "") -> None:
+        self._text = text
+        self._check_state = Qt.Unchecked
+        self._flags = Qt.ItemIsEnabled
+
+    def setCheckState(self, state: int) -> None:
+        self._check_state = state
+
+    def checkState(self) -> int:
+        return self._check_state
+
+    def setFlags(self, flags: int) -> None:
+        self._flags = flags
+
+    def text(self) -> str:
+        return self._text
+
+
+class QTableWidget(QWidget):
+    """Table widget stub."""
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        super().__init__()
+        self._rows = 0
+        self._cols = 0
+        self._items: dict[tuple[int, int], QTableWidgetItem] = {}
+        self._cell_widgets: dict[tuple[int, int], QWidget] = {}
+        self._h_header = QHeaderView()
+        self._v_header = QHeaderView()
+
+    def setColumnCount(self, count: int) -> None:
+        self._cols = int(count)
+
+    def setHorizontalHeaderLabels(self, _labels) -> None:
+        return None
+
+    def horizontalHeader(self) -> QHeaderView:
+        return self._h_header
+
+    def verticalHeader(self) -> QHeaderView:
+        return self._v_header
+
+    def setRowCount(self, count: int) -> None:
+        self._rows = int(count)
+        self._items = {
+            key: value
+            for key, value in self._items.items()
+            if key[0] < self._rows and key[1] < self._cols
+        }
+        self._cell_widgets = {
+            key: value
+            for key, value in self._cell_widgets.items()
+            if key[0] < self._rows and key[1] < self._cols
+        }
+
+    def insertRow(self, row: int) -> None:
+        self._rows = max(self._rows, int(row) + 1)
+
+    def setItem(self, row: int, col: int, item: QTableWidgetItem) -> None:
+        self._items[(int(row), int(col))] = item
+
+    def item(self, row: int, col: int):
+        return self._items.get((int(row), int(col)))
+
+    def setCellWidget(self, row: int, col: int, widget: QWidget) -> None:
+        self._cell_widgets[(int(row), int(col))] = widget
+
+    def cellWidget(self, row: int, col: int):
+        return self._cell_widgets.get((int(row), int(col)))
+
+    def rowCount(self) -> int:
+        return self._rows
 
 
 class QPalette:
@@ -831,10 +981,14 @@ def _ensure_qtpy(force: bool = True) -> None:
     qtwidgets.QProgressBar = QProgressBar
     qtwidgets.QDialog = QDialog
     qtwidgets.QFileDialog = QFileDialog
+    qtwidgets.QHeaderView = QHeaderView
+    qtwidgets.QTableWidget = QTableWidget
+    qtwidgets.QTableWidgetItem = QTableWidgetItem
     qtwidgets.QSizePolicy = QSizePolicy
 
     qtgui.QGuiApplication = QGuiApplication
     qtgui.QPalette = QPalette
+    qtgui.QPixmap = QPixmap
 
     sys.modules["qtpy"] = qtpy
     sys.modules["qtpy.QtCore"] = qtcore
@@ -1040,17 +1194,85 @@ def _ensure_torch(force: bool = True) -> None:
         def close(self) -> None:
             return None
 
-    def _asarray(value, dtype=None):
-        arr = np.asarray(value)
-        if dtype is not None:
-            arr = arr.astype(dtype)
-        return arr
+    class _Tensor(np.ndarray):
+        """NumPy-backed tensor stub with minimal torch-like API."""
+
+        def __new__(cls, value, dtype=None, device: str | None = None):
+            arr = np.asarray(value, dtype=dtype).view(cls)
+            arr.device = device or "cpu"
+            return arr
+
+        def __array_finalize__(self, obj):
+            self.device = getattr(obj, "device", "cpu")
+
+        def to(self, device=None, dtype=None, **_kwargs):
+            target_device = self.device if device is None else device
+            target_dtype = self.dtype if dtype is None else dtype
+            return _to_tensor(self, dtype=target_dtype, device=target_device)
+
+        def cuda(self, *_args, **_kwargs):
+            return self.to(device="cuda")
+
+        def cpu(self):
+            return self.to(device="cpu")
+
+        def detach(self):
+            return self
+
+        def numpy(self):
+            return np.asarray(self)
+
+        def unsqueeze(self, dim: int):
+            return _to_tensor(np.expand_dims(np.asarray(self), axis=dim), device=self.device)
+
+        def squeeze(self, axis=None):
+            return _to_tensor(np.squeeze(np.asarray(self), axis=axis), device=self.device)
+
+        def clamp(self, min=None, max=None):
+            low = -np.inf if min is None else min
+            high = np.inf if max is None else max
+            return _to_tensor(np.clip(np.asarray(self), low, high), device=self.device)
+
+        def amin(self, *args, **kwargs):
+            return float(np.amin(np.asarray(self), *args, **kwargs))
+
+        def amax(self, *args, **kwargs):
+            return float(np.amax(np.asarray(self), *args, **kwargs))
+
+        def max(self, dim=None, keepdim=False):
+            arr = np.asarray(self)
+            if dim is None:
+                return float(np.max(arr))
+            values = np.max(arr, axis=dim, keepdims=keepdim)
+            indices = np.argmax(arr, axis=dim)
+            return types.SimpleNamespace(
+                values=_to_tensor(values, device=self.device),
+                indices=_to_tensor(indices, device=self.device),
+            )
+
+    def _to_tensor(value, dtype=None, device=None):
+        base = np.asarray(value, dtype=dtype)
+        target_device = device
+        if target_device is None:
+            target_device = getattr(value, "device", "cpu")
+        return _Tensor(base, device=str(target_device))
+
+    def _asarray(value, dtype=None, device=None, **_kwargs):
+        return _to_tensor(value, dtype=dtype, device=device)
 
     def _cat(values, dim=0):
-        return np.concatenate([np.asarray(v) for v in values], axis=dim)
+        device = getattr(values[0], "device", "cpu") if values else "cpu"
+        return _to_tensor(
+            np.concatenate([np.asarray(v) for v in values], axis=dim),
+            device=device,
+        )
 
     def _stack(values, dim=0):
-        return np.stack([np.asarray(v) for v in values], axis=dim)
+        device = getattr(values[0], "device", "cpu") if values else "cpu"
+        return _to_tensor(
+            np.stack([np.asarray(v) for v in values], axis=dim),
+            device=device,
+        )
 
     def _max(values, dim=None, keepdim=False):
         arr = np.asarray(values)
@@ -1058,31 +1280,59 @@ def _ensure_torch(force: bool = True) -> None:
             return np.max(arr)
         max_vals = np.max(arr, axis=dim, keepdims=keepdim)
         max_idx = np.argmax(arr, axis=dim)
-        return max_vals, max_idx
+        device = getattr(values, "device", "cpu")
+        return _to_tensor(max_vals, device=device), _to_tensor(max_idx, device=device)
 
     def _identity_op(value, *_args, **_kwargs):
-        return np.asarray(value)
+        return _to_tensor(value, device=getattr(value, "device", "cpu"))
 
-    torch.Tensor = np.ndarray
+    def _pad(value, pad, mode="constant", **_kwargs):
+        arr = np.asarray(value)
+        if len(pad) == 4:
+            left, right, top, bottom = pad
+            pad_width = [(0, 0)] * (arr.ndim - 2) + [(top, bottom), (left, right)]
+        elif len(pad) == 2:
+            left, right = pad
+            pad_width = [(0, 0)] * (arr.ndim - 1) + [(left, right)]
+        else:
+            return _to_tensor(arr, device=getattr(value, "device", "cpu"))
+        np_mode = "reflect" if mode == "reflect" else "constant"
+        padded = np.pad(arr, pad_width, mode=np_mode)
+        return _to_tensor(padded, device=getattr(value, "device", "cpu"))
+
+    torch.Tensor = _Tensor
     torch.float = np.float32
     torch.float32 = np.float32
     torch.device = lambda value: value
     torch.as_tensor = _asarray
     torch.tensor = _asarray
-    torch.from_numpy = lambda value: np.asarray(value)
-    torch.rand = lambda *shape, **_kwargs: np.random.rand(
-        *_shape_args(*shape)
-    ).astype(np.float32)
-    torch.zeros = lambda *shape, **_kwargs: np.zeros(
-        _shape_args(*shape),
-        dtype=np.float32,
+    torch.from_numpy = lambda value: _to_tensor(value)
+    torch.rand = lambda *shape, **_kwargs: _to_tensor(
+        np.random.rand(*_shape_args(*shape)).astype(np.float32),
+        device=_kwargs.get("device"),
     )
-    torch.ones = lambda *shape, **_kwargs: np.ones(
-        _shape_args(*shape),
-        dtype=np.float32,
+    torch.zeros = lambda *shape, **_kwargs: _to_tensor(
+        np.zeros(
+            _shape_args(*shape),
+            dtype=_kwargs.get("dtype", np.float32),
+        ),
+        device=_kwargs.get("device"),
     )
-    torch.zeros_like = lambda value, **_kwargs: np.zeros_like(np.asarray(value))
-    torch.ones_like = lambda value, **_kwargs: np.ones_like(np.asarray(value))
+    torch.ones = lambda *shape, **_kwargs: _to_tensor(
+        np.ones(
+            _shape_args(*shape),
+            dtype=_kwargs.get("dtype", np.float32),
+        ),
+        device=_kwargs.get("device"),
+    )
+    torch.zeros_like = lambda value, **_kwargs: _to_tensor(
+        np.zeros_like(np.asarray(value)),
+        device=_kwargs.get("device", getattr(value, "device", "cpu")),
+    )
+    torch.ones_like = lambda value, **_kwargs: _to_tensor(
+        np.ones_like(np.asarray(value)),
+        device=_kwargs.get("device", getattr(value, "device", "cpu")),
+    )
     torch.cat = _cat
     torch.stack = _stack
     torch.mean = lambda value, dim=None, keepdim=False: np.mean(
@@ -1096,8 +1346,14 @@ def _ensure_torch(force: bool = True) -> None:
         *args,
         **kwargs,
     )
-    torch.sqrt = lambda value: np.sqrt(np.asarray(value))
-    torch.flatten = lambda value: np.ravel(np.asarray(value))
+    torch.sqrt = lambda value: _to_tensor(
+        np.sqrt(np.asarray(value)),
+        device=getattr(value, "device", "cpu"),
+    )
+    torch.flatten = lambda value: _to_tensor(
+        np.ravel(np.asarray(value)),
+        device=getattr(value, "device", "cpu"),
+    )
     torch.no_grad = lambda: _NoGrad()
     torch.load = lambda *_args, **_kwargs: {}
     torch.save = lambda *_args, **_kwargs: None
@@ -1132,7 +1388,7 @@ def _ensure_torch(force: bool = True) -> None:
     nn.__getattr__ = _nn_getattr
     nn.functional = functional
 
-    functional.pad = _identity_op
+    functional.pad = _pad
     functional.interpolate = _identity_op
     functional.max_pool2d = _identity_op
     functional.grid_sample = _identity_op

@@ -42,11 +42,12 @@ SenoQuant should launch automatically in Step 1. If not:
 
 `Plugins` → `SenoQuant`
 
-The plugin window opens as a docked widget with 5 tabs:
+The plugin window opens as a docked widget with 6 tabs:
 
 - **Segmentation**
 - **Spots**
 - **Quantification**
+- **Visualization**
 - **Batch**
 - **Settings**
 
@@ -208,5 +209,6 @@ If you want batch exports:
 - [Segmentation](segmentation.md) - Detailed model settings and parameters
 - [Spots](spots.md) - Advanced spot detection configuration
 - [Quantification](quantification.md) - Feature export details and column definitions
+- [Visualization](visualization.md) - Plot generation from quantification tables
 - [Batch](batch.md) - Batch processing profiles and automation
 - [Data](data.md) - Supported file formats and metadata handling

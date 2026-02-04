@@ -94,7 +94,7 @@ def _rotate_tensor(image: "torch.Tensor", angle: float) -> "torch.Tensor":
         dtype=image.dtype,
         device=image.device,
     )
-    grid = F.affine_grid(theta, image.size(), align_corners=False)
+    grid = F.affine_grid(theta, tuple(image.shape), align_corners=False)
     return F.grid_sample(
         image,
         grid,

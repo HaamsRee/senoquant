@@ -10,6 +10,7 @@ High-level layout of the repository:
     - `segmentation/`.
     - `spots/`.
     - `quantification/`.
+    - `visualization/`.
     - `batch/`.
     - `settings/`.
 - `tests/` - pytest suite (tab UIs, backends, exports, reader, model helpers).
