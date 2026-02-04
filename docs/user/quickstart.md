@@ -84,7 +84,7 @@ If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):
 
 1. Switch to the **Spots** tab.
 2. Select **Image Layer**: Choose the channel with spots.
-3. Select **Detector**: `ufish`.
+3. Select **Detector**: `rmp`, `ufish`.
 4. Adjust detection settings (for example, `Threshold`).
 
     > The default settings work well for most images.
