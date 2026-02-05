@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import partial
+import logging
 from typing import Iterable
 
 import numpy as np
@@ -41,6 +43,7 @@ NOISE_FLOOR_SIGMA = 1.5
 MIN_SCALE_SIGMA = 5.0
 SIGNAL_SCALE_QUANTILE = 99.9
 USE_LAPLACE_FOR_PEAKS = False
+logger = logging.getLogger(__name__)
 
 
 def _ensure_torch_available() -> None:
@@ -373,6 +376,17 @@ def _rmp_top_hat_block(block: np.ndarray, config: "RMPSettings") -> np.ndarray:
     return np.asarray(top_hat, dtype=np.float32)
 
 
+def _rmp_top_hat_block_mapped(
+    block: np.ndarray,
+    *,
+    config: "RMPSettings",
+    block_info=None,
+) -> np.ndarray:
+    """Top-level map_overlap callable for picklable tiled execution."""
+    del block_info
+    return _rmp_top_hat_block(block, config)
+
+
 def _compute_top_hat_2d(
     image_2d: np.ndarray,
     config: "RMPSettings",
@@ -467,9 +481,7 @@ def _rmp_top_hat_tiled(
     _ensure_dask_available()
 
     effective_overlap = _recommended_overlap(config) if overlap is None else overlap
-
-    def block_fn(block, block_info=None):
-        return _rmp_top_hat_block(block, config)
+    block_fn = partial(_rmp_top_hat_block_mapped, config=config)
 
     arr = da.from_array(image.astype(np.float32, copy=False), chunks=chunk_size)
     result = arr.map_overlap(
@@ -487,7 +499,7 @@ def _rmp_top_hat_tiled(
                 return temp_client.compute(result).result()
         return client.compute(result).result()
 
-    return result.compute()
+    return result.compute(scheduler="single-threaded")
 
 
 @dataclass(slots=True)
@@ -556,12 +568,26 @@ class RMPDetector(SenoQuantSpotDetector):
 
         use_distributed = _distributed_available()
         use_tiled = _dask_available()
-        top_hat = _compute_top_hat_nd(
-            normalized,
-            config,
-            use_tiled=use_tiled,
-            use_distributed=use_distributed,
-        )
+        try:
+            top_hat = _compute_top_hat_nd(
+                normalized,
+                config,
+                use_tiled=use_tiled,
+                use_distributed=use_distributed,
+            )
+        except Exception:
+            if not use_distributed:
+                raise
+            logger.warning(
+                "RMP distributed tiled execution failed; retrying with single-threaded local execution.",
+                exc_info=False,
+            )
+            top_hat = _compute_top_hat_nd(
+                normalized,
+                config,
+                use_tiled=use_tiled,
+                use_distributed=False,
+            )
         labels, _top_hat_normalized = _postprocess_top_hat(top_hat, config)
         return {
             "mask": labels,
