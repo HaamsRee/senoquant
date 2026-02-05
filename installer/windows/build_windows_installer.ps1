@@ -5,6 +5,14 @@ $distRoot = Join-Path $repoRoot "dist\windows-installer"
 $appDir = Join-Path $distRoot "senoquant"
 $toolsDir = Join-Path $appDir "tools"
 $wheelDir = Join-Path $appDir "wheels"
+$versionIniPath = Join-Path $distRoot "version.ini"
+
+New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
+
+# Start from a clean app bundle so stale wheels/scripts are not packaged.
+if (Test-Path $appDir) {
+    Remove-Item -Path $appDir -Recurse -Force
+}
 
 New-Item -ItemType Directory -Force -Path $appDir | Out-Null
 New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
@@ -12,6 +20,45 @@ New-Item -ItemType Directory -Force -Path $wheelDir | Out-Null
 
 # Build wheel (ensure build is available)
 Push-Location $repoRoot
+$pyprojectPath = Join-Path $repoRoot "pyproject.toml"
+if (!(Test-Path $pyprojectPath)) {
+    throw "pyproject.toml not found at $pyprojectPath"
+}
+
+# Clear setuptools intermediates so removed files are not carried into wheels.
+$setuptoolsBuildDir = Join-Path $repoRoot "build"
+$eggInfoDir = Join-Path $repoRoot "senoquant.egg-info"
+if (Test-Path $setuptoolsBuildDir) {
+    Remove-Item -Path $setuptoolsBuildDir -Recurse -Force
+}
+if (Test-Path $eggInfoDir) {
+    Remove-Item -Path $eggInfoDir -Recurse -Force
+}
+
+$inProjectSection = $false
+$appVersion = $null
+foreach ($line in Get-Content $pyprojectPath) {
+    $trimmed = $line.Trim()
+    if ($trimmed -match '^\[(.+)\]$') {
+        $inProjectSection = ($matches[1] -eq "project")
+        continue
+    }
+    if ($inProjectSection -and $trimmed -match '^version\s*=\s*"([^"]+)"') {
+        $appVersion = $matches[1]
+        break
+    }
+}
+if ([string]::IsNullOrWhiteSpace($appVersion)) {
+    throw "Failed to parse [project].version from pyproject.toml"
+}
+
+$versionIni = @(
+    "[project]"
+    "version=$appVersion"
+) -join "`r`n"
+Set-Content -Path $versionIniPath -Value $versionIni -Encoding ASCII
+Write-Host "[SenoQuant] Installer version: $appVersion"
+
 python -m pip install --upgrade pip | Out-Null
 python -m pip install build | Out-Null
 python -m build --wheel -o $wheelDir

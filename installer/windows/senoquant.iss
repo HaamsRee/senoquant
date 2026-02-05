@@ -1,5 +1,9 @@
 #define AppName "SenoQuant"
-#define AppVersion ReadIni(SourcePath + "\..\..\pyproject.toml", "project", "version", "1.0.0b4")
+#define VersionIniPath SourcePath + "\..\..\dist\windows-installer\version.ini"
+#define AppVersion ReadIni(VersionIniPath, "project", "version", "")
+#if AppVersion == ""
+  #error "Unable to read AppVersion from dist\\windows-installer\\version.ini. Run installer\\windows\\build_windows_installer.ps1 before compiling."
+#endif
 #define AppPublisher "SenoQuant Contributors"
 #define AppExe "launch_senoquant.bat"
 #define SourceDir "..\\..\\dist\\windows-installer\\senoquant"
@@ -34,7 +38,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{a
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\post_install.ps1"" ""{app}"""; Flags: waituntilterminated; StatusMsg: "Setting up SenoQuant environment..."
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\post_install.ps1"" ""{app}"" ""{#AppVersion}"""; Flags: waituntilterminated; StatusMsg: "Setting up SenoQuant environment..."
 
 [Code]
 function IsProgramFilesPath(const Path: string): Boolean;

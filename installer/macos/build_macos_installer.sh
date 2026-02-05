@@ -12,6 +12,9 @@ WHEEL_DIR="${RESOURCES_DIR}/wheels"
 
 echo "[SenoQuant] Building macOS installer..."
 
+# Start from a clean app bundle so stale wheels/scripts are not packaged.
+rm -rf "${APP_DIR}"
+
 # Create directory structure
 mkdir -p "${MACOS_DIR}"
 mkdir -p "${RESOURCES_DIR}"
@@ -21,10 +24,19 @@ mkdir -p "${WHEEL_DIR}"
 # Build wheel
 echo "[SenoQuant] Building wheel..."
 cd "${REPO_ROOT}"
+
+# Clear setuptools intermediates so removed files are not carried into wheels.
+rm -rf "${REPO_ROOT}/build" "${REPO_ROOT}/senoquant.egg-info"
+
 python -m pip install --upgrade pip --quiet
 python -m pip install --upgrade jsonschema --quiet
 python -m pip install build --quiet
 python -m build --wheel -o "${WHEEL_DIR}" 2>&1 | grep -v "SetuptoolsDeprecationWarning" | grep -v "License classifiers" | grep -v "See https://"
+
+# Get version from pyproject.toml
+VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b4")
+echo "[SenoQuant] Using version: ${VERSION}"
+
 MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
 if [ ! -f "${MICROMAMBA_BIN}" ]; then
     echo "[SenoQuant] Downloading micromamba..."
@@ -127,7 +139,7 @@ chmod +x "${RESOURCES_DIR}/post_install.sh"
 
 # Create Info.plist
 echo "[SenoQuant] Creating Info.plist..."
-cat > "${CONTENTS_DIR}/Info.plist" << 'EOF'
+cat > "${CONTENTS_DIR}/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -168,8 +180,6 @@ COMPONENT_PKG="${DIST_ROOT}/SenoQuant.component.pkg"
 COMPONENT_PLIST="${DIST_ROOT}/component.plist"
 STAGING_DIR="${DIST_ROOT}/pkg_staging"
 
-# Get version from pyproject.toml
-VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b4")
 PKG_ID="org.senoquant.SenoQuant"
 
 if [ ! -d "${APP_DIR}" ]; then

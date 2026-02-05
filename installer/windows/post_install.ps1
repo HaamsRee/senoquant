@@ -1,5 +1,6 @@
 param(
-    [string]$AppDir
+    [string]$AppDir,
+    [string]$AppVersion
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,12 +39,45 @@ $envDir = Join-Path $AppDir "env"
 $toolsDir = Join-Path $AppDir "tools"
 $wheelDir = Join-Path $AppDir "wheels"
 $micromambaExe = Join-Path $toolsDir "micromamba.exe"
+$versionFile = Join-Path $AppDir "installed_version"
 
 if (!(Test-Path $micromambaExe)) {
     throw "micromamba.exe not found at $micromambaExe"
 }
 
 Write-Host "[SenoQuant] Using micromamba: $micromambaExe"
+
+$wheel = Get-ChildItem -Path $wheelDir -Filter "senoquant-*.whl" |
+    Sort-Object LastWriteTimeUtc -Descending |
+    Select-Object -First 1
+if (-not $wheel) {
+    throw "Wheel not found in $wheelDir"
+}
+
+$targetVersion = $null
+if (-not [string]::IsNullOrWhiteSpace($AppVersion)) {
+    $targetVersion = $AppVersion.Trim()
+} elseif ($wheel.Name -match '^senoquant-([^-]+)-') {
+    $targetVersion = $matches[1]
+}
+if ([string]::IsNullOrWhiteSpace($targetVersion)) {
+    throw "Could not determine target SenoQuant version."
+}
+
+$installedVersion = $null
+if (Test-Path $versionFile) {
+    $installedVersion = (Get-Content -Path $versionFile -Raw).Trim()
+}
+
+if (Test-Path $envDir) {
+    if ([string]::IsNullOrWhiteSpace($installedVersion)) {
+        Write-Host "[SenoQuant] Version marker missing. Rebuilding environment for $targetVersion."
+        Remove-Item -Path $envDir -Recurse -Force
+    } elseif ($installedVersion -ne $targetVersion) {
+        Write-Host "[SenoQuant] Version change detected ($installedVersion -> $targetVersion). Rebuilding environment."
+        Remove-Item -Path $envDir -Recurse -Force
+    }
+}
 
 if (!(Test-Path $envDir)) {
     Invoke-Checked "Creating environment: $envDir" { & $micromambaExe create -y -p $envDir python=3.11 pip }
@@ -54,16 +88,14 @@ Invoke-Checked "Installing pip-system-certs" { & $micromambaExe run -p $envDir u
 
 Invoke-Checked "Installing napari" { & $micromambaExe run -p $envDir uv pip install "napari[all]" }
 
-Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" { & $micromambaExe run -p $envDir uv pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio }
+Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { & $micromambaExe run -p $envDir uv pip install --force-reinstall $wheel.FullName }
 
-$wheel = Get-ChildItem -Path $wheelDir -Filter "senoquant-*.whl" | Select-Object -First 1
-if (-not $wheel) {
-    throw "Wheel not found in $wheelDir"
-}
-
-Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { & $micromambaExe run -p $envDir uv pip install $wheel.FullName }
+Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" { & $micromambaExe run -p $envDir uv pip install --force-reinstall --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio }
 
 Invoke-Checked "Validating napari import" { & $micromambaExe run -p $envDir python -c "import napari" }
+
+Set-Content -Path $versionFile -Value $targetVersion -Encoding ASCII
+Write-Host "[SenoQuant] Recorded installed version: $targetVersion"
 
 Write-Host "[SenoQuant] Post-install complete."
 
