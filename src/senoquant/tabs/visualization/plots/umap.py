@@ -100,8 +100,22 @@ class UMAPPlot(SenoQuantPlot):
             X = df[numeric_cols].values
 
             # Fit UMAP
-            print(f"[UMAPPlot] Fitting UMAP with {len(X)} samples")
-            reducer = UMAPReducer(n_components=2, random_state=42)
+            n_samples = len(X)
+            print(f"[UMAPPlot] Fitting UMAP with {n_samples} samples")
+
+            # Adjust settings for small datasets to prevent solver errors
+            n_neighbors = 15
+            init_method = "spectral"
+            if n_samples < 15:
+                n_neighbors = max(2, n_samples - 1)
+                init_method = "random"
+
+            reducer = UMAPReducer(
+                n_components=2,
+                random_state=42,
+                n_neighbors=n_neighbors,
+                init=init_method,
+            )
             embedding = reducer.fit_transform(X)
             print(f"[UMAPPlot] UMAP embedding created with shape {embedding.shape}")
 

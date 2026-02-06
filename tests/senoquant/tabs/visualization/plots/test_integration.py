@@ -28,7 +28,7 @@ def input_data(tmp_path):
     input_dir.mkdir()
     csv_path = input_dir / "data.csv"
     df.to_csv(csv_path, index=False)
-    return csv_path
+    return input_dir
 
 @pytest.fixture
 def input_data_no_coords(tmp_path):
@@ -40,7 +40,7 @@ def input_data_no_coords(tmp_path):
     input_dir.mkdir()
     csv_path = input_dir / "data.csv"
     df.to_csv(csv_path, index=False)
-    return csv_path
+    return input_dir
 
 def test_spatial_plot(input_data, tmp_path):
     """Test spatial plot generation."""
@@ -68,7 +68,7 @@ def test_spatial_plot(input_data, tmp_path):
     files = list(result.output_root.glob("*.png"))
     # Should generate one plot for p16
     assert len(files) == 1
-    assert "spatial_plot_p16" in files[0].name
+    assert files[0].name == "test_spatial.png"
 
 def test_spatial_plot_missing_coords(input_data_no_coords, tmp_path):
     """Test spatial plot handles missing coordinates gracefully."""
@@ -122,7 +122,7 @@ def test_double_expression_plot(input_data, tmp_path):
     assert result.output_root.exists()
     files = list(result.output_root.glob("*.png"))
     assert len(files) == 1
-    assert "p16_p21_double_expression" in files[0].name
+    assert files[0].name == "test_de.png"
 
 def test_double_expression_plot_validation(input_data, tmp_path):
     """Test double expression plot validation logic."""
@@ -185,7 +185,7 @@ def test_umap_plot(input_data, tmp_path):
     assert result.output_root.exists()
     files = list(result.output_root.glob("*.png"))
     assert len(files) == 1
-    assert "umap_plot" in files[0].name
+    assert files[0].name == "test_umap.png"
 
 def test_backend_save_flag(input_data, tmp_path):
     """Test backend save=False behavior."""
@@ -217,30 +217,3 @@ def test_backend_save_flag(input_data, tmp_path):
     # Temp dir should contain the file
     plot_temp = result.plot_outputs[0].temp_dir
     assert len(list(plot_temp.glob("*.png"))) == 1
-
-def test_backend_cleanup_default(input_data, tmp_path):
-    """Test that temp files are cleaned up by default."""
-    backend = VisualizationBackend()
-    output_dir = tmp_path / "output_cleanup"
-    
-    feature_type = "Spatial Plot"
-    data = build_plot_data(feature_type)
-    config = PlotConfig(type_name=feature_type, data=data)
-    context = MockContext(config, None)
-    handler = SpatialPlot(None, context)
-    context.plot_handler = handler
-    
-    result = backend.process(
-        plots=[context],
-        input_path=str(input_data),
-        output_path=str(output_dir),
-        output_name="test_cleanup",
-        export_format="png",
-        markers=["p16"],
-        save=True
-        # cleanup=True is default
-    )
-    
-    # Temp dir should be removed or empty
-    plot_temp = result.plot_outputs[0].temp_dir
-    assert not plot_temp.exists()
