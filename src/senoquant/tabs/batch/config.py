@@ -176,7 +176,7 @@ class BatchJobConfig:
         Parameters
         ----------
         path : str
-            Destination file path for the JSON profile. The file stores the
+            Destination file path for the JSON settings file. The file stores the
             config inside a ``senoquant.settings`` bundle envelope.
         """
         payload = build_settings_bundle(batch_job=self.to_dict())
@@ -190,8 +190,8 @@ class BatchJobConfig:
         Parameters
         ----------
         path : str
-            Source JSON profile file. Supports both bundle envelopes and
-            legacy plain ``batch_job`` payloads.
+            Source JSON settings file. Supports both bundle envelopes and
+            legacy plain batch payloads.
 
         Returns
         -------

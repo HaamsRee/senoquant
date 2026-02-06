@@ -15,9 +15,92 @@ from senoquant._widget import SenoQuantWidget
 from senoquant.tabs.batch.frontend import BatchTab
 from senoquant.tabs.quantification.frontend import QuantificationTab
 from senoquant.tabs.segmentation.frontend import SegmentationTab
-from senoquant.tabs.settings.backend import SettingsBackend
 from senoquant.tabs.settings.frontend import SettingsTab
 from senoquant.tabs.spots.frontend import SpotsTab
+
+
+class _DummySegmentationModel:
+    """Minimal segmentation model stub for UI smoke tests."""
+
+    def supports_task(self, _task: str) -> bool:
+        return True
+
+    def list_settings(self) -> list[dict]:
+        return [
+            {
+                "key": "threshold",
+                "label": "Threshold",
+                "type": "float",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.1,
+                "decimals": 2,
+            },
+            {
+                "key": "enabled",
+                "label": "Enabled",
+                "type": "bool",
+                "default": False,
+            },
+        ]
+
+    def cytoplasmic_input_modes(self) -> list[str]:
+        return ["cytoplasmic"]
+
+    def cytoplasmic_nuclear_optional(self) -> bool:
+        return True
+
+
+class _DummySegmentationBackend:
+    """Minimal segmentation backend stub for UI smoke tests."""
+
+    def __init__(self) -> None:
+        self._model = _DummySegmentationModel()
+        self.preloaded = False
+
+    def list_model_names(self, task: str | None = None) -> list[str]:
+        if task in {"nuclear", "cytoplasmic", None}:
+            return ["dummy_model"]
+        return []
+
+    def get_model(self, _name: str) -> _DummySegmentationModel:
+        return self._model
+
+    def get_preloaded_model(self, _name: str) -> _DummySegmentationModel:
+        return self._model
+
+    def preload_models(self) -> None:
+        self.preloaded = True
+
+
+class _DummyDetector:
+    """Minimal spot detector stub for UI smoke tests."""
+
+    def list_settings(self) -> list[dict]:
+        return [
+            {
+                "key": "threshold",
+                "label": "Threshold",
+                "type": "float",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.2,
+                "decimals": 2,
+            }
+        ]
+
+
+class _DummySpotsBackend:
+    """Minimal spots backend stub for UI smoke tests."""
+
+    def __init__(self) -> None:
+        self._detector = _DummyDetector()
+
+    def list_detector_names(self) -> list[str]:
+        return ["dummy_detector"]
+
+    def get_detector(self, _name: str) -> _DummyDetector:
+        return self._detector
 
 
 def test_settings_tab_instantiates() -> None:
@@ -28,7 +111,8 @@ def test_settings_tab_instantiates() -> None:
     None
     """
     tab = SettingsTab()
-    assert hasattr(tab, "_preload_checkbox")
+    assert hasattr(tab, "_save_button")
+    assert hasattr(tab, "_load_button")
 
 
 def test_segmentation_tab_validation() -> None:
@@ -39,9 +123,9 @@ def test_segmentation_tab_validation() -> None:
     None
     """
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
-    settings = SettingsBackend()
-    settings.set_preload_models(False)
-    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    backend = _DummySegmentationBackend()
+    tab = SegmentationTab(napari_viewer=viewer, backend=backend)
+    assert backend.preloaded is True
     layer = DummyLayer(np.zeros((4, 4)), "img", rgb=False)
     assert tab._validate_single_channel_layer(layer, "Layer") is True
     rgb_layer = DummyLayer(np.zeros((4, 4, 3)), "rgb", rgb=True)
@@ -51,9 +135,10 @@ def test_segmentation_tab_validation() -> None:
 def test_segmentation_labels_include_task_metadata() -> None:
     """Tag generated segmentation labels with task metadata."""
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
-    settings = SettingsBackend()
-    settings.set_preload_models(False)
-    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    tab = SegmentationTab(
+        napari_viewer=viewer,
+        backend=_DummySegmentationBackend(),
+    )
     source = DummyLayer(np.zeros((4, 4)), "img", metadata={"path": "file.tif"})
 
     tab._add_labels_layer(
@@ -90,9 +175,10 @@ def test_segmentation_labels_metadata_without_name_lookup() -> None:
             return layer
 
     viewer = _SanitizingViewer([DummyLayer(np.zeros((4, 4)), "img")])
-    settings = SettingsBackend()
-    settings.set_preload_models(False)
-    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    tab = SegmentationTab(
+        napari_viewer=viewer,
+        backend=_DummySegmentationBackend(),
+    )
     source = DummyLayer(np.zeros((4, 4)), "img", metadata={"path": "file.tif"})
 
     tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "nuc")
@@ -106,9 +192,10 @@ def test_segmentation_labels_metadata_without_name_lookup() -> None:
 def test_segmentation_labels_preserve_source_run_history() -> None:
     """Keep source run history and append current model settings."""
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
-    settings = SettingsBackend()
-    settings.set_preload_models(False)
-    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    tab = SegmentationTab(
+        napari_viewer=viewer,
+        backend=_DummySegmentationBackend(),
+    )
     source = DummyLayer(
         np.zeros((4, 4)),
         "img",
@@ -151,8 +238,59 @@ def test_spots_tab_instantiates() -> None:
     None
     """
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
-    tab = SpotsTab(napari_viewer=viewer)
+    tab = SpotsTab(napari_viewer=viewer, backend=_DummySpotsBackend())
     assert hasattr(tab, "_detector_combo")
+
+
+def test_segmentation_settings_state_round_trip() -> None:
+    """Export and re-apply segmentation settings state."""
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    tab = SegmentationTab(
+        napari_viewer=viewer,
+        backend=_DummySegmentationBackend(),
+    )
+
+    tab.apply_settings_state(
+        {
+            "nuclear": {
+                "model": "dummy_model",
+                "settings": {"threshold": 0.7, "enabled": True},
+            },
+            "cytoplasmic": {
+                "model": "dummy_model",
+                "settings": {"threshold": 0.6, "enabled": True},
+            },
+        }
+    )
+
+    state = tab.export_settings_state()
+    assert state["nuclear"]["model"] == "dummy_model"
+    assert state["nuclear"]["settings"]["threshold"] == 0.7
+    assert state["nuclear"]["settings"]["enabled"] is True
+    assert state["cytoplasmic"]["settings"]["threshold"] == 0.6
+
+
+def test_spots_settings_state_round_trip() -> None:
+    """Export and re-apply spots detector settings state."""
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    tab = SpotsTab(
+        napari_viewer=viewer,
+        backend=_DummySpotsBackend(),
+    )
+
+    tab.apply_settings_state(
+        {
+            "detector": "dummy_detector",
+            "settings": {"threshold": 0.55},
+            "size_filter": {"min_size": 3, "max_size": 9},
+        }
+    )
+
+    state = tab.export_settings_state()
+    assert state["detector"] == "dummy_detector"
+    assert state["settings"]["threshold"] == 0.55
+    assert state["size_filter"]["min_size"] == 3
+    assert state["size_filter"]["max_size"] == 9
 
 
 def test_quantification_tab_instantiates() -> None:
@@ -183,13 +321,17 @@ def test_batch_tab_instantiates() -> None:
     assert hasattr(tab, "_backend")
 
 
-def test_main_widget_instantiates() -> None:
+def test_main_widget_instantiates(monkeypatch) -> None:
     """Instantiate the main SenoQuant widget.
 
     Returns
     -------
     None
     """
+    monkeypatch.setattr(
+        "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
+        lambda self: None,
+    )
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
     widget = SenoQuantWidget(viewer)
     assert widget is not None

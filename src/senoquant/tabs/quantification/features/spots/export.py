@@ -1535,7 +1535,7 @@ def _write_spots_settings_bundle(
 ) -> Path | None:
     """Write the canonical spots export settings bundle.
 
-    The bundle mirrors batch profile serialization and includes:
+    The bundle mirrors the shared settings-bundle schema and includes:
     - Feature configuration snapshot.
     - Segmentation mask references.
     - Timestamped layer run history for replaying run order.

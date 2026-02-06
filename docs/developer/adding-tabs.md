@@ -64,8 +64,10 @@ Update `src/senoquant/_widget.py`:
 - Import your tab class from `.tabs`.
 - Add `tabs.addTab(MyTab(...), "My tab label")` in `SenoQuantWidget.__init__`.
 
-If the tab uses shared settings, reuse the existing `SettingsBackend`
-instance from `SenoQuantWidget` (same pattern as Segmentation/Settings tabs).
+If the tab participates in shared settings persistence, wire it in
+`SenoQuantWidget` and pass tab references into `SettingsTab` so it can
+export/import that tab's state (same pattern used for Segmentation, Spots,
+and Batch tabs).
 
 ### 4) Add tests
 

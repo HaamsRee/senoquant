@@ -48,9 +48,8 @@ The Segmentation tab provides two sections for segmenting nuclei and cytoplasm i
 
 ## Preloading models
 
-If `Preload segmentation models on startup` is enabled in **Settings**,
-SenoQuant instantiates all discovered segmentation models when the tab
-loads. This can reduce the first-run latency for models. This is the default behavior for now and disabling it doesn't persist between sessions.
+SenoQuant instantiates discovered segmentation models when the tab loads.
+This reduces first-run latency for model execution.
 
 ## Settings reference
 

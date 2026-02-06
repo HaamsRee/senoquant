@@ -7,7 +7,7 @@ from typing import Iterable
 
 try:
     from napari.utils.notifications import show_error
-except ImportError:
+except Exception:  # pragma: no cover - optional runtime dependency
     def show_error(message: str) -> None:
         pass
 

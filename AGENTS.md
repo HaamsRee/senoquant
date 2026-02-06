@@ -42,6 +42,7 @@ mkdocs serve
 - `src/senoquant/`: main plugin package.
 - `src/senoquant/_widget.py`: top-level napari widget wiring.
 - `src/senoquant/tabs/`: feature tabs (`segmentation`, `spots`, `quantification`, `visualization`, `batch`, `settings`).
+- `src/senoquant/utils/settings_bundle.py`: shared `senoquant.settings` bundle schema helpers used by Settings, Batch, and quantification exports.
 - `tests/`: pytest suite (UI smoke tests, backends, readers, exports, models).
 - `docs/`: user + developer docs and API reference scaffolding.
 - `stardist_ext/`: compiled extension source/package.
@@ -52,6 +53,10 @@ mkdocs serve
 - Preserve the frontend/backend split in tabs:
   - `frontend.py`: Qt widgets and signal wiring.
   - `backend.py`: business logic and processing.
+- Keep Settings/Batch behavior aligned:
+  - Batch tab does not own profile load/save buttons.
+  - Settings tab is the UI entry point for saving/loading unified settings bundles.
+  - Batch runs persist `senoquant_settings.json` in the output root.
 - Keep imports absolute from `senoquant`.
 - Prefer `pathlib.Path` for filesystem code.
 - Use Python 3.11+ type hints.
@@ -62,6 +67,7 @@ mkdocs serve
 - Add or update tests with any behavior change.
 - Keep tests in the matching subtree under `tests/senoquant/...`.
 - Avoid top-level GUI-heavy imports in tests; rely on stubs/fixtures in `tests/conftest.py`.
+- For settings-related changes, include coverage for Settings-tab save/load and Batch config application.
 
 ## Safe edit boundaries
 - Avoid changing vendored/third-party code unless the task explicitly requires it:

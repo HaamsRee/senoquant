@@ -169,7 +169,7 @@ Use the same pattern as segmentation models under `src/senoquant/tabs/spots/mode
 2. **Define data class**: Subclass `FeatureData` for configuration state.
 3. **Implement feature**: Subclass `SenoQuantFeature` with `build()` and `export()` methods.
 4. **Register**: Add to `FEATURE_DATA_FACTORY` in `features/__init__.py`.
-5. **Batch profiles**: Update batch feature serialize/deserialize cases in `src/senoquant/tabs/batch/config.py`.
+5. **Batch settings bundles**: Update batch feature serialize/deserialize cases in `src/senoquant/tabs/batch/config.py`.
 
 See [Quantification features](quantification-features.md) for the detailed guide.
 

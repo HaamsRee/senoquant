@@ -146,6 +146,45 @@ class SpotsTab(QWidget):
         self._refresh_detector_choices()
         self._update_detector_settings(self._detector_combo.currentText())
 
+    def export_settings_state(self) -> dict[str, object]:
+        """Return serializable detector settings state for persistence."""
+        return {
+            "detector": self._detector_combo.currentText(),
+            "settings": self._collect_settings(),
+            "size_filter": {
+                "min_size": (
+                    self._min_size_spin.value() if self._min_size_spin is not None else 0
+                ),
+                "max_size": (
+                    self._max_size_spin.value() if self._max_size_spin is not None else 0
+                ),
+            },
+        }
+
+    def apply_settings_state(self, payload: dict | None) -> None:
+        """Apply persisted detector settings to the UI."""
+        if not isinstance(payload, dict):
+            return
+
+        detector_name = str(payload.get("detector", "")).strip()
+        if detector_name:
+            self._set_combo_value(self._detector_combo, detector_name)
+            self._update_detector_settings(self._detector_combo.currentText())
+
+        self._apply_settings_values(payload.get("settings"))
+        size_filter = payload.get("size_filter")
+        if isinstance(size_filter, dict):
+            if self._min_size_spin is not None:
+                try:
+                    self._min_size_spin.setValue(int(size_filter.get("min_size", 0)))
+                except (TypeError, ValueError):
+                    pass
+            if self._max_size_spin is not None:
+                try:
+                    self._max_size_spin.setValue(int(size_filter.get("max_size", 0)))
+                except (TypeError, ValueError):
+                    pass
+
 
     def _make_detector_section(self) -> QGroupBox:
         """Build the detector UI section.
@@ -463,6 +502,23 @@ class SpotsTab(QWidget):
             elif isinstance(widget, QCheckBox):
                 values[key] = widget.isChecked()
         return values
+
+    def _apply_settings_values(self, values: object) -> None:
+        """Apply persisted settings values to known widgets."""
+        if not isinstance(values, dict):
+            return
+        for key, value in values.items():
+            widget = self._settings_widgets.get(key)
+            if widget is None:
+                continue
+            if isinstance(widget, QCheckBox):
+                widget.setChecked(bool(value))
+                continue
+            if hasattr(widget, "setValue"):
+                try:
+                    widget.setValue(value)
+                except (TypeError, ValueError):
+                    continue
 
     def _apply_setting_dependencies(self) -> None:
         """Apply enabled/disabled relationships between settings."""
@@ -893,6 +949,13 @@ class SpotsTab(QWidget):
                 if layer.__class__.__name__ == "Labels":
                     label_layers.append(layer)
         return label_layers
+
+    @staticmethod
+    def _set_combo_value(combo: QComboBox, value: str) -> None:
+        """Set a combo box value if present."""
+        index = combo.findText(value)
+        if index != -1:
+            combo.setCurrentIndex(index)
 
 
 class _RunWorker(QObject):

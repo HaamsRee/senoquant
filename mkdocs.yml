@@ -55,7 +55,7 @@ nav:
       - Quantification Features: developer/quantification-features.md
       - Visualization Tab: developer/visualization.md
       - Adding Tabs: developer/adding-tabs.md
-      - Batch Profiles: developer/batch-profiles.md
+      - Batch Settings Bundles: developer/batch-profiles.md
       - Packaging & Releases: developer/packaging.md
       - Contributing: developer/contributing.md
       - Repo Map: developer/repo-map.md

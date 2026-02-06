@@ -11,12 +11,13 @@ across diverse tissue contexts.
 
 ## Features
 
+- Read microscopy formats via BioIO, including OME-TIFF, ND2, LIF, CZI, Zarr, and more.
 - Segment nuclei and cytoplasm with built-in models, including StarDist ONNX, Cellpose SAM, and morphology-based models.
 - Detect punctate spots with a U-FISH-based detector.
 - Quantify marker intensity, morphology, spot counts, and spot colocalization.
 - Generate visualization outputs from quantification tables (Spatial Plot, UMAP, and Double Expression).
-- Run batch workflows across folders, including profile save/load and multi-scene support.
-- Read microscopy formats via BioIO, including OME-TIFF, ND2, LIF, CZI, Zarr, and more.
+- Run batch workflows across folders with multi-scene support.
+- Save/load reusable Segmentation, Spots, and Batch settings for reproducibility.
 - *Upcoming*: Integrate custom models for predicting senescence markers.
 
 ## Installation
@@ -45,7 +46,7 @@ Use the documentation workflow for the most up-to-date instructions.
 
 - Start with the [installation guide](https://haamsree.github.io/senoquant/user/installation/).
 - Follow the [quick start guide](https://haamsree.github.io/senoquant/user/quickstart/).
-- Then use tab-specific guides for [segmentation](https://haamsree.github.io/senoquant/user/segmentation/), [spots](https://haamsree.github.io/senoquant/user/spots/), [quantification](https://haamsree.github.io/senoquant/user/quantification/), [visualization](https://haamsree.github.io/senoquant/user/visualization/), and [batch](https://haamsree.github.io/senoquant/user/batch/).
+- Then use tab-specific guides for [segmentation](https://haamsree.github.io/senoquant/user/segmentation/), [spots](https://haamsree.github.io/senoquant/user/spots/), [quantification](https://haamsree.github.io/senoquant/user/quantification/), [visualization](https://haamsree.github.io/senoquant/user/visualization/), [batch](https://haamsree.github.io/senoquant/user/batch/), and [settings](https://haamsree.github.io/senoquant/user/settings/).
 
 ## Documentation
 
@@ -58,6 +59,7 @@ Full documentation is available at [https://haamsree.github.io/senoquant/](https
 - [Quantification features](https://haamsree.github.io/senoquant/user/quantification/).
 - [Visualization tab](https://haamsree.github.io/senoquant/user/visualization/).
 - [Batch processing](https://haamsree.github.io/senoquant/user/batch/).
+- [Settings persistence](https://haamsree.github.io/senoquant/user/settings/).
 - [API reference](https://haamsree.github.io/senoquant/api/).
 
 ## Development
