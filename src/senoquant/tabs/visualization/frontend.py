@@ -410,7 +410,7 @@ class VisualizationTab(QWidget):
         
         # Create a resizable widget for displaying plots (no scrolling)
         self._plot_display_widget = QWidget()
-        self._plot_display_widget.setMinimumHeight(300)
+        self._plot_display_widget.setMinimumHeight(200)
         self._plot_display_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._plot_display_layout = QVBoxLayout()
         self._plot_display_layout.setContentsMargins(0, 0, 0, 0)

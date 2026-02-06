@@ -6,7 +6,7 @@
   "settings": [
     {
       "key": "extraction_kernel_length",
-      "label": "Extraction kernel length",
+      "label": "Spot diameter (px)",
       "type": "int",
       "min": 3,
       "max": 9999,
