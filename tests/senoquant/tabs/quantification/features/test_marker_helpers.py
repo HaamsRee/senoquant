@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import numpy as np
 
 from senoquant.tabs.quantification.features.marker.config import MarkerChannelConfig
@@ -86,8 +83,8 @@ def test_initialize_rows_and_prefix() -> None:
     assert marker_export._channel_prefix(channel) == "ch_1"
 
 
-def test_apply_threshold_and_metadata(tmp_path: Path) -> None:
-    """Apply threshold and write metadata payload.
+def test_apply_threshold() -> None:
+    """Apply threshold filtering to intensity vectors.
 
     Returns
     -------
@@ -99,6 +96,5 @@ def test_apply_threshold_and_metadata(tmp_path: Path) -> None:
     integ = np.array([3.0, 4.0], dtype=float)
     t_mean, t_raw, t_integ = marker_export._apply_threshold(mean, raw, integ, channel)
     assert t_mean.tolist() == [0.0, 2.0]
-    meta_path = marker_export._write_threshold_metadata(tmp_path, [channel])
-    payload = json.loads(meta_path.read_text())
-    assert payload["channels"][0]["threshold_min"] == 1.0
+    assert t_raw.tolist() == [0.0, 2.0]
+    assert t_integ.tolist() == [0.0, 4.0]
