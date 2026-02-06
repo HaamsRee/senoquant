@@ -9,6 +9,7 @@ from typing import Iterable
 from .base import PlotConfig, PlotData, SenoQuantPlot
 from .spatialplot import SpatialPlotData
 from .umap import UMAPData
+from .double_expression import DoubleExpressionData
 
 
 def _iter_subclasses(cls: type[SenoQuantPlot]) -> Iterable[type[SenoQuantPlot]]:
@@ -48,13 +49,14 @@ def get_feature_registry() -> dict[str, type[SenoQuantPlot]]:
         )
     )
 
-FEATURE_DATA_FACTORY: dict[str, type[PlotData]] = {
+PLOT_DATA_FACTORY: dict[str, type[PlotData]] = {
     "UMAP": UMAPData,
     "Spatial Plot": SpatialPlotData,
+    "Double Expression": DoubleExpressionData,
 }
 
 
-def build_feature_data(feature_type: str) -> PlotData:
+def build_plot_data(feature_type: str) -> PlotData:
     """Create a plot data instance for the specified plot type.
 
     Parameters
@@ -67,7 +69,7 @@ def build_feature_data(feature_type: str) -> PlotData:
     PlotData
         Plot-specific configuration instance.
     """
-    data_cls = FEATURE_DATA_FACTORY.get(feature_type, PlotData)
+    data_cls = PLOT_DATA_FACTORY.get(feature_type, PlotData)
     return data_cls()
 
 
@@ -75,6 +77,6 @@ __all__ = [
     "PlotConfig",
     "PlotData",
     "SenoQuantPlot",
-    "build_feature_data",
+    "build_plot_data",
     "get_feature_registry",
 ]

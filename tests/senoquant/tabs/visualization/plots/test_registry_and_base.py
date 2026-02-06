@@ -8,7 +8,7 @@ import pytest
 
 from senoquant.tabs.visualization.plots import (
     _iter_subclasses,
-    build_feature_data,
+    build_plot_data,
     get_feature_registry,
 )
 from senoquant.tabs.visualization.plots.base import (
@@ -21,11 +21,11 @@ from senoquant.tabs.visualization.plots.spatialplot import SpatialPlotData
 from senoquant.tabs.visualization.plots.umap import UMAPData
 
 
-def test_build_feature_data_known_and_unknown_types() -> None:
+def test_build_plot_data_known_and_unknown_types() -> None:
     """Build typed plot data for known keys and fallback for unknown."""
-    assert isinstance(build_feature_data("UMAP"), UMAPData)
-    assert isinstance(build_feature_data("Spatial Plot"), SpatialPlotData)
-    assert isinstance(build_feature_data("Unknown Plot"), PlotData)
+    assert isinstance(build_plot_data("UMAP"), UMAPData)
+    assert isinstance(build_plot_data("Spatial Plot"), SpatialPlotData)
+    assert isinstance(build_plot_data("Unknown Plot"), PlotData)
 
 
 def test_feature_registry_contains_expected_types_in_order() -> None:
@@ -83,4 +83,3 @@ def test_base_plot_methods_and_refresh_combo(monkeypatch) -> None:
     combo.showPopup()
     assert popup_calls == [True]
     assert getattr(combo, "_popup_called", False) is True
-

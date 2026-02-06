@@ -5,6 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
+import matplotlib.pyplot as plt
+import pandas as pd
+from umap import UMAP as UMAPReducer
+
 from .base import PlotData, SenoQuantPlot
 
 
@@ -28,7 +32,7 @@ class UMAPPlot(SenoQuantPlot):
     def plot(
         self, 
         temp_dir: Path, 
-        input_path: Path, 
+        input_path: str, 
         export_format: str,
         markers: list[str] | None = None,
         thresholds: dict[str, float] | None = None,
@@ -39,7 +43,7 @@ class UMAPPlot(SenoQuantPlot):
         ----------
         temp_dir : Path
             Temporary directory to write plot output.
-        input_path : Path
+        input_path : str
             Path to input CSV file or folder containing CSV files.
         export_format : str
             Output format ("png", "svg", or "pdf").
@@ -54,25 +58,9 @@ class UMAPPlot(SenoQuantPlot):
             Paths to generated plot files.
         """
         try:
-            try:
-                import pandas as pd
-            except ImportError:
-                print("[UMAPPlot] pandas is not installed; skipping plot generation.")
-                return []
-            try:
-                import matplotlib.pyplot as plt
-            except ImportError:
-                print("[UMAPPlot] matplotlib is not installed; skipping plot generation.")
-                return []
-            try:
-                from umap import UMAP as UMAPReducer
-            except ImportError:
-                print("[UMAPPlot] umap-learn is not installed; skipping plot generation.")
-                return []
-
             print(f"[UMAPPlot] Starting with input_path={input_path}")
             # Find the first data file (CSV or Excel) in the input folder
-            data_files = list(input_path.glob("*.csv")) + list(input_path.glob("*.xlsx")) + list(input_path.glob("*.xls"))
+            data_files = list(Path(input_path).glob("*.csv")) + list(Path(input_path).glob("*.xlsx")) + list(Path(input_path).glob("*.xls"))
             print(f"[UMAPPlot] Found {len(data_files)} data files")
             if not data_files:
                 print(f"[UMAPPlot] No CSV/Excel files found in {input_path}")
@@ -112,8 +100,22 @@ class UMAPPlot(SenoQuantPlot):
             X = df[numeric_cols].values
 
             # Fit UMAP
-            print(f"[UMAPPlot] Fitting UMAP with {len(X)} samples")
-            reducer = UMAPReducer(n_components=2, random_state=42)
+            n_samples = len(X)
+            print(f"[UMAPPlot] Fitting UMAP with {n_samples} samples")
+
+            # Adjust settings for small datasets to prevent solver errors
+            n_neighbors = 15
+            init_method = "spectral"
+            if n_samples < 15:
+                n_neighbors = max(2, n_samples - 1)
+                init_method = "random"
+
+            reducer = UMAPReducer(
+                n_components=2,
+                random_state=42,
+                n_neighbors=n_neighbors,
+                init=init_method,
+            )
             embedding = reducer.fit_transform(X)
             print(f"[UMAPPlot] UMAP embedding created with shape {embedding.shape}")
 

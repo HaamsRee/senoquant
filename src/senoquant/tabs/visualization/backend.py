@@ -123,7 +123,15 @@ class VisualizationBackend:
         plot implementations to either return specific files or simply write
         into the provided temporary directory.
         """
-        input_root = input_path.parent
+        input_path = Path(input_path)
+        
+        plot_input = input_path
+        if input_path.is_file():
+            input_root = input_path.parent
+            plot_input = input_path.parent
+        else:
+            input_root = input_path
+
         # Treat `output_path` as the folder and `output_name` as an optional
         # filename base. Resolve output_root without using output_name so
         # output_name can be applied as a file name rather than a subfolder.
@@ -144,12 +152,12 @@ class VisualizationBackend:
             temp_dir.mkdir(parents=True, exist_ok=True)
             outputs: list[Path] = []
             if handler is not None and hasattr(handler, "plot"):
-                print(f"[Backend] Calling handler.plot() with input_path={input_path}, format={export_format}")
+                print(f"[Backend] Calling handler.plot() with input_path={plot_input}, format={export_format}")
                 outputs = [
                     Path(path)
                     for path in handler.plot(
                         temp_dir, 
-                        input_path, 
+                        plot_input, 
                         export_format,
                         markers=markers,
                         thresholds=thresholds

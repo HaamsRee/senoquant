@@ -27,7 +27,7 @@ from qtpy.QtWidgets import (
 )
 
 from .backend import VisualizationBackend
-from .plots import PlotConfig, build_feature_data, get_feature_registry
+from .plots import PlotConfig, build_plot_data, get_feature_registry
 from .plots.base import RefreshingComboBox
 
 
@@ -591,7 +591,7 @@ class VisualizationTab(QWidget):
         if state is None:
             state = PlotConfig(
                 type_name=feature_type,
-                data=build_feature_data(feature_type),
+                data=build_plot_data(feature_type),
             )
         if feature_type in feature_types:
             type_combo.blockSignals(True)
@@ -656,7 +656,7 @@ class VisualizationTab(QWidget):
         feature_type = context.type_combo.currentText()
         context.state.type_name = feature_type
         if not preserve_data:
-            context.state.data = build_feature_data(feature_type)
+            context.state.data = build_plot_data(feature_type)
 
         feature_handler = self._feature_handler_for_type(feature_type, context)
         print(f"[Frontend] Built handler for {feature_type}: {feature_handler}")
@@ -831,10 +831,15 @@ class VisualizationTab(QWidget):
                 print(f" - {f}")
         else:
             # No files present: re-run process to force saving 
+            markers, thresholds = self._get_marker_settings()
+            process = getattr(self._backend, "process", None)
+            if callable(process):
                 result = process(
-                    self._feature._input_path.text(),
+                    self._feature_configs,
+                    Path(self._input_path.text()),
                     self._output_path_input.text(),
-                    self._save_na._format_combo.currentText(),
+                    self._save_name_input.text(),
+                    self._format_combo.currentText(),
                     markers=markers,
                     thresholds=thresholds,
                     save=True,
