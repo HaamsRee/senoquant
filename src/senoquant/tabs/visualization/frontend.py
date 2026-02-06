@@ -27,8 +27,7 @@ from qtpy.QtWidgets import (
 )
 
 from .backend import VisualizationBackend
-from .plots import PlotConfig, build_feature_data, get_feature_registry
-from .plots.base import RefreshingComboBox
+from .plots import PlotConfig, build_sortm
 
 
 @dataclass
@@ -591,8 +590,7 @@ class VisualizationTab(QWidget):
         if state is None:
             state = PlotConfig(
                 type_name=feature_type,
-                data=build_feature_data(feature_type),
-            )
+                data=buil
         if feature_type in feature_types:
             type_combo.blockSignals(True)
             type_combo.setCurrentText(feature_type)
@@ -656,9 +654,8 @@ class VisualizationTab(QWidget):
         feature_type = context.type_combo.currentText()
         context.state.type_name = feature_type
         if not preserve_data:
-            context.state.data = build_feature_data(feature_type)
-
-        feature_handler = self._feature_handler_for_type(feature_type, context)
+            context.state.data = build_plot_data(feature_type)
+type, context)
         print(f"[Frontend] Built handler for {feature_type}: {feature_handler}")
         context.plot_handler = feature_handler
         if feature_handler is not None:

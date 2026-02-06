@@ -110,6 +110,27 @@ class SpatialPlot(SenoQuantPlot):
             y_col = "centroid_y_pixels" if "centroid_y_pixels" in df.columns else None
 
             if x_col is None or y_col is None:
+                x_col = None
+                y_col = None
+                x_candidates = [c for c in df.columns if "x" in c.lower()]
+                for xc in x_candidates:
+                    patterns = [
+                        ("_x_", "_y_"), ("_X_", "_Y_"),
+                        ("_x", "_y"), ("_X", "_Y"),
+                        ("x_", "y_"), ("X_", "Y_"),
+                        ("x", "y"), ("X", "Y")
+                    ]
+                    for pat_x, pat_y in patterns:
+                        if pat_x in xc:
+                            yc = xc.replace(pat_x, pat_y)
+                            if yc in df.columns and yc != xc:
+                                x_col = xc
+                                y_col = yc
+                                break
+                    if x_col:
+                        break
+
+            if x_col is None or y_col is None:
                 return []
 
             x = df[x_col].values

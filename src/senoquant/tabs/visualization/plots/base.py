@@ -71,7 +71,7 @@ class SenoQuantPlot:
     def plot(
         self, 
         temp_dir: Path, 
-        input_path: Path, 
+        input_path: str, 
         export_format: str,
         markers: list[str] | None = None,
         thresholds: dict[str, float] | None = None,
@@ -82,10 +82,10 @@ class SenoQuantPlot:
         ----------
         temp_dir : Path
             Temporary directory where outputs should be written.
-        input_path : Path
-            Path to the folder containing CSV or Excel files for plotting.
+        input_path : str
+            Path to the input CSV file for plotting.
         export_format : str
-            File format requested by the user (``"png"``, ``"svg"``, or ``"pdf"``).
+            File format requested by the user (``"png"`` or ``"svg"``).
         markers : list of str, optional
             List of selected markers to include.
         thresholds : dict, optional
