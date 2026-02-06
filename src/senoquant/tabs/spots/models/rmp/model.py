@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover - optional dependency
     F = None  # type: ignore[assignment]
 
 from ..base import SenoQuantSpotDetector
+from senoquant.tabs.spots.models.denoise import wavelet_denoise_input
 from senoquant.utils import layer_data_asarray
 
 try:
@@ -310,16 +311,9 @@ def _rmp_top_hat(
 
 def _compute_top_hat(input_image: Array2D, config: "RMPSettings") -> Array2D:
     """Compute the RMP top-hat response for a 2D image."""
-    denoising_se: KernelShape = (1, config.denoising_se_length)
     extraction_se: KernelShape = (1, config.extraction_se_length)
     rotation_angles = tuple(range(0, 180, config.angle_spacing))
-
-    working = (
-        _rmp_opening(input_image, denoising_se, rotation_angles)
-        if config.enable_denoising
-        else input_image
-    )
-    return _rmp_top_hat(working, extraction_se, rotation_angles)
+    return _rmp_top_hat(input_image, extraction_se, rotation_angles)
 
 
 def _ensure_dask_available() -> None:
@@ -345,11 +339,8 @@ def _distributed_available() -> bool:
 
 
 def _recommended_overlap(config: "RMPSettings") -> int:
-    """Derive a suitable overlap from structuring-element sizes."""
-    lengths = [config.extraction_se_length]
-    if config.enable_denoising:
-        lengths.append(config.denoising_se_length)
-    return max(1, max(lengths) * 2)
+    """Derive a suitable overlap from extraction structuring-element size."""
+    return max(1, config.extraction_se_length * 2)
 
 
 @contextmanager
@@ -363,16 +354,9 @@ def _cluster_client():
 
 def _rmp_top_hat_block(block: np.ndarray, config: "RMPSettings") -> np.ndarray:
     """Return background-subtracted tile via the RMP top-hat pipeline."""
-    denoising_se: KernelShape = (1, config.denoising_se_length)
     extraction_se: KernelShape = (1, config.extraction_se_length)
     rotation_angles = tuple(range(0, 180, config.angle_spacing))
-
-    working = (
-        _rmp_opening(block, denoising_se, rotation_angles)
-        if config.enable_denoising
-        else block
-    )
-    top_hat = working - _rmp_opening(working, extraction_se, rotation_angles)
+    top_hat = block - _rmp_opening(block, extraction_se, rotation_angles)
     return np.asarray(top_hat, dtype=np.float32)
 
 
@@ -506,7 +490,6 @@ def _rmp_top_hat_tiled(
 class RMPSettings:
     """Configuration for the RMP detector."""
 
-    denoising_se_length: int = 2
     extraction_se_length: int = 10
     angle_spacing: int = 5
     auto_threshold: bool = True
@@ -547,7 +530,6 @@ class RMPDetector(SenoQuantSpotDetector):
             float(settings.get("manual_threshold", 0.5))
         )
         config = RMPSettings(
-            denoising_se_length=int(settings.get("denoising_kernel_length", 2)),
             extraction_se_length=int(settings.get("extraction_kernel_length", 10)),
             angle_spacing=int(settings.get("angle_spacing", 5)),
             auto_threshold=bool(settings.get("auto_threshold", True)),
@@ -557,7 +539,7 @@ class RMPDetector(SenoQuantSpotDetector):
 
         if config.angle_spacing <= 0:
             raise ValueError("Angle spacing must be positive.")
-        if config.denoising_se_length <= 0 or config.extraction_se_length <= 0:
+        if config.extraction_se_length <= 0:
             raise ValueError("Structuring element lengths must be positive.")
 
         data = layer_data_asarray(layer)
@@ -565,12 +547,16 @@ class RMPDetector(SenoQuantSpotDetector):
             raise ValueError("RMP expects 2D images or 3D stacks.")
 
         normalized = _normalize_image(data)
+        denoised = wavelet_denoise_input(
+            normalized,
+            enabled=config.enable_denoising,
+        )
 
         use_distributed = _distributed_available()
         use_tiled = _dask_available()
         try:
             top_hat = _compute_top_hat_nd(
-                normalized,
+                denoised,
                 config,
                 use_tiled=use_tiled,
                 use_distributed=use_distributed,
@@ -583,12 +569,16 @@ class RMPDetector(SenoQuantSpotDetector):
                 exc_info=False,
             )
             top_hat = _compute_top_hat_nd(
-                normalized,
+                denoised,
                 config,
                 use_tiled=use_tiled,
                 use_distributed=False,
             )
-        labels, _top_hat_normalized = _postprocess_top_hat(top_hat, config)
+        denoised_top_hat = wavelet_denoise_input(
+            top_hat,
+            enabled=config.enable_denoising,
+        )
+        labels, _top_hat_normalized = _postprocess_top_hat(denoised_top_hat, config)
         return {
             "mask": labels,
             # "debug_images": {

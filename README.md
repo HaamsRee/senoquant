@@ -12,8 +12,8 @@ across diverse tissue contexts.
 ## Features
 
 - Read microscopy formats via BioIO, including OME-TIFF, ND2, LIF, CZI, Zarr, and more.
-- Segment nuclei and cytoplasm with built-in models, including StarDist ONNX, Cellpose SAM, and morphology-based models.
-- Detect punctate spots with a U-FISH-based detector.
+- Segment nuclei and cytoplasm with built-in models, including StarDist ONNX, Cellpose SAM, and morphological operations.
+- Detect punctate spots with built-in detectors.
 - Quantify marker intensity, morphology, spot counts, and spot colocalization.
 - Generate visualization outputs from quantification tables (Spatial Plot, UMAP, and Double Expression).
 - Run batch workflows across folders with multi-scene support.

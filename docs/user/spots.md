@@ -50,12 +50,11 @@ Method reference: [Rotational Morphological Processing for spot detection](https
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| **Denoising kernel length** | int | 2 | 2 - 9999 | Structuring-element length for denoising opening. Enabled only when **Enable denoising** is on. |
 | **Extraction kernel length** | int | 10 | 3 - 9999 | Structuring-element length for top-hat extraction. |
 | **Angle spacing** | int | 5 | 1 - 10 | Rotation step size (degrees) used in RMP directional processing. |
 | **Auto threshold** | bool | true | n/a | Uses Otsu thresholding on the normalized response. |
 | **Manual threshold** | float | 0.05 | 0.0 - 1.0 | Fixed threshold when **Auto threshold** is off. Disabled when auto-thresholding is enabled. |
-| **Enable denoising** | bool | true | n/a | Toggles the denoising stage before extraction. |
+| **Enable denoising** | bool | true | n/a | Toggles wavelet denoising before and after top-hat extraction. |
 
 ### ufish
 
