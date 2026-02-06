@@ -28,7 +28,7 @@ from typing import Iterable, Sequence, TYPE_CHECKING
 import numpy as np
 from skimage.measure import regionprops_table
 
-from senoquant.settings_bundle import build_settings_bundle
+from senoquant.utils.settings_bundle import build_settings_bundle
 from senoquant.utils import layer_data_asarray
 from .config import SpotsFeatureData
 from ..base import FeatureConfig

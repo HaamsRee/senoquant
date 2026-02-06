@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Iterable
 import json
 
-from senoquant.settings_bundle import build_settings_bundle, parse_settings_bundle
+from senoquant.utils.settings_bundle import build_settings_bundle, parse_settings_bundle
 from senoquant.tabs.quantification.features import FeatureConfig
 from senoquant.tabs.quantification.features.base import FeatureData
 from senoquant.tabs.quantification.features.marker.config import (

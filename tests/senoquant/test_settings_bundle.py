@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from senoquant.settings_bundle import build_settings_bundle, parse_settings_bundle
+from senoquant.utils.settings_bundle import build_settings_bundle, parse_settings_bundle
 
 
 def test_build_settings_bundle_defaults() -> None:
