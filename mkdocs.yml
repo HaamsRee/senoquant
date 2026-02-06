@@ -43,6 +43,7 @@ nav:
       - Segmentation: user/segmentation.md
       - Spots: user/spots.md
       - Quantification: user/quantification.md
+      - Visualization: user/visualization.md
       - Batch Processing: user/batch.md
       - Settings: user/settings.md
   - Developer Guide:
@@ -50,7 +51,9 @@ nav:
       - Architecture: developer/architecture.md
       - Installers: developer/installer.md
       - Models & Detectors: developer/models.md
+      - StarDist ONNX Conversion: developer/stardist-onnx.md
       - Quantification Features: developer/quantification-features.md
+      - Visualization Tab: developer/visualization.md
       - Adding Tabs: developer/adding-tabs.md
       - Batch Profiles: developer/batch-profiles.md
       - Packaging & Releases: developer/packaging.md

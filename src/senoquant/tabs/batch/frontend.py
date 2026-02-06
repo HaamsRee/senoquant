@@ -123,6 +123,11 @@ class BatchTab(QWidget):
         self._spot_min_size_spin: QSpinBox | None = None
         self._spot_max_size_spin: QSpinBox | None = None
         self._add_spot_button: QPushButton | None = None
+        self._cyto_nuclear_optional = False
+        self._cyto_nuclear_from_labels = False
+        self._cyto_requires_cyto_channel = True
+        self._cyto_supports_nuclear_input = False
+        self._refreshing_channel_choices = False
         self._config_viewer = BatchViewer()
 
         layout = QVBoxLayout()
@@ -281,6 +286,9 @@ class BatchTab(QWidget):
         self._nuclear_model_combo.currentTextChanged.connect(
             lambda _text: self._update_nuclear_settings()
         )
+        self._nuclear_channel_combo.currentTextChanged.connect(
+            self._on_nuclear_channel_changed
+        )
 
         cyto_layout = QFormLayout()
         cyto_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -293,7 +301,6 @@ class BatchTab(QWidget):
         self._cyto_channel_combo = QComboBox()
         self._cyto_nuclear_combo = QComboBox()
         self._cyto_nuclear_label = QLabel("Nuclear channel")
-        self._cyto_nuclear_optional = False
         cyto_layout.addRow(self._cyto_enabled)
         cyto_layout.addRow("Cytoplasmic model", self._cyto_model_combo)
         cyto_layout.addRow("Cytoplasmic channel", self._cyto_channel_combo)
@@ -593,6 +600,9 @@ class BatchTab(QWidget):
 
     def _refresh_channel_choices(self) -> None:
         """Refresh combo boxes that depend on channel mapping."""
+        if self._refreshing_channel_choices:
+            return
+        self._refreshing_channel_choices = True
         names = [config.name for config in self._channel_configs]
 
         def populate_combo(
@@ -600,13 +610,16 @@ class BatchTab(QWidget):
             *,
             include_none: bool = False,
             none_label: str = "(none)",
+            explicit_items: list[str] | None = None,
         ) -> None:
             current = combo.currentText()
             combo.clear()
             items: list[str] = []
             if include_none:
                 items.append(none_label)
-            if names:
+            if explicit_items is not None:
+                items.extend(explicit_items)
+            elif names:
                 items.extend(names)
             elif not include_none:
                 items.append("0")
@@ -618,15 +631,40 @@ class BatchTab(QWidget):
                 if index != -1:
                     combo.setCurrentIndex(index)
 
-        if getattr(self, "_nuclear_channel_combo", None) is not None:
-            populate_combo(self._nuclear_channel_combo)
-        if getattr(self, "_cyto_channel_combo", None) is not None:
-            populate_combo(self._cyto_channel_combo)
-        if getattr(self, "_cyto_nuclear_combo", None) is not None:
-            populate_combo(
-                self._cyto_nuclear_combo,
-                include_none=self._cyto_nuclear_optional,
-            )
+        try:
+            if getattr(self, "_nuclear_channel_combo", None) is not None:
+                populate_combo(self._nuclear_channel_combo)
+            if getattr(self, "_cyto_channel_combo", None) is not None:
+                populate_combo(self._cyto_channel_combo)
+            if getattr(self, "_cyto_nuclear_combo", None) is not None:
+                if self._cyto_nuclear_from_labels:
+                    label_options = self._cyto_nuclear_label_options()
+                    populate_combo(
+                        self._cyto_nuclear_combo,
+                        explicit_items=label_options,
+                        none_label="(no nuclear labels)",
+                    )
+                else:
+                    populate_combo(
+                        self._cyto_nuclear_combo,
+                        include_none=self._cyto_nuclear_optional,
+                    )
+        finally:
+            self._refreshing_channel_choices = False
+
+    def _cyto_nuclear_label_options(self) -> list[str]:
+        """Return available nuclear label names for nuclear-only cyto models."""
+        if getattr(self, "_nuclear_enabled", None) is None:
+            return []
+        if not self._nuclear_enabled.isChecked():
+            return []
+        nuclear_model = self._nuclear_model_combo.currentText().strip()
+        nuclear_channel = self._nuclear_channel_combo.currentText().strip()
+        if not nuclear_model or nuclear_model.startswith("("):
+            return []
+        if not nuclear_channel or nuclear_channel.startswith("("):
+            return []
+        return [f"{nuclear_channel}_{nuclear_model}_nuc_labels"]
 
     def _refresh_config_viewer(self) -> None:
         """Refresh the quantification preview viewer shim."""
@@ -663,6 +701,8 @@ class BatchTab(QWidget):
         self._nuclear_settings_widgets.clear()
         self._nuclear_settings_meta.clear()
         if not model_name or model_name.startswith("("):
+            self._refresh_channel_choices()
+            self._refresh_config_viewer()
             return
         model = self._segmentation_backend.get_model(model_name)
         settings = model.list_settings()
@@ -671,17 +711,23 @@ class BatchTab(QWidget):
             item.get("key", item.get("label", "")): item for item in settings
         }
         self._nuclear_settings_values = _defaults_from_settings(settings)
+        self._refresh_channel_choices()
+        self._refresh_config_viewer()
 
     def _update_cyto_settings(self) -> None:
         """Refresh cytoplasmic model settings from the selected model."""
         model_name = self._cyto_model_combo.currentText()
         self._cyto_settings_widgets.clear()
         self._cyto_settings_meta.clear()
+        self._cyto_nuclear_optional = False
+        self._cyto_nuclear_from_labels = False
+        self._cyto_requires_cyto_channel = True
+        self._cyto_supports_nuclear_input = False
         if not model_name or model_name.startswith("("):
-            self._cyto_nuclear_combo.setEnabled(False)
             if hasattr(self, "_cyto_nuclear_label"):
                 self._cyto_nuclear_label.setText("Nuclear channel")
-            self._cyto_nuclear_optional = False
+            self._refresh_channel_choices()
+            self._update_processing_state()
             return
         model = self._segmentation_backend.get_model(model_name)
         settings = model.list_settings()
@@ -691,20 +737,30 @@ class BatchTab(QWidget):
         }
         self._cyto_settings_values = _defaults_from_settings(settings)
         modes = model.cytoplasmic_input_modes()
-        supports_nuclear = "nuclear+cytoplasmic" in modes
-        if supports_nuclear:
+        if modes == ["nuclear"]:
+            if hasattr(self, "_cyto_nuclear_label"):
+                self._cyto_nuclear_label.setText("Nuclear labels layer")
+            self._cyto_nuclear_from_labels = True
+            self._cyto_requires_cyto_channel = False
+            self._cyto_supports_nuclear_input = True
+        elif "nuclear+cytoplasmic" in modes:
             optional = model.cytoplasmic_nuclear_optional()
             suffix = "optional" if optional else "required"
             if hasattr(self, "_cyto_nuclear_label"):
                 self._cyto_nuclear_label.setText(f"Nuclear channel ({suffix})")
-            self._cyto_nuclear_combo.setEnabled(True)
             self._cyto_nuclear_optional = optional
+            self._cyto_supports_nuclear_input = True
         else:
             if hasattr(self, "_cyto_nuclear_label"):
                 self._cyto_nuclear_label.setText("Nuclear channel")
-            self._cyto_nuclear_combo.setEnabled(False)
-            self._cyto_nuclear_optional = False
         self._refresh_channel_choices()
+        self._update_processing_state()
+
+    def _on_nuclear_channel_changed(self, _text: str) -> None:
+        """Refresh dependent combos when the nuclear channel changes."""
+        if self._cyto_nuclear_from_labels:
+            self._refresh_channel_choices()
+        self._refresh_config_viewer()
 
     def _update_spot_settings(self) -> None:
         """Refresh spot detector settings from the selected detector."""
@@ -832,12 +888,18 @@ class BatchTab(QWidget):
         nuclear_enabled = self._nuclear_enabled.isChecked()
         cyto_enabled = self._cyto_enabled.isChecked()
         spot_enabled = self._spots_enabled.isChecked()
+        if self._cyto_nuclear_from_labels:
+            self._refresh_channel_choices()
         self._nuclear_model_combo.setEnabled(nuclear_enabled)
         self._nuclear_channel_combo.setEnabled(nuclear_enabled)
         self._nuclear_settings_button.setEnabled(nuclear_enabled)
         self._cyto_model_combo.setEnabled(cyto_enabled)
-        self._cyto_channel_combo.setEnabled(cyto_enabled)
-        self._cyto_nuclear_combo.setEnabled(cyto_enabled)
+        self._cyto_channel_combo.setEnabled(
+            cyto_enabled and self._cyto_requires_cyto_channel
+        )
+        self._cyto_nuclear_combo.setEnabled(
+            cyto_enabled and self._cyto_supports_nuclear_input
+        )
         self._cyto_settings_button.setEnabled(cyto_enabled)
         self._spot_detector_combo.setEnabled(spot_enabled)
         self._spot_settings_button.setEnabled(spot_enabled)
@@ -886,10 +948,33 @@ class BatchTab(QWidget):
                 spot_detector = None
 
         cyto_model = None
+        cyto_model_obj = None
         if self._cyto_enabled.isChecked() and self._cyto_model_combo.isEnabled():
             cyto_model = self._cyto_model_combo.currentText().strip()
             if cyto_model.startswith("("):
                 cyto_model = None
+            elif cyto_model:
+                cyto_model_obj = self._segmentation_backend.get_model(cyto_model)
+
+        if cyto_model_obj is not None and self._cyto_requires_nuclear(cyto_model_obj):
+            cyto_nuclear_choice = self._cyto_nuclear_combo.currentText().strip()
+            if (
+                not cyto_nuclear_choice
+                or cyto_nuclear_choice == "(none)"
+                or cyto_nuclear_choice == "(no nuclear labels)"
+            ):
+                self._notify("Select the required cytoplasmic nuclear input.")
+                return
+
+            if (
+                cyto_model_obj.cytoplasmic_input_modes() == ["nuclear"]
+                and not nuclear_model
+            ):
+                self._notify(
+                    "Selected cytoplasmic model requires nuclear labels. "
+                    "Enable nuclear segmentation first."
+                )
+                return
 
         quant_features = (
             list(self._quant_tab._feature_configs)
@@ -1008,7 +1093,8 @@ class BatchTab(QWidget):
                 channel=self._cyto_channel_combo.currentText(),
                 nuclear_channel=(
                     ""
-                    if self._cyto_nuclear_combo.currentText().strip() == "(none)"
+                    if self._cyto_nuclear_combo.currentText().strip()
+                    in {"(none)", "(no nuclear labels)"}
                     else self._cyto_nuclear_combo.currentText()
                 ),
                 settings=cyto_settings,
@@ -1057,6 +1143,8 @@ class BatchTab(QWidget):
         if not job.cytoplasmic.nuclear_channel:
             if self._cyto_nuclear_combo.findText("(none)") != -1:
                 self._set_combo_value(self._cyto_nuclear_combo, "(none)")
+            elif self._cyto_nuclear_combo.findText("(no nuclear labels)") != -1:
+                self._set_combo_value(self._cyto_nuclear_combo, "(no nuclear labels)")
         else:
             self._set_combo_value(
                 self._cyto_nuclear_combo, job.cytoplasmic.nuclear_channel
@@ -1081,6 +1169,16 @@ class BatchTab(QWidget):
         self._refresh_channel_choices()
         self._refresh_spot_channel_choices()
         self._refresh_config_viewer()
+
+    @staticmethod
+    def _cyto_requires_nuclear(model) -> bool:
+        """Return whether the selected cytoplasmic model requires nuclear input."""
+        modes = model.cytoplasmic_input_modes()
+        if modes == ["nuclear"]:
+            return True
+        if "nuclear+cytoplasmic" not in modes:
+            return False
+        return not model.cytoplasmic_nuclear_optional()
 
     def _save_profile(self) -> None:
         """Save the current configuration to a JSON profile."""

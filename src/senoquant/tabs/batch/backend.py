@@ -30,6 +30,7 @@ from typing import Iterable
 
 import numpy as np
 
+from senoquant.utils import append_run_metadata
 from senoquant.tabs.quantification.backend import QuantificationBackend
 from senoquant.tabs.segmentation.backend import SegmentationBackend
 from senoquant.tabs.spots.backend import SpotsBackend
@@ -208,7 +209,8 @@ class BatchBackend:
         cyto_channel : str or int or None, optional
             Channel selection for cytoplasm.
         cyto_nuclear_channel : str or int or None, optional
-            Optional nuclear channel used by cytoplasmic models.
+            Optional nuclear input for cytoplasmic models. This may be a
+            channel selection or a generated nuclear label name.
         cyto_settings : dict or None, optional
             Model settings for cytoplasmic segmentation.
         spot_detector : str or None, optional
@@ -260,6 +262,14 @@ class BatchBackend:
         cyto_settings = cyto_settings or {}
         spot_settings = spot_settings or {}
         quant_backend = QuantificationBackend()
+        cyto_model_instance = None
+        cyto_nuclear_only = False
+        if cyto_model:
+            cyto_model_instance = self._segmentation_backend.get_model(cyto_model)
+            modes: list[str] = []
+            if hasattr(cyto_model_instance, "cytoplasmic_input_modes"):
+                modes = cyto_model_instance.cytoplasmic_input_modes()
+            cyto_nuclear_only = modes == ["nuclear"]
 
         # Count total items to process
         total_items = 0
@@ -344,41 +354,70 @@ class BatchBackend:
                             )
                             labels_data[label_name] = masks
                             labels_meta[label_name] = _with_task_metadata(
-                                metadata, "nuclear"
+                                metadata,
+                                "nuclear",
+                                runner_type="segmentation_model",
+                                runner_name=nuclear_model,
+                                settings=nuclear_settings,
                             )
                             item_result.outputs[label_name] = out_path
 
                     if cyto_model:
-                        channel_idx = resolve_channel_index(
-                            cyto_channel, normalized_channels
-                        )
-                        cyto_image, cyto_meta = load_channel_data(
-                            path, channel_idx, scene_id
-                        )
-                        if cyto_image is None:
-                            raise RuntimeError(
-                                "Failed to read cytoplasmic image data."
+                        cyto_layer = None
+                        cyto_meta: dict = {}
+                        if not cyto_nuclear_only:
+                            channel_idx = resolve_channel_index(
+                                cyto_channel, normalized_channels
                             )
-                        cyto_layer = Image(cyto_image, "cytoplasmic", cyto_meta)
+                            cyto_image, cyto_meta = load_channel_data(
+                                path, channel_idx, scene_id
+                            )
+                            if cyto_image is None:
+                                raise RuntimeError(
+                                    "Failed to read cytoplasmic image data."
+                                )
+                            cyto_layer = Image(cyto_image, "cytoplasmic", cyto_meta)
                         cyto_nuclear_layer = None
                         if cyto_nuclear_channel is not None:
-                            nuclear_idx = resolve_channel_index(
-                                cyto_nuclear_channel, normalized_channels
-                            )
-                            nuclear_image, nuclear_meta = load_channel_data(
-                                path, nuclear_idx, scene_id
-                            )
-                            if nuclear_image is None:
-                                raise RuntimeError(
-                                    "Failed to read cytoplasmic nuclear data."
+                            cyto_nuclear_key = str(cyto_nuclear_channel)
+                            if (
+                                cyto_nuclear_only
+                                and cyto_nuclear_key in labels_data
+                            ):
+                                nuclear_meta = labels_meta.get(cyto_nuclear_key, {})
+                                cyto_nuclear_layer = Labels(
+                                    labels_data[cyto_nuclear_key],
+                                    cyto_nuclear_key,
+                                    nuclear_meta,
                                 )
-                            cyto_nuclear_layer = Image(
-                                nuclear_image, "nuclear", nuclear_meta
+                                if not cyto_meta:
+                                    cyto_meta = dict(nuclear_meta)
+                            else:
+                                nuclear_idx = resolve_channel_index(
+                                    cyto_nuclear_channel, normalized_channels
+                                )
+                                nuclear_image, nuclear_meta = load_channel_data(
+                                    path, nuclear_idx, scene_id
+                                )
+                                if nuclear_image is None:
+                                    raise RuntimeError(
+                                        "Failed to read cytoplasmic nuclear data."
+                                    )
+                                cyto_nuclear_layer = Image(
+                                    nuclear_image, "nuclear", nuclear_meta
+                                )
+                                if not cyto_meta:
+                                    cyto_meta = dict(nuclear_meta)
+                        if cyto_nuclear_only and cyto_nuclear_layer is None:
+                            raise RuntimeError(
+                                "Selected cytoplasmic model requires nuclear labels."
                             )
-                        model = self._segmentation_backend.get_model(cyto_model)
-                        seg_result = model.run(
+                        if cyto_model_instance is None:
+                            raise RuntimeError("Failed to load cytoplasmic model.")
+                        seg_result = cyto_model_instance.run(
                             task="cytoplasmic",
                             layer=cyto_layer,
+                            cytoplasmic_layer=cyto_layer,
                             nuclear_layer=cyto_nuclear_layer,
                             settings=cyto_settings,
                         )
@@ -396,7 +435,11 @@ class BatchBackend:
                             )
                             labels_data[label_name] = masks
                             labels_meta[label_name] = _with_task_metadata(
-                                cyto_meta, "cytoplasmic"
+                                cyto_meta,
+                                "cytoplasmic",
+                                runner_type="segmentation_model",
+                                runner_name=cyto_model,
+                                settings=cyto_settings,
                             )
                             item_result.outputs[label_name] = out_path
 
@@ -439,7 +482,11 @@ class BatchBackend:
                             )
                             labels_data[label_name] = mask
                             labels_meta[label_name] = _with_task_metadata(
-                                spot_meta, "spots"
+                                spot_meta,
+                                "spots",
+                                runner_type="spot_detector",
+                                runner_name=spot_detector,
+                                settings=spot_settings,
                             )
                             item_result.outputs[label_name] = out_path
 
@@ -581,13 +628,28 @@ def _resolve_output_dir(
     return output_dir
 
 
-def _with_task_metadata(metadata: dict | None, task: str) -> dict:
-    """Return a metadata copy with task type attached."""
+def _with_task_metadata(
+    metadata: dict | None,
+    task: str,
+    *,
+    runner_type: str | None = None,
+    runner_name: str | None = None,
+    settings: dict | None = None,
+) -> dict:
+    """Return a metadata copy with task and run metadata attached."""
     payload: dict[str, object] = {}
     if isinstance(metadata, dict):
         payload.update(metadata)
-    payload["task"] = task
-    return payload
+    if not runner_type or not runner_name:
+        payload["task"] = task
+        return payload
+    return append_run_metadata(
+        payload,
+        task=task,
+        runner_type=runner_type,
+        runner_name=runner_name,
+        settings=settings,
+    )
 
 
 def _build_viewer_for_quantification(

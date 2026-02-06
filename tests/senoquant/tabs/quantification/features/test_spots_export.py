@@ -9,6 +9,7 @@ export outputs.
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import numpy as np
@@ -57,6 +58,76 @@ def test_export_spots_csv(tmp_path: Path) -> None:
     outputs = list(export_spots(feature, tmp_path, viewer=viewer, export_format="csv"))
     assert any(path.suffix == ".csv" for path in outputs)
     assert all(path.exists() for path in outputs)
+
+
+def test_export_spots_writes_settings_and_masks(tmp_path: Path) -> None:
+    """Write mask arrays and unified settings bundle for spots export."""
+    cell_labels = np.array([[0, 1], [0, 2]], dtype=np.int32)
+    spot_labels = np.array([[0, 1], [0, 0]], dtype=np.int32)
+    image = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+
+    viewer = DummyViewer(
+        [
+            Labels(
+                cell_labels,
+                "cells",
+                metadata={
+                    "task": "nuclear",
+                    "run_history": [
+                        {
+                            "timestamp": "2026-02-06T00:00:00.000Z",
+                            "task": "nuclear",
+                            "runner_type": "segmentation_model",
+                            "runner_name": "default_2d",
+                            "settings": {"threshold": 0.3},
+                        }
+                    ],
+                },
+            ),
+            Labels(
+                spot_labels,
+                "spots",
+                metadata={
+                    "task": "spots",
+                    "run_history": [
+                        {
+                            "timestamp": "2026-02-06T01:00:00.000Z",
+                            "task": "spots",
+                            "runner_type": "spot_detector",
+                            "runner_name": "ufish",
+                            "settings": {"threshold": 0.4},
+                        }
+                    ],
+                },
+            ),
+            Image(image, "chan1"),
+        ]
+    )
+
+    data = SpotsFeatureData(
+        segmentations=[SpotsSegmentationConfig(label="cells")],
+        channels=[
+            SpotsChannelConfig(
+                name="Ch1",
+                channel="chan1",
+                spots_segmentation="spots",
+            )
+        ],
+    )
+    feature = FeatureConfig(name="Spots", type_name="Spots", data=data)
+
+    outputs = list(export_spots(feature, tmp_path, viewer=viewer, export_format="csv"))
+
+    settings_paths = [path for path in outputs if path.name == "senoquant_settings.json"]
+    mask_paths = [path for path in outputs if path.name.endswith("_mask.npy")]
+    assert settings_paths
+    assert len(mask_paths) >= 2
+
+    payload = json.loads(settings_paths[0].read_text(encoding="utf-8"))
+    assert payload["schema"] == "senoquant.settings"
+    assert payload["feature"]["feature_type"] == "Spots"
+    roles = {item["role"] for item in payload["segmentation_runs"]}
+    assert {"cell_segmentation", "spots_segmentation"} <= roles
 
 
 def test_export_spots_cells_add_cross_segmentation_overlap_column(

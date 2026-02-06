@@ -31,9 +31,10 @@ Creates a Points layer named `{labels_A}_{labels_B}_colocalization` with yellow 
 
 ## Available detectors
 
-| Detector | Algorithm | Best for |
+| Detector | Algorithm | Description |
 | --- | --- | --- |
-| `ufish` | [U-FISH](https://github.com/UFISH-Team/U-FISH/tree/main) | Spots in 2D and 3D immunofluorescence images |
+| `rmp` | Rotational Morphological Processing (RMP) | Spot extraction with rotating images and thin structuring elements. Compatible with 2D and 3D images. |
+| `ufish` | [U-FISH](https://github.com/UFISH-Team/U-FISH/tree/main) | Spot extraction with a compact deep learning model for 2D and 3D images. |
 
 ## Output layers
 
@@ -41,9 +42,27 @@ Creates a Points layer named `{labels_A}_{labels_B}_colocalization` with yellow 
 
 ## Detector settings
 
-### ufish
+### rmp
+
+Source: `src/senoquant/tabs/spots/models/rmp/details.json` and `src/senoquant/tabs/spots/models/rmp/model.py`.  
+
+Method reference: [Rotational Morphological Processing for spot detection](https://link.springer.com/article/10.1186/1471-2105-11-373).
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| **Threshold** | float | 0.5 | 0.0 - 1.0 | Detection threshold (lower = more spots) |
+| **Denoising kernel length** | int | 2 | 2 - 9999 | Structuring-element length for denoising opening. Enabled only when **Enable denoising** is on. |
+| **Extraction kernel length** | int | 10 | 3 - 9999 | Structuring-element length for top-hat extraction. |
+| **Angle spacing** | int | 5 | 1 - 10 | Rotation step size (degrees) used in RMP directional processing. |
+| **Auto threshold** | bool | true | n/a | Uses Otsu thresholding on the normalized response. |
+| **Manual threshold** | float | 0.05 | 0.0 - 1.0 | Fixed threshold when **Auto threshold** is off. Disabled when auto-thresholding is enabled. |
+| **Enable denoising** | bool | true | n/a | Toggles the denoising stage before extraction. |
 
+### ufish
+
+Source: `src/senoquant/tabs/spots/models/ufish/details.json` and `src/senoquant/tabs/spots/models/ufish/model.py`.
+
+| Setting | Type | Default | Range | Description |
+| --- | --- | --- | --- | --- |
+| **Denoise input** | bool | true | n/a | Applies wavelet denoising before enhancement and segmentation. |
+| **Spot size** | float | 1.0 | 0.25 - 4.0 | Spot-scale control. `1.0` is default, `>1` biases detection toward larger spots, `<1` toward smaller spots. |
+| **Threshold** | float | 0.5 | 0.0 - 1.0 | Foreground threshold on the enhanced response (lower = more spots). |

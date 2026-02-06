@@ -163,7 +163,7 @@ def test_apply_quantification_viewer_sets_viewer() -> None:
 
 
 def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatch) -> None:
-    """Attach task metadata to generated labels before quantification."""
+    """Attach task metadata and run history to generated labels."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     input_file = input_dir / "sample.tif"
@@ -203,10 +203,13 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
         output_path=str(output_dir),
         nuclear_model="nuclear",
         nuclear_channel=0,
+        nuclear_settings={"threshold": 0.3},
         cyto_model="cyto",
         cyto_channel=0,
+        cyto_settings={"radius": 5},
         spot_detector="ufish",
         spot_channels=[0],
+        spot_settings={"threshold": 0.4},
         quantification_features=[types.SimpleNamespace()],
         channel_map=[BatchChannelConfig(name="Channel 0", index=0)],
     )
@@ -214,6 +217,126 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
     assert captured_meta
     task_values = {meta.get("task") for meta in captured_meta.values()}
     assert {"nuclear", "cytoplasmic", "spots"} <= task_values
+    expected_by_task = {
+        "nuclear": ("segmentation_model", "nuclear", {"threshold": 0.3}),
+        "cytoplasmic": ("segmentation_model", "cyto", {"radius": 5}),
+        "spots": ("spot_detector", "ufish", {"threshold": 0.4}),
+    }
+    for metadata in captured_meta.values():
+        task = metadata.get("task")
+        if task not in expected_by_task:
+            continue
+        history = metadata.get("run_history")
+        assert isinstance(history, list)
+        assert history
+        last = history[-1]
+        runner_type, runner_name, settings = expected_by_task[task]
+        assert last.get("runner_type") == runner_type
+        assert last.get("runner_name") == runner_name
+        assert last.get("settings") == settings
+        assert isinstance(last.get("timestamp"), str)
+
+
+def test_process_folder_nuclear_only_cyto_uses_generated_nuclear_labels(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Use generated nuclear labels for nuclear-only cytoplasmic models."""
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_file = input_dir / "sample.tif"
+    input_file.write_text("data")
+    output_dir = tmp_path / "output"
+
+    load_calls: list[int] = []
+
+    class _NuclearModel:
+        def run(self, **_kwargs):
+            masks = np.zeros((2, 2), dtype=np.uint16)
+            masks[:, 1] = 1
+            return {"masks": masks}
+
+    class _NuclearOnlyCytoModel:
+        def __init__(self) -> None:
+            self.calls: list[dict] = []
+
+        def cytoplasmic_input_modes(self) -> list[str]:
+            return ["nuclear"]
+
+        def run(self, **kwargs):
+            self.calls.append(kwargs)
+            return {"masks": np.ones((2, 2), dtype=np.uint16)}
+
+    class _SegmentationBackend:
+        def __init__(self) -> None:
+            self._nuclear = _NuclearModel()
+            self._cyto = _NuclearOnlyCytoModel()
+
+        @property
+        def cyto(self) -> _NuclearOnlyCytoModel:
+            return self._cyto
+
+        def get_model(self, name: str):
+            if name == "nuclear":
+                return self._nuclear
+            if name == "nuclear_dilation":
+                return self._cyto
+            raise KeyError(name)
+
+    def fake_iter_input_files(_root, _exts, _include):
+        yield input_file
+
+    def fake_load_channel_data(_path, index, _scene_id):
+        load_calls.append(int(index))
+        return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
+
+    def fake_write_array(out_dir, name, data, fmt):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"{name}.npy"
+        np.save(path, data)
+        return path
+
+    monkeypatch.setattr(batch_backend, "iter_input_files", fake_iter_input_files)
+    monkeypatch.setattr(batch_backend, "load_channel_data", fake_load_channel_data)
+    monkeypatch.setattr(batch_backend, "write_array", fake_write_array)
+
+    segmentation_backend = _SegmentationBackend()
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=segmentation_backend,
+        spots_backend=DummySpotsBackend(),
+    )
+
+    summary = backend.process_folder(
+        input_path=str(input_dir),
+        output_path=str(output_dir),
+        channel_map=[
+            BatchChannelConfig(name="DAPI", index=0),
+            BatchChannelConfig(name="GFP", index=1),
+        ],
+        nuclear_model="nuclear",
+        nuclear_channel="DAPI",
+        cyto_model="nuclear_dilation",
+        cyto_channel="GFP",
+        cyto_nuclear_channel="DAPI_nuclear_nuc_labels",
+    )
+
+    assert summary.processed == 1
+    assert summary.failed == 0
+    assert load_calls == [0]
+
+    assert len(segmentation_backend.cyto.calls) == 1
+    cyto_call = segmentation_backend.cyto.calls[0]
+    assert cyto_call.get("layer") is None
+    assert cyto_call.get("cytoplasmic_layer") is None
+    nuclear_layer = cyto_call.get("nuclear_layer")
+    assert nuclear_layer is not None
+    assert nuclear_layer.__class__.__name__ == "Labels"
+    assert np.array_equal(
+        nuclear_layer.data,
+        np.array([[0, 1], [0, 1]], dtype=np.uint16),
+    )
+    assert "GFP_nuclear_dilation_cyto_labels" in summary.results[0].outputs
+
 
 def test_progress_callback_invoked(tmp_path) -> None:
     """Progress callback is invoked during batch processing.

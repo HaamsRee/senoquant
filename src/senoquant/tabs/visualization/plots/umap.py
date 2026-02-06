@@ -5,14 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-import matplotlib.pyplot as plt
-import pandas as pd
-from umap import UMAP as UMAPReducer
-
-from .base import FeatureData, SenoQuantPlot
+from .base import PlotData, SenoQuantPlot
 
 
-class UMAPData(FeatureData):
+class UMAPData(PlotData):
     """Configuration data for UMAP plot."""
 
     pass
@@ -32,7 +28,7 @@ class UMAPPlot(SenoQuantPlot):
     def plot(
         self, 
         temp_dir: Path, 
-        input_path: str, 
+        input_path: Path, 
         export_format: str,
         markers: list[str] | None = None,
         thresholds: dict[str, float] | None = None,
@@ -43,7 +39,7 @@ class UMAPPlot(SenoQuantPlot):
         ----------
         temp_dir : Path
             Temporary directory to write plot output.
-        input_path : str
+        input_path : Path
             Path to input CSV file or folder containing CSV files.
         export_format : str
             Output format ("png", "svg", or "pdf").
@@ -58,9 +54,25 @@ class UMAPPlot(SenoQuantPlot):
             Paths to generated plot files.
         """
         try:
+            try:
+                import pandas as pd
+            except ImportError:
+                print("[UMAPPlot] pandas is not installed; skipping plot generation.")
+                return []
+            try:
+                import matplotlib.pyplot as plt
+            except ImportError:
+                print("[UMAPPlot] matplotlib is not installed; skipping plot generation.")
+                return []
+            try:
+                from umap import UMAP as UMAPReducer
+            except ImportError:
+                print("[UMAPPlot] umap-learn is not installed; skipping plot generation.")
+                return []
+
             print(f"[UMAPPlot] Starting with input_path={input_path}")
             # Find the first data file (CSV or Excel) in the input folder
-            data_files = list(Path(input_path).glob("*.csv")) + list(Path(input_path).glob("*.xlsx")) + list(Path(input_path).glob("*.xls"))
+            data_files = list(input_path.glob("*.csv")) + list(input_path.glob("*.xlsx")) + list(input_path.glob("*.xls"))
             print(f"[UMAPPlot] Found {len(data_files)} data files")
             if not data_files:
                 print(f"[UMAPPlot] No CSV/Excel files found in {input_path}")

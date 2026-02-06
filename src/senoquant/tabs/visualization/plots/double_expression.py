@@ -5,19 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-import matplotlib.pyplot as plt
-import pandas as pd
-
 try:
     from napari.utils.notifications import show_error
 except ImportError:
     def show_error(message: str) -> None:
         pass
 
-from .base import FeatureData, SenoQuantPlot
+from .base import PlotData, SenoQuantPlot
 
 
-class DoubleExpressionData(FeatureData):
+class DoubleExpressionData(PlotData):
     """Configuration data for double expression plot."""
 
     pass
@@ -36,7 +33,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
     def plot(
         self, 
         temp_dir: Path, 
-        input_path: str, 
+        input_path: Path, 
         export_format: str,
         markers: list[str] | None = None,
         thresholds: dict[str, float] | None = None,
@@ -47,7 +44,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
         ----------
         temp_dir : Path
             Temporary directory to write plot output.
-        input_path : str
+        input_path : Path
             Path to input CSV file or folder containing CSV files.
         export_format : str
             Output format ("png", "svg", or "pdf").
@@ -62,6 +59,27 @@ class DoubleExpressionPlot(SenoQuantPlot):
             Paths to generated plot files.
         """
         try:
+            try:
+                import pandas as pd
+            except ImportError:
+                msg = (
+                    "[DoubleExpressionPlot] pandas is not installed; "
+                    "skipping plot generation."
+                )
+                print(msg)
+                show_error(msg)
+                return []
+            try:
+                import matplotlib.pyplot as plt
+            except ImportError:
+                msg = (
+                    "[DoubleExpressionPlot] matplotlib is not installed; "
+                    "skipping plot generation."
+                )
+                print(msg)
+                show_error(msg)
+                return []
+
             print(f"[DoubleExpressionPlot] Starting with input_path={input_path}")
             
             if not markers or len(markers) != 2:
@@ -71,7 +89,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
                 return []
 
             # Find data file
-            data_files = list(Path(input_path).glob("*.csv")) + list(Path(input_path).glob("*.xlsx")) + list(Path(input_path).glob("*.xls"))
+            data_files = list(input_path.glob("*.csv")) + list(input_path.glob("*.xlsx")) + list(input_path.glob("*.xls"))
             if not data_files:
                 print(f"[DoubleExpressionPlot] No data files found")
                 return []
@@ -107,7 +125,9 @@ class DoubleExpressionPlot(SenoQuantPlot):
             y_col = "centroid_y_pixels" if "centroid_y_pixels" in df.columns else None
 
             if x_col is None or y_col is None:
-                print("[DoubleExpressionPlot] Could not find X/Y columns")
+                msg = "[DoubleExpressionPlot] Could not find X/Y columns in the data file."
+                print(msg)
+                show_error(msg)
                 return []
 
             # Plotting

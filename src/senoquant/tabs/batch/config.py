@@ -1,8 +1,9 @@
 """Batch job configuration and serialization helpers.
 
-This module defines dataclasses used to capture batch settings from the UI
-and persist them to JSON. The serialization format keeps feature configs
-portable across sessions and mirrors the Quantification tab structures.
+This module defines dataclasses used to capture batch settings from the UI.
+``BatchJobConfig.to_dict()`` and ``from_dict()`` operate on the inner
+``batch_job`` payload, while ``save()`` and ``load()`` persist that payload
+inside the shared ``senoquant.settings`` bundle envelope.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Iterable
 import json
 
+from senoquant.utils.settings_bundle import build_settings_bundle, parse_settings_bundle
 from senoquant.tabs.quantification.features import FeatureConfig
 from senoquant.tabs.quantification.features.base import FeatureData
 from senoquant.tabs.quantification.features.marker.config import (
@@ -84,8 +86,9 @@ class BatchQuantificationConfig:
 class BatchJobConfig:
     """Top-level batch configuration.
 
-    This structure is the single payload passed from the UI to the backend.
-    It is also the serialized representation used in batch profiles.
+    This dataclass is the in-memory payload exchanged between the batch UI and
+    backend. It also defines the inner ``batch_job`` payload embedded in saved
+    settings bundles.
     """
     input_path: str = ""
     output_path: str = ""
@@ -101,12 +104,12 @@ class BatchJobConfig:
     quantification: BatchQuantificationConfig = field(default_factory=BatchQuantificationConfig)
 
     def to_dict(self) -> dict:
-        """Serialize the job config to a JSON-friendly dictionary.
+        """Serialize the inner batch payload to a JSON-friendly dictionary.
 
         Returns
         -------
         dict
-            JSON-compatible representation of the batch config.
+            JSON-compatible ``batch_job`` payload.
         """
         payload = asdict(self)
         payload["quantification"]["features"] = [
@@ -117,12 +120,12 @@ class BatchJobConfig:
 
     @classmethod
     def from_dict(cls, payload: dict) -> "BatchJobConfig":
-        """Hydrate a job config from a JSON payload.
+        """Hydrate a job config from an inner ``batch_job`` payload.
 
         Parameters
         ----------
         payload : dict
-            JSON-compatible representation of the batch config.
+            JSON-compatible ``batch_job`` payload.
 
         Returns
         -------
@@ -168,15 +171,17 @@ class BatchJobConfig:
         )
 
     def save(self, path: str) -> None:
-        """Persist the configuration to disk.
+        """Persist the configuration to disk in bundle format.
 
         Parameters
         ----------
         path : str
-            Destination file path for the JSON profile.
+            Destination file path for the JSON profile. The file stores the
+            config inside a ``senoquant.settings`` bundle envelope.
         """
+        payload = build_settings_bundle(batch_job=self.to_dict())
         with open(path, "w", encoding="utf-8") as handle:
-            json.dump(self.to_dict(), handle, indent=2)
+            json.dump(payload, handle, indent=2)
 
     @classmethod
     def load(cls, path: str) -> "BatchJobConfig":
@@ -185,7 +190,8 @@ class BatchJobConfig:
         Parameters
         ----------
         path : str
-            Source JSON profile file.
+            Source JSON profile file. Supports both bundle envelopes and
+            legacy plain ``batch_job`` payloads.
 
         Returns
         -------
@@ -194,7 +200,11 @@ class BatchJobConfig:
         """
         with open(path, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
-        return cls.from_dict(payload)
+        bundle = parse_settings_bundle(payload)
+        batch_payload = bundle.get("batch_job", {})
+        if not isinstance(batch_payload, dict):
+            batch_payload = {}
+        return cls.from_dict(batch_payload)
 
 
 def _serialize_feature(feature: FeatureConfig) -> dict:

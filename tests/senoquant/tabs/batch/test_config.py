@@ -7,6 +7,8 @@ Ensures batch config dataclasses round-trip through JSON payloads.
 
 from __future__ import annotations
 
+import json
+
 from senoquant.tabs.batch.config import (
     BatchChannelConfig,
     BatchJobConfig,
@@ -74,6 +76,26 @@ def test_batch_job_config_round_trip(tmp_path) -> None:
     job.save(str(save_path))
     loaded = BatchJobConfig.load(str(save_path))
     assert loaded.quantification.enabled is True
+    payload = json.loads(save_path.read_text(encoding="utf-8"))
+    assert payload.get("schema") == "senoquant.settings"
+    assert isinstance(payload.get("batch_job"), dict)
+
+
+def test_batch_job_config_load_legacy_profile(tmp_path) -> None:
+    """Load legacy profiles without a settings bundle envelope."""
+    legacy_payload = {
+        "input_path": "/legacy/input",
+        "output_path": "/legacy/output",
+        "channel_map": [{"name": "DAPI", "index": 0}],
+    }
+    save_path = tmp_path / "legacy.json"
+    save_path.write_text(json.dumps(legacy_payload), encoding="utf-8")
+
+    loaded = BatchJobConfig.load(str(save_path))
+
+    assert loaded.input_path == "/legacy/input"
+    assert loaded.output_path == "/legacy/output"
+    assert loaded.channel_map[0].name == "DAPI"
 
 def test_batch_channel_config_basic() -> None:
     """Test BatchChannelConfig creation and access.

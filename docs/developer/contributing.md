@@ -146,19 +146,7 @@ mkdocs build
 
 Defined in `pyproject.toml`:
 
-- `.[distributed]`: Dask for parallel processing.
-- `.[gpu]`: GPU acceleration extras.
 - `.[all]`: Full stack including napari and optional dependencies.
-
-### BioIO reader plugins
-
-For reliable format support, install dedicated readers.
-
-```bash
-pip install bioio-tifffile bioio-ome-tiff bioio-nd2 bioio-lif bioio-czi
-```
-
-See [Data & Readers](../user/data.md) for the complete list.
 
 ## Extending SenoQuant
 
@@ -184,6 +172,16 @@ Use the same pattern as segmentation models under `src/senoquant/tabs/spots/mode
 5. **Batch profiles**: Update batch feature serialize/deserialize cases in `src/senoquant/tabs/batch/config.py`.
 
 See [Quantification features](quantification-features.md) for the detailed guide.
+
+### Visualization plot
+
+1. **Create module**: `src/senoquant/tabs/visualization/plots/my_plot.py`.
+2. **Define plot class**: Subclass `SenoQuantPlot` with `feature_type` and `order`.
+3. **Implement output**: Write files in `plot(temp_dir, input_path, export_format, ...)`.
+4. **Register typed data**: Add custom `PlotData` class to `FEATURE_DATA_FACTORY` when needed.
+5. **Test**: Add handler and backend tests under `tests/senoquant/tabs/visualization/`.
+
+See [Visualization tab](visualization.md) for implementation details.
 
 ### New tab
 
@@ -215,11 +213,10 @@ Improve U-FISH spot detector threshold behavior
 
 ## Common pitfalls
 
-1. **BioIO reader failures on large files**: Install dedicated plugins (`bioio-ome-tiff`, `bioio-nd2`, and others).
-2. **Protobuf version conflicts**: Reinstall protobuf after TensorFlow when doing ONNX conversion.
-3. **Headless testing**: `conftest.py` stubs handle missing Qt/napari; avoid top-level GUI imports in test files.
-4. **Model not discovered**: Check folder naming and confirm `details.json` exists.
-5. **Batch quantification failures**: Verify the `BatchViewer` shim has correct layer names.
+1. **Protobuf version conflicts**: Reinstall protobuf after TensorFlow when doing ONNX conversion.
+2. **Headless testing**: `conftest.py` stubs handle missing Qt/napari; avoid top-level GUI imports in test files.
+3. **Model not discovered**: Check folder naming and confirm `details.json` exists.
+4. **Batch quantification failures**: Verify the `BatchViewer` shim has correct layer names.
 
 ## Getting help
 

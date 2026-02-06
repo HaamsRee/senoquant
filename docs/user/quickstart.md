@@ -42,11 +42,12 @@ SenoQuant should launch automatically in Step 1. If not:
 
 `Plugins` → `SenoQuant`
 
-The plugin window opens as a docked widget with 5 tabs:
+The plugin window opens as a docked widget with 6 tabs:
 
 - **Segmentation**
 - **Spots**
 - **Quantification**
+- **Visualization**
 - **Batch**
 - **Settings**
 
@@ -83,7 +84,7 @@ If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):
 
 1. Switch to the **Spots** tab.
 2. Select **Image Layer**: Choose the channel with spots.
-3. Select **Detector**: `ufish`.
+3. Select **Detector**: `rmp`, `ufish`.
 4. Adjust detection settings (for example, `Threshold`).
 
     > The default settings work well for most images.
@@ -208,5 +209,6 @@ If you want batch exports:
 - [Segmentation](segmentation.md) - Detailed model settings and parameters
 - [Spots](spots.md) - Advanced spot detection configuration
 - [Quantification](quantification.md) - Feature export details and column definitions
+- [Visualization](visualization.md) - Plot generation from quantification tables
 - [Batch](batch.md) - Batch processing profiles and automation
 - [Data](data.md) - Supported file formats and metadata handling

@@ -202,4 +202,5 @@ The StarDist conversion utilities and compiled extension still live under:
 - `src/senoquant/tabs/segmentation/stardist_onnx_utils/`.
 - `stardist_ext/`.
 
+For conversion workflow details, see `docs/developer/stardist-onnx.md`.
 For packaging details, see `docs/developer/packaging.md`.

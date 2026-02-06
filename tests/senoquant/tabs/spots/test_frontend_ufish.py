@@ -20,11 +20,20 @@ def test_spot_labels_include_task_metadata() -> None:
         metadata={"path": "file.tif"},
     )
 
-    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "detector")
+    tab._add_labels_layer(
+        source,
+        np.ones((4, 4), dtype=np.uint16),
+        "detector",
+        settings={"threshold": 0.4},
+    )
 
     labels_layer = viewer.layers["img_detector_spot_labels"]
     assert labels_layer.metadata.get("task") == "spots"
     assert labels_layer.metadata.get("path") == "file.tif"
+    assert labels_layer.metadata["run_history"][-1]["runner_name"] == "detector"
+    assert labels_layer.metadata["run_history"][-1]["settings"] == {
+        "threshold": 0.4
+    }
 
 
 def test_spot_labels_metadata_without_name_lookup() -> None:
@@ -45,9 +54,15 @@ def test_spot_labels_metadata_without_name_lookup() -> None:
         metadata={"path": "file.tif"},
     )
 
-    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "detector")
+    tab._add_labels_layer(
+        source,
+        np.ones((4, 4), dtype=np.uint16),
+        "detector",
+        settings={"threshold": 0.4},
+    )
 
     labels_layer = viewer.layers[-1]
     assert labels_layer.name == "img_detector_spot_labels_1"
     assert labels_layer.metadata.get("task") == "spots"
     assert labels_layer.metadata.get("path") == "file.tif"
+    assert labels_layer.metadata["run_history"][-1]["runner_type"] == "spot_detector"
