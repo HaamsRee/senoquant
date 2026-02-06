@@ -103,14 +103,8 @@ class DoubleExpressionPlot(SenoQuantPlot):
             print(f"[DoubleExpressionPlot] Using thresholds: {m1}>{t1}, {m2}>{t2}")
 
             # Find X, Y
-            x_col = None
-            y_col = None
-            for col in df.columns:
-                col_lower = col.lower()
-                if "x" in col_lower and x_col is None:
-                    x_col = col
-                elif "y" in col_lower and y_col is None:
-                    y_col = col
+            x_col = "centroid_x_pixels" if "centroid_x_pixels" in df.columns else None
+            y_col = "centroid_y_pixels" if "centroid_y_pixels" in df.columns else None
 
             if x_col is None or y_col is None:
                 print("[DoubleExpressionPlot] Could not find X/Y columns")

@@ -96,14 +96,8 @@ class SpatialPlot(SenoQuantPlot):
                 print(f"[SpatialPlot] Filtered columns using {len(valid_marker_cols)} selected markers")
 
             # Look for X, Y coordinate columns
-            x_col = None
-            y_col = None
-            for col in df.columns:
-                col_lower = col.lower()
-                if "x" in col_lower and x_col is None:
-                    x_col = col
-                elif "y" in col_lower and y_col is None:
-                    y_col = col
+            x_col = "centroid_x_pixels" if "centroid_x_pixels" in df.columns else None
+            y_col = "centroid_y_pixels" if "centroid_y_pixels" in df.columns else None
 
             if x_col is None or y_col is None:
                 return []
