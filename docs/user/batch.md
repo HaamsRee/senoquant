@@ -12,13 +12,14 @@ The Batch tab runs segmentation, spot detection, and quantification across folde
 - **Extensions** (text field): Comma-separated file extensions to include.
 - **Include subfolders** (checkbox): Recursively scan nested folders.
 - **Process all scenes** (checkbox): Process all scenes in multi-scene files.
-- **Load profile** and **Save profile** (buttons): Load or save batch settings as a JSON profile.
 
 **Behavior notes:**
 
 - If the extensions field is empty, all files are considered.
 - Extensions are normalized to lowercase and a leading dot is added if missing.
 - By default, the extensions field is pre-filled with common image formats.
+- Batch settings are saved/loaded from the **Settings** tab using
+  `senoquant_settings.json`.
 
 ### Channels section
 
@@ -123,6 +124,17 @@ The Batch tab embeds the Quantification feature editor with batch-safe options.
 - You must enable at least one processing path (segmentation, spots, or quantification).
 - If spot detection is enabled, at least one spot channel is required.
 
+## Settings integration
+
+Batch no longer has dedicated **Load profile** / **Save profile** buttons.
+Instead:
+
+- Use the **Settings** tab to save or load unified settings bundles.
+- When loading a settings bundle, Batch state is applied automatically if
+  the file contains a `batch_job` payload.
+- During batch runs, SenoQuant writes a `senoquant_settings.json` file in the
+  batch output root so run configuration is captured with results.
+
 ## Processing behavior
 
 For each discovered image file (and each scene, if scene processing is enabled), Batch runs steps in this order:
@@ -169,6 +181,7 @@ Feature folder names are normalized to lowercase and spaces become underscores.
 
 ```text
 batch-output/
+  senoquant_settings.json
   sample_01/
     dapi_default_2d_nuc_labels.tif
     fitc_ufish_spot_labels.tif
@@ -188,5 +201,6 @@ batch-output/
 
 - Keep channel mapping complete before configuring feature dropdowns.
 - Verify detector/model settings on one representative image before full batch runs.
-- Use profiles for repeat experiments and parameter reuse.
+- Use the **Settings** tab save/load flow to reuse segmentation, spot, and
+  batch configurations.
 - Leave overwrite off when resuming interrupted runs.

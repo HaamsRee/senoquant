@@ -101,15 +101,15 @@ FEATURE_DATA_FACTORY = {
 Without this, switching to your feature type creates a generic `FeatureData`
 object and your typed config is lost.
 
-### 5) Add batch profile serialization support
+### 5) Add batch settings-bundle serialization support
 
-If the feature should work with Batch profile save/load, update
+If the feature should work with Batch settings persistence, update
 `src/senoquant/tabs/batch/config.py`:
 
 - `_serialize_feature_data()` to add a case for your data class.
 - `_deserialize_feature_data()` to reconstruct your data class.
 
-If you skip this step, profiles will serialize as `{"type": "Unknown"}` and
+If you skip this step, bundle payloads will serialize as `{"type": "Unknown"}` and
 reload without your feature settings.
 
 ### 6) Add tests
@@ -118,7 +118,7 @@ Recommended test updates:
 
 - Registry and data factory: `tests/senoquant/tabs/quantification/features/test_registry.py`.
 - Export behavior: add tests under `tests/senoquant/tabs/quantification/features/`.
-- Batch profile round-trip: `tests/senoquant/tabs/batch/test_config.py`.
+- Batch settings-bundle round-trip: `tests/senoquant/tabs/batch/test_config.py`.
 
 ## Built-in export patterns (consolidated reference columns)
 

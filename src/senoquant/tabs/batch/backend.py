@@ -25,12 +25,14 @@ This backend is intentionally UI-agnostic. UI widgets build a
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 
 from senoquant.utils import append_run_metadata
+from senoquant.utils.settings_bundle import build_settings_bundle
 from senoquant.tabs.quantification.backend import QuantificationBackend
 from senoquant.tabs.segmentation.backend import SegmentationBackend
 from senoquant.tabs.spots.backend import SpotsBackend
@@ -158,6 +160,7 @@ class BatchBackend:
             output_format=job.output_format,
             overwrite=job.overwrite,
             process_all_scenes=job.process_all_scenes,
+            batch_job_payload=job.to_dict(),
         )
 
     def process_folder(
@@ -186,6 +189,7 @@ class BatchBackend:
         output_format: str = "tif",
         overwrite: bool = False,
         process_all_scenes: bool = False,
+        batch_job_payload: dict | None = None,
         progress_callback: callable | None = None,
     ) -> BatchSummary:
         """Run batch processing on a folder of images.
@@ -239,6 +243,9 @@ class BatchBackend:
             Whether to overwrite existing output folders.
         process_all_scenes : bool, optional
             Whether to process all scenes in multi-scene files.
+        batch_job_payload : dict or None, optional
+            Optional pre-serialized ``batch_job`` payload to persist at the
+            output root as ``senoquant_settings.json``.
         progress_callback : callable or None, optional
             Optional callback invoked with (current, total, message) to
             report progress during batch processing.
@@ -294,6 +301,36 @@ class BatchBackend:
                 failed=0,
                 results=[],
             )
+
+        payload = (
+            dict(batch_job_payload)
+            if isinstance(batch_job_payload, dict)
+            else _derive_batch_job_payload(
+                input_path=input_path,
+                output_path=output_path,
+                channel_map=normalized_channels,
+                nuclear_model=nuclear_model,
+                nuclear_channel=nuclear_channel,
+                nuclear_settings=nuclear_settings,
+                cyto_model=cyto_model,
+                cyto_channel=cyto_channel,
+                cyto_nuclear_channel=cyto_nuclear_channel,
+                cyto_settings=cyto_settings,
+                spot_detector=spot_detector,
+                spot_channels=spot_channels,
+                spot_settings=spot_settings,
+                spot_min_size=spot_min_size,
+                spot_max_size=spot_max_size,
+                quantification_enabled=bool(quantification_features),
+                quantification_format=quantification_format,
+                extensions=normalized_exts,
+                include_subfolders=include_subfolders,
+                overwrite=overwrite,
+                output_format=output_format,
+                process_all_scenes=process_all_scenes,
+            )
+        )
+        _write_batch_settings_bundle(output_root, payload)
 
         # Iterate over files and (optionally) scene variants.
         current_item = 0
@@ -716,3 +753,81 @@ def _apply_quantification_viewer(
         tab = getattr(handler, "_tab", None)
         if tab is not None:
             setattr(tab, "_viewer", viewer)
+
+
+def _derive_batch_job_payload(
+    *,
+    input_path: str,
+    output_path: str,
+    channel_map: list[BatchChannelConfig],
+    nuclear_model: str | None,
+    nuclear_channel: str | int | None,
+    nuclear_settings: dict | None,
+    cyto_model: str | None,
+    cyto_channel: str | int | None,
+    cyto_nuclear_channel: str | int | None,
+    cyto_settings: dict | None,
+    spot_detector: str | None,
+    spot_channels: Iterable[str | int] | None,
+    spot_settings: dict | None,
+    spot_min_size: int,
+    spot_max_size: int,
+    quantification_enabled: bool,
+    quantification_format: str,
+    extensions: Iterable[str],
+    include_subfolders: bool,
+    overwrite: bool,
+    output_format: str,
+    process_all_scenes: bool,
+) -> dict[str, object]:
+    """Build a serializable fallback ``batch_job`` payload."""
+    return {
+        "input_path": input_path,
+        "output_path": output_path,
+        "extensions": list(extensions or []),
+        "include_subfolders": bool(include_subfolders),
+        "process_all_scenes": bool(process_all_scenes),
+        "overwrite": bool(overwrite),
+        "output_format": output_format,
+        "channel_map": [
+            {"name": channel.name, "index": channel.index}
+            for channel in channel_map
+        ],
+        "nuclear": {
+            "enabled": bool(nuclear_model),
+            "model": nuclear_model or "",
+            "channel": "" if nuclear_channel is None else str(nuclear_channel),
+            "settings": dict(nuclear_settings or {}),
+        },
+        "cytoplasmic": {
+            "enabled": bool(cyto_model),
+            "model": cyto_model or "",
+            "channel": "" if cyto_channel is None else str(cyto_channel),
+            "nuclear_channel": (
+                "" if cyto_nuclear_channel is None else str(cyto_nuclear_channel)
+            ),
+            "settings": dict(cyto_settings or {}),
+        },
+        "spots": {
+            "enabled": bool(spot_detector),
+            "detector": spot_detector or "",
+            "channels": [str(choice) for choice in list(spot_channels or [])],
+            "settings": dict(spot_settings or {}),
+            "min_size": int(spot_min_size),
+            "max_size": int(spot_max_size),
+        },
+        "quantification": {
+            "enabled": bool(quantification_enabled),
+            "format": quantification_format,
+            "features": [],
+        },
+    }
+
+
+def _write_batch_settings_bundle(output_root: Path, batch_payload: dict) -> Path:
+    """Persist batch settings bundle in the batch output root."""
+    settings_path = output_root / "senoquant_settings.json"
+    bundle = build_settings_bundle(batch_job=batch_payload)
+    with settings_path.open("w", encoding="utf-8") as handle:
+        json.dump(bundle, handle, indent=2)
+    return settings_path

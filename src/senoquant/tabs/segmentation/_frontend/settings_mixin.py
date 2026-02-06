@@ -17,6 +17,46 @@ from qtpy.QtWidgets import (
 class SegmentationSettingsMixin:
     """Model selection and settings form behavior for segmentation tab."""
 
+    def export_settings_state(self) -> dict[str, object]:
+        """Return serializable segmentation settings state for persistence."""
+        return {
+            "nuclear": {
+                "model": self._nuclear_model_combo.currentText(),
+                "settings": self._collect_settings(self._nuclear_settings_widgets),
+            },
+            "cytoplasmic": {
+                "model": self._cyto_model_combo.currentText(),
+                "settings": self._collect_settings(self._cyto_settings_widgets),
+            },
+        }
+
+    def apply_settings_state(self, payload: dict | None) -> None:
+        """Apply serialized segmentation settings to the UI."""
+        if not isinstance(payload, dict):
+            return
+
+        nuclear = payload.get("nuclear")
+        if isinstance(nuclear, dict):
+            model_name = str(nuclear.get("model", "")).strip()
+            if model_name:
+                self._set_combo_value(self._nuclear_model_combo, model_name)
+            self._update_nuclear_model_settings(self._nuclear_model_combo.currentText())
+            self._apply_settings_values(
+                self._nuclear_settings_widgets,
+                nuclear.get("settings"),
+            )
+
+        cytoplasmic = payload.get("cytoplasmic")
+        if isinstance(cytoplasmic, dict):
+            model_name = str(cytoplasmic.get("model", "")).strip()
+            if model_name:
+                self._set_combo_value(self._cyto_model_combo, model_name)
+            self._update_cytoplasmic_model_settings(self._cyto_model_combo.currentText())
+            self._apply_settings_values(
+                self._cyto_settings_widgets,
+                cytoplasmic.get("settings"),
+            )
+
     def _refresh_model_choices(self) -> None:
         """Populate the model dropdowns from available model folders."""
         self._nuclear_model_combo.clear()
@@ -246,6 +286,24 @@ class SegmentationSettingsMixin:
                 values[key] = widget.isChecked()
         return values
 
+    @staticmethod
+    def _apply_settings_values(settings_map: dict, values: object) -> None:
+        """Apply persisted values onto matching settings widgets."""
+        if not isinstance(values, dict):
+            return
+        for key, value in values.items():
+            widget = settings_map.get(key)
+            if widget is None:
+                continue
+            if isinstance(widget, QCheckBox):
+                widget.setChecked(bool(value))
+                continue
+            if hasattr(widget, "setValue"):
+                try:
+                    widget.setValue(value)
+                except (TypeError, ValueError):
+                    continue
+
     def _configure_combo(self, combo: QComboBox) -> None:
         """Apply sizing defaults to combo boxes."""
         combo.setSizeAdjustPolicy(
@@ -273,3 +331,9 @@ class SegmentationSettingsMixin:
         model = self._backend.get_model(model_name)
         self._update_cytoplasmic_run_state(model)
 
+    @staticmethod
+    def _set_combo_value(combo: QComboBox, value: str) -> None:
+        """Select a combo value when present."""
+        index = combo.findText(value)
+        if index != -1:
+            combo.setCurrentIndex(index)

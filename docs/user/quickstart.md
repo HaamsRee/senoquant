@@ -202,7 +202,19 @@ If you want batch exports:
 3. (Optional) **Overwrite** → Enable to replace existing outputs.
 4. Click **Run batch**.
 
-**Outputs:** Each input image gets its own output folder with (if enabled) quantification tables. Masks are also saved.
+**Outputs:** Each input image gets its own output folder with (if enabled)
+quantification tables. Masks are also saved. The batch output root includes a
+`senoquant_settings.json` file with the batch configuration used for the run.
+
+## Settings persistence (recommended)
+
+Before closing napari, save your configuration:
+
+1. Open the **Settings** tab.
+2. Click **Save settings** and store `senoquant_settings.json`.
+
+To continue later, click **Load settings** in the same tab.
+If the JSON contains batch configuration, the Batch tab is populated too.
 
 ## Next steps
 
@@ -210,5 +222,5 @@ If you want batch exports:
 - [Spots](spots.md) - Advanced spot detection configuration
 - [Quantification](quantification.md) - Feature export details and column definitions
 - [Visualization](visualization.md) - Plot generation from quantification tables
-- [Batch](batch.md) - Batch processing profiles and automation
+- [Batch](batch.md) - Batch processing and automation
 - [Data](data.md) - Supported file formats and metadata handling

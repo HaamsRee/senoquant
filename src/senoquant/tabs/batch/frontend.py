@@ -207,22 +207,10 @@ class BatchTab(QWidget):
         self._include_subfolders = QCheckBox("Include subfolders")
         self._process_scenes = QCheckBox("Process all scenes")
 
-        profile_row = QHBoxLayout()
-        profile_row.setContentsMargins(0, 0, 0, 0)
-        load_button = QPushButton("Load profile")
-        load_button.clicked.connect(self._load_profile)
-        save_button = QPushButton("Save profile")
-        save_button.clicked.connect(self._save_profile)
-        profile_row.addWidget(load_button)
-        profile_row.addWidget(save_button)
-        profile_widget = QWidget()
-        profile_widget.setLayout(profile_row)
-
         form_layout.addRow("Input folder", input_widget)
         form_layout.addRow("Extensions", self._extensions)
         form_layout.addRow("", self._include_subfolders)
         form_layout.addRow("", self._process_scenes)
-        form_layout.addRow("Profiles", profile_widget)
 
         section_layout.addLayout(form_layout)
         section.setLayout(section_layout)
@@ -505,7 +493,7 @@ class BatchTab(QWidget):
     def _remove_spot_channel_row(self, row: dict) -> None:
         """Remove a spot-channel row from the UI."""
         widget = row.get("widget")
-        if widget is not None:
+        if widget is not None and hasattr(widget, "setParent"):
             widget.setParent(None)
         if row in self._spot_channel_rows:
             self._spot_channel_rows.remove(row)
@@ -577,7 +565,7 @@ class BatchTab(QWidget):
     def _remove_channel_row(self, row: dict) -> None:
         """Remove a channel mapping row."""
         widget = row.get("widget")
-        if widget is not None:
+        if widget is not None and hasattr(widget, "setParent"):
             widget.setParent(None)
         if row in self._channel_rows:
             self._channel_rows.remove(row)
@@ -1037,6 +1025,7 @@ class BatchTab(QWidget):
             output_format=job.output_format,
             overwrite=job.overwrite,
             process_all_scenes=job.process_all_scenes,
+            batch_job_payload=job.to_dict(),
             progress_callback=progress_cb,
         ))
         
@@ -1114,6 +1103,10 @@ class BatchTab(QWidget):
             ),
         )
 
+    def export_job_config(self) -> BatchJobConfig:
+        """Return a serialized snapshot of the current batch UI state."""
+        return self._build_job_config()
+
     def _apply_job_config(self, job: BatchJobConfig) -> None:
         """Populate the UI from a BatchJobConfig."""
         self._refresh_segmentation_models()
@@ -1170,6 +1163,10 @@ class BatchTab(QWidget):
         self._refresh_spot_channel_choices()
         self._refresh_config_viewer()
 
+    def apply_job_config(self, job: BatchJobConfig) -> None:
+        """Populate batch UI controls from a BatchJobConfig."""
+        self._apply_job_config(job)
+
     @staticmethod
     def _cyto_requires_nuclear(model) -> bool:
         """Return whether the selected cytoplasmic model requires nuclear input."""
@@ -1180,39 +1177,11 @@ class BatchTab(QWidget):
             return False
         return not model.cytoplasmic_nuclear_optional()
 
-    def _save_profile(self) -> None:
-        """Save the current configuration to a JSON profile."""
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save batch profile",
-            str(Path.cwd() / "batch-profile.json"),
-            "JSON (*.json)",
-        )
-        if not path:
-            return
-        job = self._build_job_config()
-        job.save(path)
-        self._notify(f"Saved profile to {path}")
-
-    def _load_profile(self) -> None:
-        """Load a configuration from a JSON profile."""
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Load batch profile",
-            str(Path.cwd()),
-            "JSON (*.json)",
-        )
-        if not path:
-            return
-        job = BatchJobConfig.load(path)
-        self._apply_job_config(job)
-        self._notify(f"Loaded profile from {path}")
-
     def _clear_channel_rows(self) -> None:
         """Remove all channel rows from the UI."""
         for row in list(self._channel_rows):
             widget = row.get("widget")
-            if widget is not None:
+            if widget is not None and hasattr(widget, "setParent"):
                 widget.setParent(None)
         self._channel_rows = []
         self._channel_configs = []
@@ -1221,7 +1190,7 @@ class BatchTab(QWidget):
         """Remove all spot channel rows from the UI."""
         for row in list(self._spot_channel_rows):
             widget = row.get("widget")
-            if widget is not None:
+            if widget is not None and hasattr(widget, "setParent"):
                 widget.setParent(None)
         self._spot_channel_rows = []
 

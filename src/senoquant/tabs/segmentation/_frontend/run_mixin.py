@@ -200,22 +200,6 @@ class SegmentationRunMixin:
                 Notification(message, severity=NotificationSeverity.WARNING)
             )
 
-    def _on_preload_models_changed(self, enabled: bool) -> None:
-        """Handle preload setting changes."""
-        if enabled:
-            if (
-                show_console_notification is not None
-                and Notification is not None
-                and NotificationSeverity is not None
-            ):
-                show_console_notification(
-                    Notification(
-                        "Preloading segmentation models...",
-                        severity=NotificationSeverity.INFO,
-                    )
-                )
-            self._backend.preload_models()
-
     def _add_labels_layer(
         self,
         source_layer,
@@ -281,4 +265,3 @@ class SegmentationRunMixin:
             )
         labels_layer.metadata = merged_metadata
         labels_layer.contour = 2
-

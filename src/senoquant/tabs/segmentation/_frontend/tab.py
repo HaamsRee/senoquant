@@ -5,7 +5,6 @@ from __future__ import annotations
 from qtpy.QtCore import QObject, QThread
 from qtpy.QtWidgets import QVBoxLayout, QWidget
 
-from ...settings.backend import SettingsBackend
 from ..backend import SegmentationBackend
 from .run_mixin import SegmentationRunMixin
 from .settings_mixin import SegmentationSettingsMixin
@@ -27,15 +26,15 @@ class SegmentationTab(
         Backend instance used to discover and load models.
     napari_viewer : object or None
         napari viewer used to populate layer choices.
-    settings_backend : SettingsBackend or None
-        Settings store used for preload configuration.
+    settings_backend : object or None
+        Retained for constructor compatibility. Ignored.
     """
 
     def __init__(
         self,
         backend: SegmentationBackend | None = None,
         napari_viewer=None,
-        settings_backend: SettingsBackend | None = None,
+        settings_backend: object | None = None,
     ) -> None:
         """Create the segmentation tab UI.
 
@@ -45,8 +44,8 @@ class SegmentationTab(
             Backend instance used to discover and load models.
         napari_viewer : object or None
             napari viewer used to populate layer choices.
-        settings_backend : SettingsBackend or None
-            Settings store used for preload configuration.
+        settings_backend : object or None
+            Retained for constructor compatibility. Ignored.
         """
         super().__init__()
         self._backend = backend or SegmentationBackend()
@@ -55,10 +54,6 @@ class SegmentationTab(
         self._cyto_settings_widgets = {}
         self._nuclear_settings_meta = {}
         self._cyto_settings_meta = {}
-        self._settings = settings_backend or SettingsBackend()
-        self._settings.preload_models_changed.connect(
-            self._on_preload_models_changed
-        )
         self._active_workers: list[tuple[QThread, QObject]] = []
 
         layout = QVBoxLayout()
@@ -72,16 +67,15 @@ class SegmentationTab(
         self._update_nuclear_model_settings(self._nuclear_model_combo.currentText())
         self._update_cytoplasmic_model_settings(self._cyto_model_combo.currentText())
 
-        if self._settings.preload_models_enabled():
-            if (
-                show_console_notification is not None
-                and Notification is not None
-                and NotificationSeverity is not None
-            ):
-                show_console_notification(
-                    Notification(
-                        "Preloading segmentation models...",
-                        severity=NotificationSeverity.INFO,
-                    )
+        if (
+            show_console_notification is not None
+            and Notification is not None
+            and NotificationSeverity is not None
+        ):
+            show_console_notification(
+                Notification(
+                    "Preloading segmentation models...",
+                    severity=NotificationSeverity.INFO,
                 )
-            self._backend.preload_models()
+            )
+        self._backend.preload_models()

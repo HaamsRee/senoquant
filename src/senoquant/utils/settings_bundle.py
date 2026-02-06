@@ -1,11 +1,11 @@
 """Shared settings bundle serialization helpers.
 
 This module defines the ``senoquant.settings`` envelope used across:
-- Batch profile save/load.
+- Batch settings persistence.
 - Quantification feature export settings payloads.
 
 The envelope keeps payload structure consistent across tabs while allowing
-legacy plain batch profiles to be loaded.
+legacy plain batch payloads to be loaded.
 """
 
 from __future__ import annotations
@@ -71,7 +71,8 @@ def parse_settings_bundle(payload: object) -> dict[str, Any]:
 
     Notes
     -----
-    Legacy batch profiles that are plain ``BatchJobConfig.to_dict()`` payloads
+    Legacy plain batch payloads (``BatchJobConfig.to_dict()`` without the
+    envelope)
     are accepted and wrapped into the ``batch_job`` field of the envelope.
     """
     if (
