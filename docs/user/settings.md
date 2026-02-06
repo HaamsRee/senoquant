@@ -29,7 +29,7 @@ format can be reused by:
 
 - Selected detector.
 - Current detector settings.
-- Spot size filters (minimum and maximum size).
+- Spot diameter filters (minimum and maximum diameter values in pixels).
 
 ### Batch tab state
 
@@ -39,7 +39,7 @@ format can be reused by:
 ## What is restored on load
 
 - Segmentation model selections and settings.
-- Spots detector settings and size filters.
+- Spots detector settings and diameter filters.
 - Batch tab state, when the loaded JSON contains a non-empty `batch_job`
   section.
 

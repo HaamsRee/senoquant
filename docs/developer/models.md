@@ -185,7 +185,11 @@ Important runtime contracts:
 - Detector runs receive `layer` and `settings`.
 - Output layer naming and metadata are handled in `SpotsTab`, not in the
   detector.
-- Batch also applies optional min/max spot size filtering after detector run.
+- Both Spots tab and Batch apply optional post-detection filtering through
+  `_filter_labels_by_size(...)` (`src/senoquant/tabs/spots/frontend.py`).
+- `min_size` / `max_size` values are treated as diameter thresholds (pixels):
+  2D uses effective area (`pi * (d/2)^2`), 3D uses effective volume
+  (`(4/3) * pi * (d/2)^3`).
 
 ## Quick validation checklist
 

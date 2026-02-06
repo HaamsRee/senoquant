@@ -124,9 +124,12 @@ class MyPlot(SenoQuantPlot):
 
 ## Dependency notes
 
-Current handlers use lazy imports for optional libraries (`pandas`,
-`matplotlib`, `umap-learn`) inside `plot()`. This keeps module import safe in
-headless or minimal test environments.
+Dependency loading is currently mixed:
+
+- `SpatialPlot` and `DoubleExpressionPlot` import `pandas`/`matplotlib`
+  inside `plot()`.
+- `UMAPPlot` imports `pandas`, `matplotlib`, and `umap-learn` at module load
+  time (`src/senoquant/tabs/visualization/plots/umap.py`).
 
 When adding new dependencies:
 

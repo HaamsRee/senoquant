@@ -1,6 +1,6 @@
 # Batch processing
 
-The Batch tab runs segmentation, spot detection, and quantification across folders of images. It's currently a bit buggy and under active development, so please report issues on [GitHub](https://github.com/HaamsRee/senoquant/issues).
+The Batch tab runs segmentation, spot detection, and quantification across folders of images.
 
 ## Interface overview
 
@@ -67,14 +67,15 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 - **Run spot detection** (checkbox): Enable or disable spot detection.
 - **Spot detector** (dropdown): Select the spot detector.
 - **Edit spot settings** (button): Open detector settings.
-- **Minimum spot size (px)** (spin box): Minimum label size after detection (`0` means no minimum filter).
-- **Maximum spot size (px)** (spin box): Maximum label size after detection (`0` means no maximum filter).
+- **Minimum spot size (px)** (spin box): Minimum post-detection filter value (`0` means no minimum filter).
+- **Maximum spot size (px)** (spin box): Maximum post-detection filter value (`0` means no maximum filter).
 - **Add spot channel** (button): Add a spot channel row.
 - **Spot channel row**: Channel dropdown plus **Delete** button.
 
 **Behavior notes:**
 
-- Spot size filtering is applied after detector output.
+- Spot filtering is applied after detector output.
+- Internally, `min_size` and `max_size` are interpreted as diameter thresholds in pixels and converted to effective area (2D) or volume (3D) before filtering labels.
 - If spot detection is enabled, at least one spot channel must be selected before run.
 
 ### Quantification section

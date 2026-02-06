@@ -11,12 +11,17 @@ The Spots tab provides spot detection and colocalization visualization for analy
 - **Image layer** (dropdown): Select the image layer containing spots to detect.
 - **Detector** (dropdown): Choose a spot detection algorithm.
 - **Settings** (dynamic panel): Detector-specific parameters.
-- **Min size** (spin box): Minimum spot size in pixels (0 = no minimum filter). This is area for 2D and volume for 3D.
-- **Max size** (spin box): Maximum spot size in pixels (0 = no maximum filter). This is area for 2D and volume for 3D.
+- **Minimum diameter** (spin box): Minimum spot diameter in pixels (`0` = no minimum filter).
+- **Maximum diameter** (spin box): Maximum spot diameter in pixels (`0` = no maximum filter).
 - **Run** (button): Execute spot detection on the selected image.
 
-**Size filtering:**
-After detection, spots smaller than min size or larger than max size are automatically removed. This helps eliminate noise (single pixels) and large artifacts.
+**Diameter filtering behavior:**
+After detection, connected components are filtered against diameter-derived thresholds:
+
+- For 2D labels, thresholds are converted to effective area: `A = pi * (d / 2)^2`.
+- For 3D labels, thresholds are converted to effective volume: `V = (4/3) * pi * (d / 2)^3`.
+
+Components with pixel/voxel counts outside the computed range are removed.
 
 ### Colocalization section
 
@@ -50,7 +55,7 @@ Method reference: [Rotational Morphological Processing for spot detection](https
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| **Extraction kernel length** | int | 10 | 3 - 9999 | Structuring-element length for top-hat extraction. |
+| **Spot diameter (px)** | int | 10 | 3 - 9999 | Expected spot diameter used by the extraction structuring element. |
 | **Angle spacing** | int | 5 | 1 - 10 | Rotation step size (degrees) used in RMP directional processing. |
 | **Auto threshold** | bool | true | n/a | Uses Otsu thresholding on the normalized response. |
 | **Manual threshold** | float | 0.05 | 0.0 - 1.0 | Fixed threshold when **Auto threshold** is off. Disabled when auto-thresholding is enabled. |

@@ -76,6 +76,10 @@ empty.
 }
 ```
 
+`spots.min_size` and `spots.max_size` are legacy field names kept for
+compatibility, but are interpreted as diameter thresholds in pixels when
+filtering labels (2D effective area, 3D effective volume).
+
 ## Where persistence happens
 
 ### Settings tab save/load
