@@ -268,7 +268,17 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
     expected_by_task = {
         "nuclear": ("segmentation_model", "nuclear", {"threshold": 0.3}),
         "cytoplasmic": ("segmentation_model", "cyto", {"radius": 5}),
-        "spots": ("spot_detector", "ufish", {"threshold": 0.4}),
+        "spots": (
+            "spot_detector",
+            "ufish",
+            {
+                "threshold": 0.4,
+                "size_filter": {
+                    "min_size": 0,
+                    "max_size": 0,
+                },
+            },
+        ),
     }
     for metadata in captured_meta.values():
         task = metadata.get("task")

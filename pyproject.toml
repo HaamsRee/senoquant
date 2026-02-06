@@ -113,6 +113,7 @@ all = [
 [tool.setuptools.package-data]
 senoquant = [
   "napari.yaml",
+  "utils/settings_bundle.schema.json",
   "tabs/segmentation/models/*/details.json",
   "tabs/segmentation/models/*/model.py",
   "tabs/spots/models/*/details.json",

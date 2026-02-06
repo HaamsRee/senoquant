@@ -16,9 +16,9 @@ def test_settings_backend_build_bundle() -> None:
 
     assert payload["schema"] == "senoquant.settings"
     assert payload["version"] == 1
-    assert payload["feature"]["kind"] == "tab_settings"
-    assert payload["feature"]["segmentation"]["nuclear"]["model"] == "default_2d"
-    assert payload["feature"]["spots"]["detector"] == "ufish"
+    assert payload["tab_settings"]["kind"] == "tab_settings"
+    assert payload["tab_settings"]["segmentation"]["nuclear"]["model"] == "default_2d"
+    assert payload["tab_settings"]["spots"]["detector"] == "ufish"
     assert payload["batch_job"]["input_path"] == "/input"
 
 
@@ -34,5 +34,5 @@ def test_settings_backend_save_and_load_bundle(tmp_path) -> None:
 
     loaded = backend.load_bundle(output_path)
     assert loaded["schema"] == "senoquant.settings"
-    assert loaded["feature"]["segmentation"]["cytoplasmic"]["model"] == "nuclear_dilation"
-    assert loaded["feature"]["spots"]["detector"] == "ufish"
+    assert loaded["tab_settings"]["segmentation"]["cytoplasmic"]["model"] == "nuclear_dilation"
+    assert loaded["tab_settings"]["spots"]["detector"] == "ufish"

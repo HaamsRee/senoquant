@@ -356,8 +356,8 @@ class BatchTab(QWidget):
         self._spot_max_size_spin.setRange(0, 100000)
         self._spot_max_size_spin.setValue(0)
         
-        size_filter_layout.addRow("Minimum spot size (px)", self._spot_min_size_spin)
-        size_filter_layout.addRow("Maximum spot size (px)", self._spot_max_size_spin)
+        size_filter_layout.addRow("Minimum diameter (px)", self._spot_min_size_spin)
+        size_filter_layout.addRow("Maximum diameter (px)", self._spot_max_size_spin)
         section_layout.addLayout(size_filter_layout)
         
         section_layout.addWidget(self._spot_channels_container)

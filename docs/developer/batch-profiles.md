@@ -21,13 +21,17 @@ All persisted settings use a top-level envelope:
   "schema": "senoquant.settings",
   "version": 1,
   "batch_job": {},
-  "feature": {},
+  "tab_settings": {},
+  "feature_settings": {},
   "segmentation_runs": []
 }
 ```
 
 For batch settings, `batch_job` is the key payload and other sections may be
 empty.
+
+Canonical JSON Schema for this envelope is stored at
+`src/senoquant/utils/settings_bundle.schema.json`.
 
 ## `batch_job` payload schema
 
@@ -85,10 +89,10 @@ filtering labels (2D effective area, 3D effective volume).
 ### Settings tab save/load
 
 - Save builds a bundle with:
-  - `feature` section for segmentation/spots tab state.
+  - `tab_settings` section for segmentation/spots tab state.
   - `batch_job` section from current Batch tab config.
 - Load applies:
-  - Segmentation and spots UI state from `feature`.
+  - Segmentation and spots UI state from `tab_settings`.
   - Batch tab state from `batch_job` when present.
 
 ### Batch run output
@@ -104,8 +108,12 @@ use and compatibility; they read/write the same bundle envelope.
 
 ## Legacy compatibility
 
-`parse_settings_bundle()` accepts legacy plain batch payloads (without the
-envelope) and wraps them into `batch_job`.
+`parse_settings_bundle()` accepts both:
+
+- Legacy plain batch payloads (without the envelope), wrapped into `batch_job`.
+- Legacy envelope payloads that stored settings under `feature`; these are
+  mapped to `tab_settings` when `feature.kind == "tab_settings"`, otherwise
+  to `feature_settings`.
 
 This preserves backward compatibility for older JSON files.
 

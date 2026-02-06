@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://haamsree.github.io/senoquant/schemas/settings_bundle.schema.json",
+  "title": "SenoQuant Settings Bundle",
+  "description": "Versioned envelope for persisted SenoQuant settings.",
+  "type": "object",
+  "required": [
+    "schema",
+    "version",
+    "batch_job",
+    "tab_settings",
+    "feature_settings",
+    "segmentation_runs"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "senoquant.settings"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "batch_job": {
+      "$ref": "#/$defs/jsonObject"
+    },
+    "tab_settings": {
+      "oneOf": [
+        {
+          "type": "object",
+          "maxProperties": 0
+        },
+        {
+          "$ref": "#/$defs/tabSettings"
+        }
+      ]
+    },
+    "feature_settings": {
+      "oneOf": [
+        {
+          "type": "object",
+          "maxProperties": 0
+        },
+        {
+          "$ref": "#/$defs/featureSettings"
+        }
+      ]
+    },
+    "segmentation_runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segmentationRun"
+      }
+    }
+  },
+  "$defs": {
+    "jsonValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "jsonObject": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "tabSettings": {
+      "type": "object",
+      "required": [
+        "kind",
+        "segmentation",
+        "spots"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tab_settings"
+        },
+        "segmentation": {
+          "$ref": "#/$defs/jsonObject"
+        },
+        "spots": {
+          "$ref": "#/$defs/jsonObject"
+        }
+      }
+    },
+    "featureSettings": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "feature_settings"
+        },
+        "feature_id": {
+          "type": "string"
+        },
+        "feature_type": {
+          "type": "string"
+        },
+        "feature_name": {
+          "type": "string"
+        },
+        "export_format": {
+          "type": "string"
+        },
+        "config": {
+          "$ref": "#/$defs/jsonObject"
+        }
+      }
+    },
+    "segmentationRun": {
+      "type": "object",
+      "required": [
+        "role",
+        "layer_name",
+        "mask_file",
+        "run_history"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "layer_name": {
+          "type": "string"
+        },
+        "mask_file": {
+          "type": "string"
+        },
+        "run_history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonObject"
+          }
+        }
+      }
+    }
+  }
+}

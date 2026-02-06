@@ -67,8 +67,8 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 - **Run spot detection** (checkbox): Enable or disable spot detection.
 - **Spot detector** (dropdown): Select the spot detector.
 - **Edit spot settings** (button): Open detector settings.
-- **Minimum spot size (px)** (spin box): Minimum post-detection filter value (`0` means no minimum filter).
-- **Maximum spot size (px)** (spin box): Maximum post-detection filter value (`0` means no maximum filter).
+- **Minimum diameter (px)** (spin box): Minimum post-detection filter value in pixels (`0` means no minimum filter).
+- **Maximum diameter (px)** (spin box): Maximum post-detection filter value in pixels (`0` means no maximum filter).
 - **Add spot channel** (button): Add a spot channel row.
 - **Spot channel row**: Channel dropdown plus **Delete** button.
 
@@ -175,6 +175,7 @@ Within each feature folder:
 
 - Markers feature: One file per segmentation.
 - Spots feature: `<segmentation_label>_cells.<format>` and `<segmentation_label>_spots.<format>`.
+- Shared feature metadata: `feature_settings.json`.
 
 Feature folder names are normalized to lowercase and spaces become underscores.
 
@@ -188,9 +189,11 @@ batch-output/
     fitc_ufish_spot_labels.tif
     if_markers/
       dapi_default_2d_nuc_labels.xlsx
+      feature_settings.json
     if_spots/
       dapi_default_2d_nuc_labels_cells.xlsx
       dapi_default_2d_nuc_labels_spots.xlsx
+      feature_settings.json
   sample_02/
     Scene_0/
       ...

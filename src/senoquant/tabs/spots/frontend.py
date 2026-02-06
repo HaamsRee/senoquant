@@ -733,12 +733,13 @@ class SpotsTab(QWidget):
             return
         mask = result.get("mask")
         if mask is not None:
+            run_settings = self._spot_run_settings(settings)
             filtered_mask = self._apply_size_filter(mask)
             self._add_labels_layer(
                 layer,
                 filtered_mask,
                 detector_name,
-                settings=settings,
+                settings=run_settings,
             )
         debug_images = result.get("debug_images")
         if isinstance(debug_images, dict):
@@ -881,6 +882,25 @@ class SpotsTab(QWidget):
             return mask
 
         return _filter_labels_by_size(mask, min_size, max_size)
+
+    def _spot_run_settings(self, settings: dict | None) -> dict:
+        """Return detector settings enriched with diameter-filter parameters."""
+        merged_settings: dict[str, object] = {}
+        if isinstance(settings, dict):
+            merged_settings.update(settings)
+
+        min_size = 0
+        max_size = 0
+        if self._min_size_spin is not None:
+            min_size = int(self._min_size_spin.value())
+        if self._max_size_spin is not None:
+            max_size = int(self._max_size_spin.value())
+
+        merged_settings["size_filter"] = {
+            "min_size": min_size,
+            "max_size": max_size,
+        }
+        return merged_settings
 
     def _spot_label_name(self, source_layer, detector_name: str) -> str:
         """Return a standardized spot labels layer name."""

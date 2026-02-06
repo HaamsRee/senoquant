@@ -36,6 +36,13 @@ format can be reused by:
 - Current batch configuration is saved into the bundle under `batch_job`.
 - This allows the same file to restore batch UI state later.
 
+### Bundle key layout
+
+- Segmentation + Spots UI state is stored under `tab_settings`.
+- Batch UI state is stored under `batch_job`.
+- Quantification feature exports use separate per-feature `feature_settings.json`
+  files and are not intended for Settings-tab reload.
+
 ## What is restored on load
 
 - Segmentation model selections and settings.

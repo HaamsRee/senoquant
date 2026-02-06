@@ -224,9 +224,9 @@ class BatchBackend:
         spot_settings : dict or None, optional
             Detector settings.
         spot_min_size : int, optional
-            Minimum spot size in pixels (0 = no minimum).
+            Minimum spot diameter in pixels (0 = no minimum).
         spot_max_size : int, optional
-            Maximum spot size in pixels (0 = no maximum).
+            Maximum spot diameter in pixels (0 = no maximum).
         quantification_features : iterable of object or None, optional
             Quantification feature contexts (UI-generated).
         quantification_format : str, optional
@@ -481,6 +481,11 @@ class BatchBackend:
                             item_result.outputs[label_name] = out_path
 
                     if spot_detector:
+                        spot_run_settings = dict(spot_settings)
+                        spot_run_settings["size_filter"] = {
+                            "min_size": int(spot_min_size),
+                            "max_size": int(spot_max_size),
+                        }
                         resolved_spot_channels = list(spot_channels or [])
                         for channel_choice in resolved_spot_channels:
                             channel_idx = resolve_channel_index(
@@ -523,7 +528,7 @@ class BatchBackend:
                                 "spots",
                                 runner_type="spot_detector",
                                 runner_name=spot_detector,
-                                settings=spot_settings,
+                                settings=spot_run_settings,
                             )
                             item_result.outputs[label_name] = out_path
 

@@ -203,8 +203,9 @@ If you want batch exports:
 4. Click **Run batch**.
 
 **Outputs:** Each input image gets its own output folder with (if enabled)
-quantification tables. Masks are also saved. The batch output root includes a
-`senoquant_settings.json` file with the batch configuration used for the run.
+quantification tables plus per-feature `feature_settings.json` metadata files.
+Masks are also saved. The batch output root includes a `senoquant_settings.json`
+file with the batch configuration used for the run.
 
 ## Settings persistence (recommended)
 

@@ -208,7 +208,7 @@ Results are saved to: `<output_folder>/<output_name>/<feature_name>/`
 Each feature creates its own subfolder containing:
 - One file per segmentation (Markers).
 - Two files per segmentation: `*_cells` and `*_spots` (Spots).
-- `marker_thresholds.json` (Markers with thresholds enabled).
+- `feature_settings.json` (feature configuration snapshot and run metadata).
 
 **File naming:**
 - Markers: `<segmentation_label>.<format>`.

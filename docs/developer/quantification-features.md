@@ -129,8 +129,10 @@ This section replaces the old standalone marker cross-reference document.
 `src/senoquant/tabs/quantification/features/marker/export.py` currently writes:
 
 - One table per selected segmentation: `<segmentation>.csv|xlsx`.
-- Optional shared threshold metadata: `marker_thresholds.json` (when channels
-  are configured and threshold export is enabled).
+- Shared feature metadata bundle: `feature_settings.json`.
+  - Uses top-level `feature_settings` + `segmentation_runs` keys from the
+    `senoquant.settings` envelope.
+  - Threshold settings are embedded in `feature_settings.config`.
 
 Reference columns added in marker rows:
 
@@ -145,6 +147,7 @@ per selected segmentation:
 
 - `<segmentation>_cells.csv|xlsx`.
 - `<segmentation>_spots.csv|xlsx`.
+- Shared feature metadata bundle: `feature_settings.json`.
 
 Reference and relationship columns:
 
