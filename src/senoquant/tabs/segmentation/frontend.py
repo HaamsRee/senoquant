@@ -15,6 +15,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from senoquant.utils import append_run_metadata
 
 try:
     from napari.layers import Image, Labels
@@ -718,6 +719,7 @@ class SegmentationTab(QWidget):
                 result.get("masks"),
                 model_name=model_name,
                 label_type="nuc",
+                settings=settings,
             ),
         )
 
@@ -751,6 +753,7 @@ class SegmentationTab(QWidget):
                     result.get("masks"),
                     model_name=model_name,
                     label_type="cyto",
+                    settings=settings,
                 ),
             )
             return
@@ -783,6 +786,7 @@ class SegmentationTab(QWidget):
                 result.get("masks"),
                 model_name=model_name,
                 label_type="cyto",
+                settings=settings,
             ),
         )
 
@@ -968,7 +972,20 @@ class SegmentationTab(QWidget):
         model = self._backend.get_model(model_name)
         self._update_cytoplasmic_run_state(model)
 
-    def _add_labels_layer(self, source_layer, masks, model_name: str, label_type: str) -> None:
+    def _add_labels_layer(
+        self,
+        source_layer,
+        masks,
+        model_name: str,
+        label_type: str,
+        settings: dict | None = None,
+    ) -> None:
+        """Add a labels layer and append run metadata for this segmentation.
+
+        The created labels layer inherits source metadata, stores the resolved
+        task (``"nuclear"`` or ``"cytoplasmic"``), and appends a timestamped
+        ``run_history`` entry containing the model name and settings.
+        """
         if self._viewer is None or source_layer is None or masks is None:
             return
         label_name = f"{source_layer.name}_{model_name}_{label_type}_labels"
@@ -977,11 +994,11 @@ class SegmentationTab(QWidget):
             "cyto": "cytoplasmic",
         }.get(label_type)
         source_metadata = getattr(source_layer, "metadata", {})
-        merged_metadata: dict[str, object] = {}
+        initial_metadata: dict[str, object] = {}
         if isinstance(source_metadata, dict):
-            merged_metadata.update(source_metadata)
+            initial_metadata.update(source_metadata)
         if task_value:
-            merged_metadata["task"] = task_value
+            initial_metadata["task"] = task_value
 
         labels_layer = None
         if Labels is not None and hasattr(self._viewer, "add_layer"):
@@ -989,7 +1006,7 @@ class SegmentationTab(QWidget):
             labels_layer = Labels(
                 masks,
                 name=label_name,
-                metadata=merged_metadata,
+                metadata=initial_metadata,
             )
             added_layer = self._viewer.add_layer(labels_layer)
             if added_layer is not None:
@@ -999,7 +1016,7 @@ class SegmentationTab(QWidget):
                 labels_layer = self._viewer.add_labels(
                     masks,
                     name=label_name,
-                    metadata=merged_metadata,
+                    metadata=initial_metadata,
                 )
             except TypeError:
                 labels_layer = self._viewer.add_labels(
@@ -1011,10 +1028,19 @@ class SegmentationTab(QWidget):
             return
 
         layer_metadata = getattr(labels_layer, "metadata", {})
+        merged_metadata: dict[str, object] = {}
+        if isinstance(source_metadata, dict):
+            merged_metadata.update(source_metadata)
         if isinstance(layer_metadata, dict):
             merged_metadata.update(layer_metadata)
         if task_value:
-            merged_metadata["task"] = task_value
+            merged_metadata = append_run_metadata(
+                merged_metadata,
+                task=task_value,
+                runner_type="segmentation_model",
+                runner_name=model_name,
+                settings=settings,
+            )
         labels_layer.metadata = merged_metadata
         labels_layer.contour = 2
 

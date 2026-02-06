@@ -30,6 +30,7 @@ from typing import Iterable
 
 import numpy as np
 
+from senoquant.utils import append_run_metadata
 from senoquant.tabs.quantification.backend import QuantificationBackend
 from senoquant.tabs.segmentation.backend import SegmentationBackend
 from senoquant.tabs.spots.backend import SpotsBackend
@@ -353,7 +354,11 @@ class BatchBackend:
                             )
                             labels_data[label_name] = masks
                             labels_meta[label_name] = _with_task_metadata(
-                                metadata, "nuclear"
+                                metadata,
+                                "nuclear",
+                                runner_type="segmentation_model",
+                                runner_name=nuclear_model,
+                                settings=nuclear_settings,
                             )
                             item_result.outputs[label_name] = out_path
 
@@ -430,7 +435,11 @@ class BatchBackend:
                             )
                             labels_data[label_name] = masks
                             labels_meta[label_name] = _with_task_metadata(
-                                cyto_meta, "cytoplasmic"
+                                cyto_meta,
+                                "cytoplasmic",
+                                runner_type="segmentation_model",
+                                runner_name=cyto_model,
+                                settings=cyto_settings,
                             )
                             item_result.outputs[label_name] = out_path
 
@@ -473,7 +482,11 @@ class BatchBackend:
                             )
                             labels_data[label_name] = mask
                             labels_meta[label_name] = _with_task_metadata(
-                                spot_meta, "spots"
+                                spot_meta,
+                                "spots",
+                                runner_type="spot_detector",
+                                runner_name=spot_detector,
+                                settings=spot_settings,
                             )
                             item_result.outputs[label_name] = out_path
 
@@ -615,13 +628,28 @@ def _resolve_output_dir(
     return output_dir
 
 
-def _with_task_metadata(metadata: dict | None, task: str) -> dict:
-    """Return a metadata copy with task type attached."""
+def _with_task_metadata(
+    metadata: dict | None,
+    task: str,
+    *,
+    runner_type: str | None = None,
+    runner_name: str | None = None,
+    settings: dict | None = None,
+) -> dict:
+    """Return a metadata copy with task and run metadata attached."""
     payload: dict[str, object] = {}
     if isinstance(metadata, dict):
         payload.update(metadata)
-    payload["task"] = task
-    return payload
+    if not runner_type or not runner_name:
+        payload["task"] = task
+        return payload
+    return append_run_metadata(
+        payload,
+        task=task,
+        runner_type=runner_type,
+        runner_name=runner_name,
+        settings=settings,
+    )
 
 
 def _build_viewer_for_quantification(

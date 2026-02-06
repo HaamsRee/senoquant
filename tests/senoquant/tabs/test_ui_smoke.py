@@ -56,14 +56,28 @@ def test_segmentation_labels_include_task_metadata() -> None:
     tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
     source = DummyLayer(np.zeros((4, 4)), "img", metadata={"path": "file.tif"})
 
-    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "nuc")
-    tab._add_labels_layer(source, np.ones((4, 4), dtype=np.uint16), "model", "cyto")
+    tab._add_labels_layer(
+        source,
+        np.ones((4, 4), dtype=np.uint16),
+        "model",
+        "nuc",
+        settings={"threshold": 0.2},
+    )
+    tab._add_labels_layer(
+        source,
+        np.ones((4, 4), dtype=np.uint16),
+        "model",
+        "cyto",
+        settings={"radius": 5},
+    )
 
     nuc_layer = viewer.layers["img_model_nuc_labels"]
     cyto_layer = viewer.layers["img_model_cyto_labels"]
     assert nuc_layer.metadata.get("task") == "nuclear"
     assert cyto_layer.metadata.get("task") == "cytoplasmic"
     assert nuc_layer.metadata.get("path") == "file.tif"
+    assert nuc_layer.metadata["run_history"][-1]["runner_name"] == "model"
+    assert cyto_layer.metadata["run_history"][-1]["settings"] == {"radius": 5}
 
 
 def test_segmentation_labels_metadata_without_name_lookup() -> None:
@@ -87,6 +101,46 @@ def test_segmentation_labels_metadata_without_name_lookup() -> None:
     assert labels_layer.name == "img_model_nuc_labels_1"
     assert labels_layer.metadata.get("task") == "nuclear"
     assert labels_layer.metadata.get("path") == "file.tif"
+
+
+def test_segmentation_labels_preserve_source_run_history() -> None:
+    """Keep source run history and append current model settings."""
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    settings = SettingsBackend()
+    settings.set_preload_models(False)
+    tab = SegmentationTab(napari_viewer=viewer, settings_backend=settings)
+    source = DummyLayer(
+        np.zeros((4, 4)),
+        "img",
+        metadata={
+            "task": "nuclear",
+            "run_history": [
+                {
+                    "timestamp": "2026-02-06T00:00:00.000Z",
+                    "task": "nuclear",
+                    "runner_type": "segmentation_model",
+                    "runner_name": "default_2d",
+                    "settings": {"threshold": 0.3},
+                }
+            ],
+        },
+    )
+
+    tab._add_labels_layer(
+        source,
+        np.ones((4, 4), dtype=np.uint16),
+        "nuclear_dilation",
+        "cyto",
+        settings={"radius": 7},
+    )
+
+    labels_layer = viewer.layers["img_nuclear_dilation_cyto_labels"]
+    history = labels_layer.metadata["run_history"]
+    assert labels_layer.metadata.get("task") == "cytoplasmic"
+    assert len(history) == 2
+    assert history[0]["runner_name"] == "default_2d"
+    assert history[-1]["runner_name"] == "nuclear_dilation"
+    assert history[-1]["settings"] == {"radius": 7}
 
 
 def test_spots_tab_instantiates() -> None:

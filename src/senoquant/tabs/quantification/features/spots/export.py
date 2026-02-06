@@ -12,11 +12,15 @@ The export matches the markers feature style for morphology and physical
 unit reporting. If physical pixel sizes are available in the metadata for
 the first configured channel image, both pixel and physical units are
 saved for centroids and areas/volumes.
+It also writes segmentation mask arrays and a unified settings bundle
+containing per-layer run history for future settings reload workflows.
 """
 
 from __future__ import annotations
 
 import csv
+from dataclasses import asdict
+import json
 import warnings
 from pathlib import Path
 from typing import Iterable, Sequence, TYPE_CHECKING
@@ -24,6 +28,7 @@ from typing import Iterable, Sequence, TYPE_CHECKING
 import numpy as np
 from skimage.measure import regionprops_table
 
+from senoquant.settings_bundle import build_settings_bundle
 from senoquant.utils import layer_data_asarray
 from .config import SpotsFeatureData
 from ..base import FeatureConfig
@@ -60,8 +65,10 @@ def export_spots(
     -------
     iterable of Path
         Paths to files produced by the export routine. Each segmentation
-        produces two tables: ``*_cells`` and ``*_spots``. If no outputs
-        are produced, an empty list is returned.
+        produces two tables: ``*_cells`` and ``*_spots``. Segmentation
+        masks (``.npy``) and a shared ``senoquant_settings.json`` bundle
+        are also written, including timestamped run history for layer run
+        ordering. If no outputs are produced, an empty list is returned.
 
     Notes
     -----
@@ -89,6 +96,8 @@ def export_spots(
     # --- Normalize inputs and pre-filter channel configs ---
     export_format = (export_format or "csv").lower()
     outputs: list[Path] = []
+    segmentation_runs: list[dict[str, object]] = []
+    exported_layers: set[tuple[str, str]] = set()
     channels = [
         channel
         for channel in data.channels
@@ -125,6 +134,27 @@ def export_spots(
         cell_labels = layer_data_asarray(labels_layer)
         if cell_labels.size == 0:
             continue
+        file_stem = _sanitize_name(label_name or f"segmentation_{index}")
+        cell_task = _segmentation_task_from_layer(
+            labels_layer, label_name, default_task="nuclear"
+        )
+        if ("cell_segmentation", label_name) not in exported_layers:
+            mask_path = _write_mask_output(
+                temp_dir,
+                stem=f"{file_stem}_cells_mask",
+                labels=cell_labels,
+            )
+            outputs.append(mask_path)
+            segmentation_runs.append(
+                {
+                    "layer_name": label_name,
+                    "role": "cell_segmentation",
+                    "task": cell_task,
+                    "mask_file": mask_path.name,
+                    "run_history": _layer_run_history(labels_layer),
+                }
+            )
+            exported_layers.add(("cell_segmentation", label_name))
 
         # --- Compute per-cell morphology from the segmentation ---
         cell_ids, cell_centroids = _compute_centroids(cell_labels)
@@ -175,6 +205,35 @@ def export_spots(
         channel_entries = _build_channel_entries(
             viewer, channels, cell_labels.shape, label_name
         )
+        for entry in channel_entries:
+            spot_layer_name = str(entry.get("spots_layer_name", "")).strip()
+            spot_layer = entry.get("spots_layer")
+            if (
+                not spot_layer_name
+                or spot_layer is None
+                or ("spots_segmentation", spot_layer_name) in exported_layers
+            ):
+                continue
+            spot_task = _segmentation_task_from_layer(
+                spot_layer, spot_layer_name, default_task="spots"
+            )
+            spot_mask = np.asarray(entry.get("spots_labels"))
+            mask_path = _write_mask_output(
+                temp_dir,
+                stem=f"{_sanitize_name(spot_layer_name)}_spots_mask",
+                labels=spot_mask,
+            )
+            outputs.append(mask_path)
+            segmentation_runs.append(
+                {
+                    "layer_name": spot_layer_name,
+                    "role": "spots_segmentation",
+                    "task": spot_task,
+                    "mask_file": mask_path.name,
+                    "run_history": _layer_run_history(spot_layer),
+                }
+            )
+            exported_layers.add(("spots_segmentation", spot_layer_name))
         adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
         if data.export_colocalization and len(channel_entries) >= 2:
             adjacency = _build_colocalization_adjacency(channel_entries)
@@ -211,7 +270,6 @@ def export_spots(
             )
 
         # --- Emit cells and spots tables for the segmentation ---
-        file_stem = _sanitize_name(label_name or f"segmentation_{index}")
         if cell_rows:
             cell_path = temp_dir / f"{file_stem}_cells.{export_format}"
             _write_table(cell_path, cell_header, cell_rows, export_format)
@@ -230,6 +288,16 @@ def export_spots(
         spot_path = temp_dir / f"{file_stem}_spots.{export_format}"
         _write_table(spot_path, spot_header, spot_rows, export_format)
         outputs.append(spot_path)
+
+    settings_path = _write_spots_settings_bundle(
+        temp_dir=temp_dir,
+        feature=feature,
+        data=data,
+        export_format=export_format,
+        segmentation_runs=segmentation_runs,
+    )
+    if settings_path is not None:
+        outputs.append(settings_path)
 
     return outputs
 
@@ -425,6 +493,8 @@ def _build_channel_entries(
             {
                 "channel_label": channel_label,
                 "channel_layer": channel_layer,
+                "spots_layer": spots_layer,
+                "spots_layer_name": channel.spots_segmentation,
                 "spots_labels": spots_labels,
             }
         )
@@ -1395,6 +1465,96 @@ def _safe_divide(numerator: np.ndarray, denominator: np.ndarray) -> np.ndarray:
     result = np.zeros_like(numerator, dtype=float)
     np.divide(numerator, denominator, out=result, where=denominator != 0)
     return result
+
+
+def _write_mask_output(temp_dir: Path, stem: str, labels: np.ndarray) -> Path:
+    """Write a segmentation mask as a ``.npy`` array file."""
+    output_path = _next_available_path(temp_dir, stem, ".npy")
+    np.save(output_path, np.asarray(labels))
+    return output_path
+
+
+def _next_available_path(temp_dir: Path, stem: str, suffix: str) -> Path:
+    """Return a non-conflicting output path under ``temp_dir``."""
+    candidate = temp_dir / f"{stem}{suffix}"
+    if not candidate.exists():
+        return candidate
+    index = 1
+    while True:
+        candidate = temp_dir / f"{stem}_{index}{suffix}"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+def _layer_run_history(layer: object) -> list[dict]:
+    """Return sanitized layer run-history entries in stored order."""
+    metadata = getattr(layer, "metadata", None)
+    if not isinstance(metadata, dict):
+        return []
+    history = metadata.get("run_history")
+    if not isinstance(history, list):
+        return []
+    runs: list[dict] = []
+    for item in history:
+        if isinstance(item, dict):
+            runs.append(dict(item))
+    return runs
+
+
+def _segmentation_task_from_layer(
+    layer: object,
+    layer_name: str,
+    *,
+    default_task: str,
+) -> str:
+    """Resolve segmentation task from metadata with suffix fallback."""
+    metadata = getattr(layer, "metadata", None)
+    if isinstance(metadata, dict):
+        task = metadata.get("task")
+        if isinstance(task, str):
+            normalized = task.strip().lower()
+            if normalized:
+                return normalized
+    if layer_name.endswith("_cyto_labels"):
+        return "cytoplasmic"
+    if layer_name.endswith("_nuc_labels"):
+        return "nuclear"
+    if layer_name.endswith("_spot_labels"):
+        return "spots"
+    return default_task
+
+
+def _write_spots_settings_bundle(
+    *,
+    temp_dir: Path,
+    feature: FeatureConfig,
+    data: SpotsFeatureData,
+    export_format: str,
+    segmentation_runs: list[dict[str, object]],
+) -> Path | None:
+    """Write the canonical spots export settings bundle.
+
+    The bundle mirrors batch profile serialization and includes:
+    - Feature configuration snapshot.
+    - Segmentation mask references.
+    - Timestamped layer run history for replaying run order.
+    """
+    feature_payload = {
+        "feature_id": feature.feature_id,
+        "feature_type": feature.type_name or "Spots",
+        "feature_name": feature.name,
+        "export_format": export_format,
+        "config": asdict(data),
+    }
+    payload = build_settings_bundle(
+        feature=feature_payload,
+        segmentation_runs=segmentation_runs,
+    )
+    output_path = temp_dir / "senoquant_settings.json"
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    return output_path
 
 
 def _write_table(

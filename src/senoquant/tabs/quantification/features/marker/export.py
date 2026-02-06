@@ -3,12 +3,15 @@
 This module serializes per-label morphology and per-channel intensity
 summaries for the marker feature. When thresholds are enabled for a
 channel, both raw and thresholded intensity columns are exported along
-with a JSON metadata file recording the threshold settings.
+with a compatibility JSON metadata file recording threshold settings.
+It also exports segmentation masks and a canonical settings bundle payload
+containing per-layer run history for downstream reload workflows.
 """
 
 from __future__ import annotations
 
 import csv
+from dataclasses import asdict
 import json
 import warnings
 from pathlib import Path
@@ -17,6 +20,7 @@ from typing import Iterable, Optional, Sequence, TYPE_CHECKING
 import numpy as np
 from skimage.measure import regionprops_table
 
+from senoquant.settings_bundle import build_settings_bundle
 from senoquant.utils import layer_data_asarray
 from .config import MarkerFeatureData
 from .morphology import add_morphology_columns
@@ -51,8 +55,9 @@ def export_marker(
     -------
     iterable of Path
         Paths to files produced by the export routine. Each segmentation
-        produces one table, and a shared ``marker_thresholds.json`` file
-        is emitted when channels are configured.
+        produces one table and one ``.npy`` mask export. A shared
+        ``marker_thresholds.json`` compatibility file and a unified
+        ``senoquant_settings.json`` bundle are also emitted.
 
     Notes
     -----
@@ -67,6 +72,8 @@ def export_marker(
 
     export_format = (export_format or "csv").lower()
     outputs: list[Path] = []
+    segmentation_runs: list[dict[str, object]] = []
+    exported_layers: set[str] = set()
     channels = [channel for channel in data.channels if channel.channel]
     if not data.segmentations or not channels:
         return []
@@ -134,6 +141,24 @@ def export_marker(
         
         # Determine segmentation type from labels metadata with suffix fallback.
         seg_type = _segmentation_type_from_layer(labels_layer, label_name)
+        file_stem = _sanitize_name(label_name or f"segmentation_{index}")
+        if label_name not in exported_layers:
+            mask_path = _write_mask_output(
+                temp_dir,
+                stem=f"{file_stem}_mask",
+                labels=labels,
+            )
+            outputs.append(mask_path)
+            segmentation_runs.append(
+                {
+                    "layer_name": label_name,
+                    "role": "cell_segmentation",
+                    "task": seg_type,
+                    "mask_file": mask_path.name,
+                    "run_history": _layer_run_history(labels_layer),
+                }
+            )
+            exported_layers.add(label_name)
         _ref_columns = _add_reference_columns(
             rows, labels, label_ids, file_path, seg_type
         )
@@ -211,10 +236,20 @@ def export_marker(
 
         if not rows:
             continue
-        file_stem = _sanitize_name(label_name or f"segmentation_{index}")
         output_path = temp_dir / f"{file_stem}.{export_format}"
         _write_table(output_path, header, rows, export_format)
         outputs.append(output_path)
+
+    settings_path = _write_marker_settings_bundle(
+        temp_dir=temp_dir,
+        feature=feature,
+        data=data,
+        export_format=export_format,
+        enable_thresholds=enable_thresholds,
+        segmentation_runs=segmentation_runs,
+    )
+    if settings_path is not None:
+        outputs.append(settings_path)
 
     return outputs
 
@@ -732,7 +767,7 @@ def _apply_threshold(
 def _write_threshold_metadata(
     temp_dir: Path, channels: list
 ) -> Optional[Path]:
-    """Persist channel threshold metadata for the export run.
+    """Persist threshold metadata as a compatibility sidecar file.
 
     Parameters
     ----------
@@ -744,7 +779,7 @@ def _write_threshold_metadata(
     Returns
     -------
     pathlib.Path or None
-        Path to the metadata file written.
+        Path to ``marker_thresholds.json``.
     """
     payload = {
         "channels": [
@@ -760,6 +795,75 @@ def _write_threshold_metadata(
         ]
     }
     output_path = temp_dir / "marker_thresholds.json"
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    return output_path
+
+
+def _write_mask_output(temp_dir: Path, stem: str, labels: np.ndarray) -> Path:
+    """Write a segmentation mask as a ``.npy`` array file."""
+    output_path = _next_available_path(temp_dir, stem, ".npy")
+    np.save(output_path, np.asarray(labels))
+    return output_path
+
+
+def _next_available_path(temp_dir: Path, stem: str, suffix: str) -> Path:
+    """Return a non-conflicting path under ``temp_dir``."""
+    candidate = temp_dir / f"{stem}{suffix}"
+    if not candidate.exists():
+        return candidate
+    index = 1
+    while True:
+        candidate = temp_dir / f"{stem}_{index}{suffix}"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+def _layer_run_history(layer: object) -> list[dict]:
+    """Return sanitized layer run-history entries in stored order."""
+    metadata = getattr(layer, "metadata", None)
+    if not isinstance(metadata, dict):
+        return []
+    history = metadata.get("run_history")
+    if not isinstance(history, list):
+        return []
+    runs: list[dict] = []
+    for item in history:
+        if isinstance(item, dict):
+            runs.append(dict(item))
+    return runs
+
+
+def _write_marker_settings_bundle(
+    *,
+    temp_dir: Path,
+    feature: FeatureConfig,
+    data: MarkerFeatureData,
+    export_format: str,
+    enable_thresholds: bool,
+    segmentation_runs: list[dict[str, object]],
+) -> Path | None:
+    """Write the canonical marker export settings bundle.
+
+    The bundle mirrors batch profile serialization and includes:
+    - Feature configuration snapshot.
+    - Segmentation mask references.
+    - Timestamped layer run history for replaying run order.
+    """
+    feature_payload = {
+        "feature_id": feature.feature_id,
+        "feature_type": feature.type_name or "Markers",
+        "feature_name": feature.name,
+        "export_format": export_format,
+        "enable_thresholds": bool(enable_thresholds),
+        "config": asdict(data),
+    }
+    payload = build_settings_bundle(
+        feature=feature_payload,
+        segmentation_runs=segmentation_runs,
+    )
+    output_path = temp_dir / "senoquant_settings.json"
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
     return output_path

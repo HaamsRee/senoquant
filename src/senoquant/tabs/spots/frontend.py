@@ -16,6 +16,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from senoquant.utils import append_run_metadata, layer_data_asarray
 
 try:
     from napari.layers import Image, Labels
@@ -31,7 +32,6 @@ except Exception:  # pragma: no cover - optional import for runtime
     Notification = None
     NotificationSeverity = None
 
-from senoquant.utils import layer_data_asarray
 from .backend import SpotsBackend
 
 
@@ -501,7 +501,7 @@ class SpotsTab(QWidget):
             detector_name=detector_name,
             run_callable=run_detector,
             on_success=lambda result: self._handle_run_result(
-                layer, detector_name, result
+                layer, detector_name, settings, result
             ),
         )
 
@@ -643,28 +643,50 @@ class SpotsTab(QWidget):
         except ValueError:
             pass
 
-    def _handle_run_result(self, layer, detector_name: str, result: dict) -> None:
+    def _handle_run_result(
+        self,
+        layer,
+        detector_name: str,
+        settings: dict,
+        result: dict,
+    ) -> None:
         """Handle detector output and update the viewer."""
         if not isinstance(result, dict):
             return
         mask = result.get("mask")
         if mask is not None:
             filtered_mask = self._apply_size_filter(mask)
-            self._add_labels_layer(layer, filtered_mask, detector_name)
+            self._add_labels_layer(
+                layer,
+                filtered_mask,
+                detector_name,
+                settings=settings,
+            )
         debug_images = result.get("debug_images")
         if isinstance(debug_images, dict):
             self._add_debug_image_layers(layer, detector_name, debug_images)
 
-    def _add_labels_layer(self, source_layer, mask, detector_name: str) -> None:
-        """Add a labels layer for the detector mask."""
+    def _add_labels_layer(
+        self,
+        source_layer,
+        mask,
+        detector_name: str,
+        settings: dict | None = None,
+    ) -> None:
+        """Add a labels layer and append run metadata for this detector run.
+
+        The created labels layer inherits source metadata, is tagged with the
+        ``"spots"`` task, and appends a timestamped ``run_history`` entry that
+        records detector name and settings.
+        """
         if self._viewer is None or source_layer is None:
             return
         name = self._spot_label_name(source_layer, detector_name)
         source_metadata = getattr(source_layer, "metadata", {})
-        merged_metadata: dict[str, object] = {}
+        initial_metadata: dict[str, object] = {}
         if isinstance(source_metadata, dict):
-            merged_metadata.update(source_metadata)
-        merged_metadata["task"] = "spots"
+            initial_metadata.update(source_metadata)
+        initial_metadata["task"] = "spots"
 
         labels_layer = None
         if Labels is not None and hasattr(self._viewer, "add_layer"):
@@ -672,7 +694,7 @@ class SpotsTab(QWidget):
             labels_layer = Labels(
                 mask,
                 name=name,
-                metadata=merged_metadata,
+                metadata=initial_metadata,
             )
             added_layer = self._viewer.add_layer(labels_layer)
             if added_layer is not None:
@@ -682,7 +704,7 @@ class SpotsTab(QWidget):
                 labels_layer = self._viewer.add_labels(
                     mask,
                     name=name,
-                    metadata=merged_metadata,
+                    metadata=initial_metadata,
                 )
             except TypeError:
                 labels_layer = self._viewer.add_labels(mask, name=name)
@@ -691,9 +713,18 @@ class SpotsTab(QWidget):
             return
 
         layer_metadata = getattr(labels_layer, "metadata", {})
+        merged_metadata: dict[str, object] = {}
+        if isinstance(source_metadata, dict):
+            merged_metadata.update(source_metadata)
         if isinstance(layer_metadata, dict):
             merged_metadata.update(layer_metadata)
-        merged_metadata["task"] = "spots"
+        merged_metadata = append_run_metadata(
+            merged_metadata,
+            task="spots",
+            runner_type="spot_detector",
+            runner_name=detector_name,
+            settings=settings,
+        )
         labels_layer.metadata = merged_metadata
         labels_layer.contour = 1
 

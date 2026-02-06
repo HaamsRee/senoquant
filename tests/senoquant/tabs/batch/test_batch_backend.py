@@ -163,7 +163,7 @@ def test_apply_quantification_viewer_sets_viewer() -> None:
 
 
 def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatch) -> None:
-    """Attach task metadata to generated labels before quantification."""
+    """Attach task metadata and run history to generated labels."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     input_file = input_dir / "sample.tif"
@@ -203,10 +203,13 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
         output_path=str(output_dir),
         nuclear_model="nuclear",
         nuclear_channel=0,
+        nuclear_settings={"threshold": 0.3},
         cyto_model="cyto",
         cyto_channel=0,
+        cyto_settings={"radius": 5},
         spot_detector="ufish",
         spot_channels=[0],
+        spot_settings={"threshold": 0.4},
         quantification_features=[types.SimpleNamespace()],
         channel_map=[BatchChannelConfig(name="Channel 0", index=0)],
     )
@@ -214,6 +217,24 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
     assert captured_meta
     task_values = {meta.get("task") for meta in captured_meta.values()}
     assert {"nuclear", "cytoplasmic", "spots"} <= task_values
+    expected_by_task = {
+        "nuclear": ("segmentation_model", "nuclear", {"threshold": 0.3}),
+        "cytoplasmic": ("segmentation_model", "cyto", {"radius": 5}),
+        "spots": ("spot_detector", "ufish", {"threshold": 0.4}),
+    }
+    for metadata in captured_meta.values():
+        task = metadata.get("task")
+        if task not in expected_by_task:
+            continue
+        history = metadata.get("run_history")
+        assert isinstance(history, list)
+        assert history
+        last = history[-1]
+        runner_type, runner_name, settings = expected_by_task[task]
+        assert last.get("runner_type") == runner_type
+        assert last.get("runner_name") == runner_name
+        assert last.get("settings") == settings
+        assert isinstance(last.get("timestamp"), str)
 
 
 def test_process_folder_nuclear_only_cyto_uses_generated_nuclear_labels(
