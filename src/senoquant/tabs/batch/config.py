@@ -96,7 +96,6 @@ class BatchJobConfig:
     include_subfolders: bool = False
     process_all_scenes: bool = False
     overwrite: bool = False
-    output_format: str = "tif"
     channel_map: list[BatchChannelConfig] = field(default_factory=list)
     nuclear: BatchSegmentationConfig = field(default_factory=BatchSegmentationConfig)
     cytoplasmic: BatchCytoplasmicConfig = field(default_factory=BatchCytoplasmicConfig)
@@ -162,7 +161,6 @@ class BatchJobConfig:
             include_subfolders=bool(payload.get("include_subfolders", False)),
             process_all_scenes=bool(payload.get("process_all_scenes", False)),
             overwrite=bool(payload.get("overwrite", False)),
-            output_format=payload.get("output_format", "tif"),
             channel_map=channel_map,
             nuclear=nuclear,
             cytoplasmic=cytoplasmic,

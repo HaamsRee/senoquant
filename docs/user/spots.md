@@ -56,10 +56,12 @@ Method reference: [Rotational Morphological Processing for spot detection](https
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
 | **Spot diameter (px)** | int | 10 | 3 - 9999 | Expected spot diameter used by the extraction structuring element. |
-| **Angle spacing** | int | 5 | 1 - 10 | Rotation step size (degrees) used in RMP directional processing. |
 | **Auto threshold** | bool | true | n/a | Uses Otsu thresholding on the normalized response. |
-| **Manual threshold** | float | 0.05 | 0.0 - 1.0 | Fixed threshold when **Auto threshold** is off. Disabled when auto-thresholding is enabled. |
-| **Enable denoising** | bool | true | n/a | Toggles wavelet denoising before and after top-hat extraction. |
+| **Manual threshold** | float | 0.50 | 0.0 - 1.0 | Fixed threshold when **Auto threshold** is off. Disabled when auto-thresholding is enabled. |
+
+RMP simplifications:
+- Angle spacing is fixed internally to `5` degrees.
+- Wavelet denoising is always enabled (both before and after top-hat extraction).
 
 ### ufish
 
@@ -67,6 +69,8 @@ Source: `src/senoquant/tabs/spots/models/ufish/details.json` and `src/senoquant/
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| **Denoise input** | bool | true | n/a | Applies wavelet denoising before enhancement and segmentation. |
 | **Spot size** | float | 1.0 | 0.25 - 4.0 | Spot-scale control. `1.0` is default, `>1` biases detection toward larger spots, `<1` toward smaller spots. |
 | **Threshold** | float | 0.5 | 0.0 - 1.0 | Foreground threshold on the enhanced response (lower = more spots). |
+
+UFISH simplification:
+- Wavelet denoising is always enabled before enhancement/segmentation.

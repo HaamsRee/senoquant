@@ -21,6 +21,8 @@ This page summarizes the current repository layout and where core behavior is im
 - `reader/core.py`: BioIO-backed reader implementation (scene selection, channel splitting, metadata).
 - `utils/utils.py`: shared utility helpers.
 - `utils/settings_bundle.py`: unified `senoquant.settings` envelope helpers.
+- `utils/model_details.schema.json`: JSON Schema for model/detector `details.json` manifests.
+- `utils/model_details_schema.py`: manifest validation helpers used by segmentation/spots base classes.
 
 ## Tab modules (`src/senoquant/tabs`)
 

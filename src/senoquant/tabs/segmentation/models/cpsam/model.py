@@ -56,8 +56,6 @@ class CPSAMModel(SenoQuantSegmentationModel):
         task = kwargs.get("task")
         settings = kwargs.get("settings", {})
 
-        do_3d = bool(settings.get("use_3d", False))
-        normalize = bool(settings.get("normalize", True))
         diameter = settings.get("diameter")
         flow_threshold = settings.get("flow_threshold", 0.4)
         cellprob_threshold = settings.get("cellprob_threshold", 0.0)
@@ -66,11 +64,13 @@ class CPSAMModel(SenoQuantSegmentationModel):
         if task == "nuclear":
             layer = kwargs.get("layer")
             image = self._extract_layer_data(layer, required=True)
+            do_3d = image.ndim == 3
             input_data = self._prepare_input(image)
         elif task == "cytoplasmic":
             cyto_layer = kwargs.get("cytoplasmic_layer")
             nuclear_layer = kwargs.get("nuclear_layer")
             cyto_image = self._extract_layer_data(cyto_layer, required=True)
+            do_3d = cyto_image.ndim == 3
             nuclear_image = self._extract_layer_data(
                 nuclear_layer, required=False
             )
@@ -86,7 +86,7 @@ class CPSAMModel(SenoQuantSegmentationModel):
 
         masks, flows, styles = self._model.eval(
             input_data,
-            normalize=normalize,
+            normalize=True,
             diameter=diameter,
             flow_threshold=flow_threshold,
             cellprob_threshold=cellprob_threshold,

@@ -135,29 +135,6 @@ def test_spot_label_name() -> None:
     pass
 
 
-def test_write_array_fallback(tmp_path: Path, monkeypatch) -> None:
-    """Fallback to NumPy when TIFF writing fails.
-
-    Returns
-    -------
-    None
-    """
-    data = np.ones((2, 2), dtype=np.uint8)
-
-    class DummyTiff:
-        """Tiff stub that raises on write."""
-
-        @staticmethod
-        def imwrite(_path, _data):
-            raise RuntimeError("fail")
-
-    monkeypatch.setitem(__import__("sys").modules, "tifffile", DummyTiff)
-
-    path = batch_io.write_array(tmp_path, "labels", data, "tif")
-    assert path.suffix == ".npy"
-    assert path.exists()
-
-
 def test_load_channel_data(monkeypatch) -> None:
     """Load a single channel from a mocked BioIO image.
 
@@ -194,20 +171,6 @@ def test_list_scenes(monkeypatch) -> None:
     scenes = batch_io.list_scenes(Path("/tmp/test.tif"))
     assert scenes == ["scene-1"]
 
-def test_write_array_tif_format(tmp_path: Path) -> None:
-    """Write numpy array to tif file format.
-
-    Returns
-    -------
-    None
-    """
-    data = np.ones((10, 10), dtype=np.uint16)
-    output_path = batch_io.write_array(tmp_path, "test_output", data, "tif")
-    
-    assert output_path.exists()
-    assert output_path.suffix == ".tif"
-
-
 def test_write_array_npy_format(tmp_path: Path) -> None:
     """Write numpy array to npy file format.
 
@@ -216,7 +179,7 @@ def test_write_array_npy_format(tmp_path: Path) -> None:
     None
     """
     data = np.ones((10, 10), dtype=np.uint16)
-    output_path = batch_io.write_array(tmp_path, "test_output", data, "npy")
+    output_path = batch_io.write_array(tmp_path, "test_output", data)
     
     assert output_path.exists()
     assert output_path.suffix == ".npy"

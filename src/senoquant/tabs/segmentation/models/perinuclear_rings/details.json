@@ -17,6 +17,7 @@
     {
       "key": "erosion_px",
       "label": "Inner erosion (px)",
+      "tooltip": "Pixels to erode inward from the nuclear boundary before building the ring.",
       "type": "int",
       "min": 1,
       "max": 50,
@@ -25,6 +26,7 @@
     {
       "key": "dilation_px",
       "label": "Outer dilation (px)",
+      "tooltip": "Pixels to dilate outward from the nuclear boundary to set ring thickness.",
       "type": "int",
       "min": 0,
       "max": 50,

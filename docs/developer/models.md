@@ -41,6 +41,28 @@ Discovery behavior:
 ## Metadata schema (`details.json`)
 
 Both segmentation and spots use a `settings` list to auto-build the UI.
+Manifest validation is enforced at load time via:
+
+- `src/senoquant/utils/model_details.schema.json`
+- `src/senoquant/utils/model_details_schema.py`
+- `SenoQuantSegmentationModel.load_details()` (requires `tasks`)
+- `SenoQuantSpotDetector.load_details()` (does not require `tasks`)
+
+If validation fails, model/detector loading raises a `ValueError` with the
+`details.json` path and validation message.
+
+### Required top-level keys (all models/detectors)
+
+- `name` (string)
+- `description` (string)
+- `version` (string)
+- `settings` (array)
+
+### Segmentation-only requirement
+
+- `tasks` object must be present and include both:
+  - `tasks.nuclear`
+  - `tasks.cytoplasmic`
 
 Supported setting types:
 
@@ -58,6 +80,8 @@ Notes:
 - In current UI code, `enabled_by` and `disabled_by` are treated as a
   single key string.
 - `order` controls dropdown sorting (lower comes first).
+- For `float` and `int` settings, `min`, `max`, and `default` are required.
+- For `bool` settings, `default` is required.
 
 ### Segmentation-specific fields
 
@@ -194,7 +218,8 @@ Important runtime contracts:
 ## Quick validation checklist
 
 - Folder name, class constructor name, and `super("<name>")` all match.
-- `details.json` is valid JSON and contains task support (segmentation).
+- `details.json` passes `model_details.schema.json` validation.
+- Segmentation manifests include both `tasks.nuclear` and `tasks.cytoplasmic`.
 - `run()` returns expected keys (`masks` for segmentation, `mask` for spots).
 - Settings keys in code match settings keys in `details.json`.
 - New model/detector appears in UI and can run on a sample image.

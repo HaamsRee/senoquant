@@ -16,7 +16,7 @@ from senoquant.tabs.spots.ufish_utils import UFishConfig, enhance_image
 
 DEFAULT_THRESHOLD = 0.5
 USE_LAPLACE_FOR_PEAKS = False
-DEFAULT_DENOISE_ENABLED = False
+DEFAULT_DENOISE_ENABLED = True
 DEFAULT_SPOT_SIZE = 1.0
 MIN_SPOT_SIZE = 0.25
 MAX_SPOT_SIZE = 4.0
@@ -235,7 +235,7 @@ class UFishDetector(SenoQuantSpotDetector):
         settings = kwargs.get("settings", {}) or {}
         threshold = _clamp_threshold(float(settings.get("threshold", DEFAULT_THRESHOLD)))
         use_laplace = USE_LAPLACE_FOR_PEAKS
-        denoise_enabled = bool(settings.get("denoise_enabled", DEFAULT_DENOISE_ENABLED))
+        denoise_enabled = DEFAULT_DENOISE_ENABLED
         spot_size = _clamp_spot_size(
             float(settings.get("spot_size", DEFAULT_SPOT_SIZE))
         )

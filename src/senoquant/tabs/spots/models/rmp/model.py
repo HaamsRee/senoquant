@@ -531,10 +531,10 @@ class RMPDetector(SenoQuantSpotDetector):
         )
         config = RMPSettings(
             extraction_se_length=int(settings.get("extraction_kernel_length", 10)),
-            angle_spacing=int(settings.get("angle_spacing", 5)),
+            angle_spacing=5,
             auto_threshold=bool(settings.get("auto_threshold", True)),
             manual_threshold=manual_threshold,
-            enable_denoising=bool(settings.get("enable_denoising", True)),
+            enable_denoising=True,
         )
 
         if config.angle_spacing <= 0:

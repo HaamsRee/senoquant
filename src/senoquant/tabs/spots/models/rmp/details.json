@@ -7,38 +7,27 @@
     {
       "key": "extraction_kernel_length",
       "label": "Spot diameter (px)",
+      "tooltip": "Estimated spot diameter in pixels used to build the RMP structuring element.",
       "type": "int",
       "min": 3,
       "max": 9999,
       "default": 10
     },
     {
-      "key": "angle_spacing",
-      "label": "Angle spacing",
-      "type": "int",
-      "min": 1,
-      "max": 10,
-      "default": 5
-    },
-    {
       "key": "manual_threshold",
       "label": "Manual threshold",
+      "tooltip": "Fixed normalized threshold used when Auto threshold is disabled.",
       "type": "float",
       "decimals": 2,
       "min": 0.0,
       "max": 1.0,
-      "default": 0.05,
+      "default": 0.50,
       "disabled_by": "auto_threshold"
     },
     {
       "key": "auto_threshold",
       "label": "Auto threshold",
-      "type": "bool",
-      "default": true
-    },
-    {
-      "key": "enable_denoising",
-      "label": "Enable denoising",
+      "tooltip": "Automatically estimate threshold from the processed image using Otsu.",
       "type": "bool",
       "default": true
     }

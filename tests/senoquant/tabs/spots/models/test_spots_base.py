@@ -34,5 +34,39 @@ def test_detector_details_helpers(tmp_path: Path) -> None:
     None
     """
     detector = SenoQuantSpotDetector("demo", models_root=tmp_path)
-    detector.details_path.write_text(json.dumps({"settings": [{"name": "ld"}]}))
-    assert detector.list_settings()[0]["name"] == "ld"
+    detector.details_path.write_text(
+        json.dumps(
+            {
+                "name": "demo",
+                "description": "Demo detector",
+                "version": "0.1.0",
+                "settings": [
+                    {
+                        "key": "ld",
+                        "label": "LD",
+                        "type": "bool",
+                        "default": False,
+                    }
+                ],
+            }
+        )
+    )
+    assert detector.list_settings()[0]["key"] == "ld"
+
+
+def test_detector_details_validation(tmp_path: Path) -> None:
+    """Reject invalid detector settings schema payloads."""
+    detector = SenoQuantSpotDetector("demo", models_root=tmp_path)
+    detector.details_path.write_text(
+        json.dumps(
+            {
+                "name": "demo",
+                "description": "Demo detector",
+                "version": "0.1.0",
+                "settings": [{"label": "Missing key", "type": "bool", "default": True}],
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="Invalid model details"):
+        detector.load_details()

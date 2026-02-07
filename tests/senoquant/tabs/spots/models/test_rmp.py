@@ -61,9 +61,12 @@ def test_segment_from_markers_empty_foreground() -> None:
     assert labels.max() == 0
 
 
-@pytest.mark.parametrize("enabled", [True, False])
-def test_rmp_detector_denoises_input_and_top_hat(monkeypatch, enabled: bool) -> None:
-    """Use wavelet denoiser on both normalized input and top-hat image."""
+@pytest.mark.parametrize("legacy_setting", [True, False])
+def test_rmp_detector_denoises_input_and_top_hat(
+    monkeypatch,
+    legacy_setting: bool,
+) -> None:
+    """Always denoise input and top-hat, even when legacy setting is present."""
     image = np.zeros((9, 9), dtype=np.float32)
     image[4, 4] = 1.0
     calls: list[tuple[np.ndarray, bool]] = []
@@ -103,14 +106,14 @@ def test_rmp_detector_denoises_input_and_top_hat(monkeypatch, enabled: bool) -> 
     detector = rmp.RMPDetector()
     result = detector.run(
         layer=DummyLayer(image),
-        settings={"enable_denoising": enabled},
+        settings={"enable_denoising": legacy_setting},
     )
 
     assert result["mask"].shape == image.shape
     assert len(calls) == 2
-    assert calls[0][1] is enabled
-    assert calls[1][1] is enabled
-    expected_top_hat_input = calls[0][0] + (10.0 if enabled else 0.0) + 5.0
+    assert calls[0][1] is True
+    assert calls[1][1] is True
+    expected_top_hat_input = calls[0][0] + 10.0 + 5.0
     assert np.allclose(calls[1][0], expected_top_hat_input)
-    expected_postprocess_input = calls[1][0] + (10.0 if enabled else 0.0)
+    expected_postprocess_input = calls[1][0] + 10.0
     assert np.allclose(captured_top_hat["value"], expected_postprocess_input)

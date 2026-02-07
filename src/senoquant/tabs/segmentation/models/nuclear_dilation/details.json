@@ -17,6 +17,7 @@
     {
       "key": "dilation_iterations",
       "label": "Dilation iterations",
+      "tooltip": "Number of binary-dilation steps used to expand each nuclear mask into cytoplasm.",
       "type": "int",
       "min": 1,
       "max": 100,

@@ -198,9 +198,8 @@ If you want batch exports:
 ### 6. Set outputs and run
 
 1. **Output folder** → Choose where results are written.
-2. **Segmentation format** → Choose `tif` or `npy` for segmentation mask outputs.
-3. (Optional) **Overwrite** → Enable to replace existing outputs.
-4. Click **Run batch**.
+2. (Optional) **Overwrite** → Enable to replace existing outputs.
+3. Click **Run batch**.
 
 **Outputs:** Each input image gets its own output folder with (if enabled)
 quantification tables plus per-feature `feature_settings.json` metadata files.

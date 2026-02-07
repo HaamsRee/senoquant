@@ -66,9 +66,8 @@ This section mirrors the model metadata in the plugin. Use it as a guide for cho
 | **Object diameter (px)** | float | 30.0 | 1.0 - 500.0 | Expected diameter of nuclei in pixels. Adjust as needed. |
 | **Prob threshold** | float | 0.496 | 0.0 - 1.0 | Confidence threshold for accepting nuclei. Lower detects more, higher is stricter. |
 | **NMS threshold** | float | 0.3 | 0.0 - 1.0 | Non-maximum suppression threshold for separating instances. Lower splits more. |
-| **Normalize** | bool | true | - | Normalize intensities before inference. |
-| **Percentile min** | float | 1.0 | 0.0 - 100.0 | Lower percentile for normalization (enabled when Normalize is on). |
-| **Percentile max** | float | 99.8 | 0.0 - 100.0 | Upper percentile for normalization (enabled when Normalize is on). |
+
+Normalization is always applied internally using percentile clipping (`pmin=1.0`, `pmax=99.8`) and is not exposed in the UI.
 
 ### default_3d (StarDist 3D)
 
@@ -81,9 +80,8 @@ This section mirrors the model metadata in the plugin. Use it as a guide for cho
 | **Object diameter (px)** | float | 30.0 | 1.0 - 500.0 | Expected diameter of nuclei in pixels. |
 | **Prob threshold** | float | 0.445 | 0.0 - 1.0 | Confidence threshold for accepting nuclei. |
 | **NMS threshold** | float | 0.3 | 0.0 - 1.0 | Non-maximum suppression threshold for separating instances. |
-| **Normalize** | bool | true | - | Normalize intensities before inference. |
-| **Percentile min** | float | 1.0 | 0.0 - 100.0 | Lower percentile for normalization (enabled when Normalize is on). |
-| **Percentile max** | float | 99.8 | 0.0 - 100.0 | Upper percentile for normalization (enabled when Normalize is on). |
+
+Normalization is always applied internally using percentile clipping (`pmin=1.0`, `pmax=99.8`) and is not exposed in the UI.
 
 ### cpsam (Cellpose SAM)
 
@@ -93,12 +91,12 @@ This section mirrors the model metadata in the plugin. Use it as a guide for cho
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| **Diameter** | float | 30.0 | 0.1 - 1000.0 | Expected diameter of cells or nuclei. |
-| **Flow threshold** | float | 0.4 | 0.0 - 2.0 | Threshold for flow field quality; Higher = accept more masks. |
+| **Object diameter (px)** | float | 30.0 | 0.1 - 1000.0 | Expected diameter of cells or nuclei. |
+| **Flow threshold** | float | 0.4 | 0.0 - 2.0 | Maximum allowed flow error; lower is stricter, higher accepts more masks. |
 | **Cellprob threshold** | float | 0.0 | -6.0 - 6.0 | Threshold on cell probability; Higher = accept fewer masks. |
 | **Number of iterations** | int | 0 | 0 - 9999 | Iterations of dynamic simulation (0 = automatic; For larger/longer cells, try a higher value like 2000). |
-| **3D** | bool | false | - | Enable 3D processing for stacks. |
-| **Normalize** | bool | true | - | Normalize intensities before inference. |
+
+For CPSAM, dimensionality is auto-detected from the selected image (`2D` vs `3D`) and normalization is always enabled internally.
 
 ### nuclear_dilation (Cytoplasmic)
 

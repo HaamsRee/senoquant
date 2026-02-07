@@ -12,6 +12,7 @@ from qtpy.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
+from senoquant.utils.setting_tooltips import build_setting_tooltip
 
 
 class SegmentationSettingsMixin:
@@ -213,6 +214,7 @@ class SegmentationSettingsMixin:
             label = setting.get("label", setting.get("key", "Setting"))
             key = setting.get("key", label)
             settings_meta[key] = setting
+            tooltip = build_setting_tooltip(setting)
 
             if setting_type == "float":
                 widget = QDoubleSpinBox()
@@ -224,6 +226,10 @@ class SegmentationSettingsMixin:
                 )
                 widget.setSingleStep(0.1)
                 widget.setValue(float(setting.get("default", 0.0)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 settings_map[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "int":
@@ -234,11 +240,19 @@ class SegmentationSettingsMixin:
                 )
                 widget.setSingleStep(1)
                 widget.setValue(int(setting.get("default", 0)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 settings_map[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "bool":
                 widget = QCheckBox()
                 widget.setChecked(bool(setting.get("default", False)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 widget.toggled.connect(
                     lambda _checked, m=settings_map, meta=settings_meta: self._apply_setting_dependencies(  # noqa: E501
                         m,

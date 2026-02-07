@@ -18,6 +18,10 @@ def _write_model(tmp_path: Path, name: str, supported: bool) -> None:
     model_dir = tmp_path / name
     model_dir.mkdir(parents=True)
     details = {
+        "name": name,
+        "description": f"{name} test model",
+        "version": "0.1.0",
+        "settings": [],
         "tasks": {
             "nuclear": {"supported": supported},
             "cytoplasmic": {"supported": False},

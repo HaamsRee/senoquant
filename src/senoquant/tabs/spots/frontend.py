@@ -17,6 +17,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from senoquant.utils import append_run_metadata, layer_data_asarray
+from senoquant.utils.setting_tooltips import build_setting_tooltip
 
 try:
     from napari.layers import Image, Labels
@@ -472,6 +473,7 @@ class SpotsTab(QWidget):
             label = setting.get("label", setting.get("key", "Setting"))
             key = setting.get("key", label)
             self._settings_meta[key] = setting
+            tooltip = build_setting_tooltip(setting)
 
             if setting_type == "float":
                 widget = QDoubleSpinBox()
@@ -483,6 +485,10 @@ class SpotsTab(QWidget):
                 )
                 widget.setSingleStep(0.1)
                 widget.setValue(float(setting.get("default", 0.0)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "int":
@@ -493,11 +499,19 @@ class SpotsTab(QWidget):
                 )
                 widget.setSingleStep(1)
                 widget.setValue(int(setting.get("default", 0)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "bool":
                 widget = QCheckBox()
                 widget.setChecked(bool(setting.get("default", False)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 widget.toggled.connect(self._apply_setting_dependencies)
                 self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)

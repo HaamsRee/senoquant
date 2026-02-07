@@ -122,7 +122,7 @@ mkdocs build
 ### Architecture patterns
 
 - **Frontend/backend split**: Each tab has `frontend.py` (Qt UI) and `backend.py` (pure logic).
-- **Settings schema**: Define settings in `details.json` with `type`, `min`, `max`, and `default` keys.
+- **Settings schema**: Keep `details.json` compatible with `src/senoquant/utils/model_details.schema.json`.
 - **Model discovery**: Place models in `models/<name>/` with `details.json` and optional `model.py`.
 - **Dataclasses**: Use `@dataclass(slots=True)` for config objects.
 

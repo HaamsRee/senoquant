@@ -59,6 +59,10 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 - Cytoplasmic models that support `nuclear+cytoplasmic` input enable the nuclear channel selector.
 - For models where nuclear input is optional, the label updates to `Nuclear channel (optional)` and includes `(none)` as a valid choice.
 - For models where nuclear input is required, the label updates to `Nuclear channel (required)`.
+- Batch settings dialogs mirror Segmentation-tab model settings.
+- Some model behaviors are fixed and not shown as controls:
+  - StarDist (`default_2d`/`default_3d`) normalization is always enabled.
+  - CPSAM auto-detects 2D vs 3D from input dimensionality and always normalizes.
 
 ### Spot detection section
 
@@ -77,6 +81,10 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 - Spot filtering is applied after detector output.
 - Internally, `min_size` and `max_size` are interpreted as diameter thresholds in pixels and converted to effective area (2D) or volume (3D) before filtering labels.
 - If spot detection is enabled, at least one spot channel must be selected before run.
+- Batch spot-settings dialogs mirror Spots-tab detector settings.
+- Detector behaviors fixed internally and not shown as controls:
+  - RMP angle spacing is fixed to `5` and denoising is always enabled.
+  - UFISH denoising is always enabled.
 
 ### Quantification section
 
@@ -100,7 +108,6 @@ The Batch tab embeds the Quantification feature editor with batch-safe options.
 **Controls:**
 
 - **Output folder** (browse field): Destination root for batch outputs.
-- **Segmentation format** (dropdown): `tif` or `npy` for mask outputs.
 - **Quantification format** (dropdown): `xlsx` or `csv`.
 - **Overwrite existing outputs** (checkbox): Control behavior when output folders already exist.
 
@@ -161,9 +168,9 @@ If **Process all scenes** is enabled:
 
 ### Segmentation and spots output names
 
-- Nuclear masks: `<channel>_<model>_nuc_labels.<tif|npy>`.
-- Cytoplasmic masks: `<channel>_<model>_cyto_labels.<tif|npy>`.
-- Spot masks: `<channel>_<detector>_spot_labels.<tif|npy>`.
+- Nuclear masks: `<channel>_<model>_nuc_labels.npy`.
+- Cytoplasmic masks: `<channel>_<model>_cyto_labels.npy`.
+- Spot masks: `<channel>_<detector>_spot_labels.npy`.
 
 ### Quantification output layout
 
@@ -185,8 +192,8 @@ Feature folder names are normalized to lowercase and spaces become underscores.
 batch-output/
   senoquant_settings.json
   sample_01/
-    dapi_default_2d_nuc_labels.tif
-    fitc_ufish_spot_labels.tif
+    dapi_default_2d_nuc_labels.npy
+    fitc_ufish_spot_labels.npy
     if_markers/
       dapi_default_2d_nuc_labels.xlsx
       feature_settings.json

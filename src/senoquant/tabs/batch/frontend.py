@@ -54,6 +54,7 @@ from .layers import BatchViewer, Image, Labels
 from ..quantification.frontend import QuantificationTab
 from ..segmentation.backend import SegmentationBackend
 from ..spots.backend import SpotsBackend
+from senoquant.utils.setting_tooltips import build_setting_tooltip
 
 
 class RefreshingComboBox(QComboBox):
@@ -404,16 +405,12 @@ class BatchTab(QWidget):
         output_widget = QWidget()
         output_widget.setLayout(output_row)
 
-        self._output_format = QComboBox()
-        self._output_format.addItems(["tif", "npy"])
-
         self._quant_format = QComboBox()
         self._quant_format.addItems(["xlsx", "csv"])
 
         self._overwrite = QCheckBox("Overwrite existing outputs")
 
         form_layout.addRow("Output folder", output_widget)
-        form_layout.addRow("Segmentation format", self._output_format)
         form_layout.addRow("Quantification format", self._quant_format)
         form_layout.addRow("", self._overwrite)
 
@@ -802,6 +799,7 @@ class BatchTab(QWidget):
             label = setting.get("label", setting.get("key", "Setting"))
             key = setting.get("key", label)
             default = setting.get("default", 0)
+            tooltip = build_setting_tooltip(setting)
             if setting_type == "float":
                 widget = QDoubleSpinBox()
                 decimals = int(setting.get("decimals", 1))
@@ -828,6 +826,10 @@ class BatchTab(QWidget):
                 )
             else:
                 widget = QLabel("Unsupported setting type")
+            if hasattr(widget, "setToolTip"):
+                widget.setToolTip(tooltip)
+            if hasattr(widget, "setStatusTip"):
+                widget.setStatusTip(tooltip)
             widgets[key] = widget
             form_layout.addRow(label, widget)
         dialog_layout.addLayout(form_layout)
@@ -1022,7 +1024,6 @@ class BatchTab(QWidget):
             ),
             extensions=job.extensions,
             include_subfolders=job.include_subfolders,
-            output_format=job.output_format,
             overwrite=job.overwrite,
             process_all_scenes=job.process_all_scenes,
             batch_job_payload=job.to_dict(),
@@ -1068,7 +1069,6 @@ class BatchTab(QWidget):
             include_subfolders=self._include_subfolders.isChecked(),
             process_all_scenes=self._process_scenes.isChecked(),
             overwrite=self._overwrite.isChecked(),
-            output_format=self._output_format.currentText(),
             channel_map=list(self._channel_configs),
             nuclear=BatchSegmentationConfig(
                 enabled=self._nuclear_enabled.isChecked(),
@@ -1118,7 +1118,6 @@ class BatchTab(QWidget):
         self._include_subfolders.setChecked(job.include_subfolders)
         self._process_scenes.setChecked(job.process_all_scenes)
         self._overwrite.setChecked(job.overwrite)
-        self._output_format.setCurrentText(job.output_format)
         self._quant_format.setCurrentText(job.quantification.format)
 
         self._clear_channel_rows()

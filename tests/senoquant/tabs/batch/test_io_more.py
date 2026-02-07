@@ -172,7 +172,7 @@ def test_write_array_creates_file(tmp_path) -> None:
     None
     """
     data = np.ones((10, 10), dtype=np.uint32)
-    result = batch_io.write_array(tmp_path, "test_array", data, "tif")
+    result = batch_io.write_array(tmp_path, "test_array", data)
     
     assert result.exists()
     assert "test_array" in str(result)

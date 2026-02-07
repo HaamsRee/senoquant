@@ -117,10 +117,8 @@ def safe_scene_dir(scene_id: str) -> str:
     return safe or "scene"
 
 
-def write_array(
-    output_dir: Path, name: str, data: np.ndarray, output_format: str
-) -> Path:
-    """Write an array to disk in the requested format.
+def write_array(output_dir: Path, name: str, data: np.ndarray) -> Path:
+    """Write an array to disk as ``.npy``.
 
     Parameters
     ----------
@@ -130,30 +128,14 @@ def write_array(
         Base name for the output file.
     data : numpy.ndarray
         Array data to serialize.
-    output_format : str
-        Output format (``"tif"`` or ``"npy"``).
-
     Returns
     -------
     Path
         Path to the written file.
     """
-    output_format = output_format.lower().strip()
-    if output_format == "npy":
-        path = output_dir / f"{name}.npy"
-        np.save(path, data)
-        return path
-
-    path = output_dir / f"{name}.tif"
-    try:
-        import tifffile
-
-        tifffile.imwrite(str(path), data)
-        return path
-    except Exception:
-        fallback = output_dir / f"{name}.npy"
-        np.save(fallback, data)
-        return fallback
+    path = output_dir / f"{name}.npy"
+    np.save(path, data)
+    return path
 
 
 def resolve_channel_index(

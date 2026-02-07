@@ -46,7 +46,6 @@ Canonical JSON Schema for this envelope is stored at
   "include_subfolders": false,
   "process_all_scenes": false,
   "overwrite": false,
-  "output_format": "tif",
   "channel_map": [
     {"name": "DAPI", "index": 0},
     {"name": "FITC", "index": 1}
