@@ -11,7 +11,7 @@ The Quantification tab extracts measurements from segmented images and exports t
 - **Output folder** (browse field): Select folder where results will be saved.
 - **Save name** (text field): Name for the output subfolder (optional).
 - **Format** (dropdown): Choose `xlsx` or `csv` for export format.
-- **Process** (button): Execute quantification and save results.
+- **Process and save** (button): Execute quantification and save results.
 
 ### Feature configuration dialog
 

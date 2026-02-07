@@ -148,7 +148,7 @@ To add a feature:
 2. In the **Output** box, browse to select an output folder.
 3. Name the quantification run in **Save name**.
 4. Choose **Format**: `xlsx` (Excel) or `csv`.
-5. Click **Process**.
+5. Click **Process and save**.
 6. Wait for quantification to complete.
 
 **Output:** Excel/CSV files containing:

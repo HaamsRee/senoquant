@@ -474,6 +474,10 @@ class BatchTab(QWidget):
         row_layout = QHBoxLayout()
         row_layout.setContentsMargins(0, 0, 0, 0)
         combo = QComboBox()
+        if hasattr(combo, "setToolTip"):
+            combo.setToolTip("Channel to run detector on")
+        if hasattr(combo, "setStatusTip"):
+            combo.setStatusTip("Channel to run detector on")
         delete_button = QPushButton("Delete")
         row_layout.addWidget(combo)
         row_layout.addWidget(delete_button)
@@ -538,6 +542,10 @@ class BatchTab(QWidget):
         index_input.setMinimum(0)
         index_input.setMaximum(4096)
         index_input.setValue(config.index)
+        if hasattr(index_input, "setToolTip"):
+            index_input.setToolTip("Channel index")
+        if hasattr(index_input, "setStatusTip"):
+            index_input.setStatusTip("Channel index")
         delete_button = QPushButton("Delete")
 
         row_layout.addWidget(name_input)

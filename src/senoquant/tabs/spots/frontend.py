@@ -225,6 +225,10 @@ class SpotsTab(QWidget):
         self._layer_combo = RefreshingComboBox(
             refresh_callback=self._refresh_layer_choices
         )
+        if hasattr(self._layer_combo, "setToolTip"):
+            self._layer_combo.setToolTip("Channel to run detector on")
+        if hasattr(self._layer_combo, "setStatusTip"):
+            self._layer_combo.setStatusTip("Channel to run detector on")
         self._configure_combo(self._layer_combo)
         self._detector_combo = QComboBox()
         self._configure_combo(self._detector_combo)
