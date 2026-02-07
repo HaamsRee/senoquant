@@ -91,4 +91,9 @@ If BioIO cannot determine a reader for your file:
 2. napari automatically tries other installed readers.
 3. Use napari's built-in readers, or install plugins from napari's Plugin Manager as alternatives.
 
+If your format is not currently supported by the SenoQuant reader (for example,
+Akoya `QPTIFF`), we recommend converting it to OME-TIFF using
+[NGFF-Converter](https://www.glencoesoftware.com/products/ngff-converter/),
+then opening the converted output in SenoQuant.
+
 > **Warning**: Metadata-based quantification features (e.g., ones associated with physical units) will not work correctly if the SenoQuant reader is bypassed.
