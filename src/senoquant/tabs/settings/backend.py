@@ -55,7 +55,7 @@ class SettingsBackend(QObject):
         }
         return build_settings_bundle(
             batch_job=batch_job if isinstance(batch_job, dict) else {},
-            feature=feature_payload,
+            tab_settings=feature_payload,
         )
 
     @staticmethod

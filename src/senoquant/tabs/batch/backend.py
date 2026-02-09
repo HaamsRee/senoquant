@@ -157,7 +157,6 @@ class BatchBackend:
             quantification_format=job.quantification.format,
             extensions=job.extensions,
             include_subfolders=job.include_subfolders,
-            output_format=job.output_format,
             overwrite=job.overwrite,
             process_all_scenes=job.process_all_scenes,
             batch_job_payload=job.to_dict(),
@@ -186,7 +185,6 @@ class BatchBackend:
         quantification_tab: object | None = None,
         extensions: Iterable[str] | None = None,
         include_subfolders: bool = False,
-        output_format: str = "tif",
         overwrite: bool = False,
         process_all_scenes: bool = False,
         batch_job_payload: dict | None = None,
@@ -224,9 +222,9 @@ class BatchBackend:
         spot_settings : dict or None, optional
             Detector settings.
         spot_min_size : int, optional
-            Minimum spot size in pixels (0 = no minimum).
+            Minimum spot diameter in pixels (0 = no minimum).
         spot_max_size : int, optional
-            Maximum spot size in pixels (0 = no maximum).
+            Maximum spot diameter in pixels (0 = no maximum).
         quantification_features : iterable of object or None, optional
             Quantification feature contexts (UI-generated).
         quantification_format : str, optional
@@ -237,8 +235,6 @@ class BatchBackend:
             File extensions to include.
         include_subfolders : bool, optional
             Whether to recurse into subfolders.
-        output_format : str, optional
-            Mask output format (``"tif"`` or ``"npy"``).
         overwrite : bool, optional
             Whether to overwrite existing output folders.
         process_all_scenes : bool, optional
@@ -326,7 +322,6 @@ class BatchBackend:
                 extensions=normalized_exts,
                 include_subfolders=include_subfolders,
                 overwrite=overwrite,
-                output_format=output_format,
                 process_all_scenes=process_all_scenes,
             )
         )
@@ -387,7 +382,6 @@ class BatchBackend:
                                 output_dir,
                                 label_name,
                                 masks,
-                                output_format,
                             )
                             labels_data[label_name] = masks
                             labels_meta[label_name] = _with_task_metadata(
@@ -468,7 +462,6 @@ class BatchBackend:
                                 output_dir,
                                 label_name,
                                 masks,
-                                output_format,
                             )
                             labels_data[label_name] = masks
                             labels_meta[label_name] = _with_task_metadata(
@@ -481,6 +474,11 @@ class BatchBackend:
                             item_result.outputs[label_name] = out_path
 
                     if spot_detector:
+                        spot_run_settings = dict(spot_settings)
+                        spot_run_settings["size_filter"] = {
+                            "min_size": int(spot_min_size),
+                            "max_size": int(spot_max_size),
+                        }
                         resolved_spot_channels = list(spot_channels or [])
                         for channel_choice in resolved_spot_channels:
                             channel_idx = resolve_channel_index(
@@ -515,7 +513,6 @@ class BatchBackend:
                                 output_dir,
                                 label_name,
                                 mask,
-                                output_format,
                             )
                             labels_data[label_name] = mask
                             labels_meta[label_name] = _with_task_metadata(
@@ -523,7 +520,7 @@ class BatchBackend:
                                 "spots",
                                 runner_type="spot_detector",
                                 runner_name=spot_detector,
-                                settings=spot_settings,
+                                settings=spot_run_settings,
                             )
                             item_result.outputs[label_name] = out_path
 
@@ -777,7 +774,6 @@ def _derive_batch_job_payload(
     extensions: Iterable[str],
     include_subfolders: bool,
     overwrite: bool,
-    output_format: str,
     process_all_scenes: bool,
 ) -> dict[str, object]:
     """Build a serializable fallback ``batch_job`` payload."""
@@ -788,7 +784,6 @@ def _derive_batch_job_payload(
         "include_subfolders": bool(include_subfolders),
         "process_all_scenes": bool(process_all_scenes),
         "overwrite": bool(overwrite),
-        "output_format": output_format,
         "channel_map": [
             {"name": channel.name, "index": channel.index}
             for channel in channel_map

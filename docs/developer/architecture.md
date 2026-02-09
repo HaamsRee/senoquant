@@ -25,6 +25,8 @@ Each tab follows a frontend/backend split:
 
 - `frontend.py` builds the Qt widgets and handles UI events.
 - `backend.py` performs the model discovery or processing logic.
+- Segmentation additionally uses `segmentation/_frontend/` mixins to keep UI
+  code split across smaller modules.
 
 ## Reader pipeline
 
@@ -42,7 +44,8 @@ Batch processing is orchestrated by `BatchBackend` in
 
 1. Enumerate input files and resolve channel indices.
 2. Run segmentation (nuclear/cytoplasmic) as configured.
-3. Run spot detection per selected channels.
+3. Run spot detection per selected channels, then apply optional
+   diameter-based spot filtering.
 4. Run quantification using a lightweight viewer shim.
 5. Write masks and quantification outputs to disk.
 6. Persist `senoquant_settings.json` in the batch output root with the
@@ -53,16 +56,17 @@ Batch processing is orchestrated by `BatchBackend` in
 The Settings tab uses `SettingsBackend` to read/write unified
 `senoquant.settings` JSON bundles. These bundles can include:
 
-- `feature` payloads for tab-level settings snapshots.
+- `tab_settings` payloads for tab-level settings snapshots.
 - `batch_job` payloads compatible with batch config serialization.
-- `segmentation_runs` payloads produced by quantification exports.
+- `feature_settings` and `segmentation_runs` payloads produced by
+  quantification exports.
 
 ### Cross-tab settings orchestration
 
 `SenoQuantWidget` instantiates Segmentation, Spots, Batch, and Settings tabs
 as shared objects. Settings uses these references to:
 
-- Export segmentation and spots configuration into `feature`.
+- Export segmentation and spots configuration into `tab_settings`.
 - Export batch state into `batch_job`.
 - Restore those states when loading a bundle.
 

@@ -186,8 +186,10 @@ class QuantificationBackend:
         Notes
         -----
         When a feature returns no explicit output list, all files present
-        in the temporary directory are routed instead. Subdirectories are
-        not traversed.
+        in the temporary directory are routed instead. When explicit outputs
+        are returned, any remaining files in the temp directory are also
+        moved as a safety net (for example, mask arrays not included in
+        returned paths). Subdirectories are not traversed.
         """
         for feature_output in feature_outputs:
             feature_dir = output_root / self._feature_dir_name(feature_output)
@@ -197,10 +199,9 @@ class QuantificationBackend:
                 for path in outputs:
                     if path.exists():
                         shutil.move(str(path), feature_dir / path.name)
-            else:
-                for path in feature_output.temp_dir.glob("*"):
-                    if path.is_file():
-                        shutil.move(str(path), feature_dir / path.name)
+            for path in feature_output.temp_dir.glob("*"):
+                if path.is_file():
+                    shutil.move(str(path), feature_dir / path.name)
 
     def _feature_dir_name(self, feature_output: FeatureExportResult) -> str:
         """Build a filesystem-friendly folder name for a feature.

@@ -31,6 +31,11 @@ def test_ufish_detector_returns_instances_for_two_peaks(monkeypatch) -> None:
         "enhance_image",
         lambda arr, config=None: np.asarray(arr, dtype=np.float32),
     )
+    monkeypatch.setattr(
+        ufish_model,
+        "wavelet_denoise_input",
+        lambda arr, *, enabled: np.asarray(arr, dtype=np.float32),
+    )
 
     detector = ufish_model.UFishDetector()
     result = detector.run(layer=DummyLayer(image), settings={"threshold": 0.5})
@@ -104,3 +109,36 @@ def test_ufish_detector_calls_enhance(monkeypatch) -> None:
     assert called["shape"] == image.shape
     assert labels.shape == image.shape
     assert labels.dtype == np.int32
+
+
+@pytest.mark.parametrize("legacy_setting", [True, False])
+def test_ufish_detector_always_denoises_input(
+    monkeypatch,
+    legacy_setting: bool,
+) -> None:
+    """Always run denoising regardless of any legacy denoise setting."""
+    image = np.zeros((9, 9), dtype=np.float32)
+    image[4, 4] = 1.0
+    calls: list[bool] = []
+
+    monkeypatch.setattr(
+        ufish_model,
+        "enhance_image",
+        lambda arr, config=None: np.asarray(arr, dtype=np.float32),
+    )
+
+    def fake_wavelet_denoise(array: np.ndarray, *, enabled: bool) -> np.ndarray:
+        _ = np.asarray(array, dtype=np.float32)
+        calls.append(enabled)
+        return np.asarray(array, dtype=np.float32)
+
+    monkeypatch.setattr(ufish_model, "wavelet_denoise_input", fake_wavelet_denoise)
+
+    detector = ufish_model.UFishDetector()
+    result = detector.run(
+        layer=DummyLayer(image),
+        settings={"denoise_enabled": legacy_setting, "threshold": 0.5},
+    )
+
+    assert result["mask"].shape == image.shape
+    assert calls == [True]

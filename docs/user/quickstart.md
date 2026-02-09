@@ -58,7 +58,7 @@ The plugin window opens as a docked widget with 6 tabs:
 3. Select **Model**: `default_2d` (for 2D images) or `default_3d` (for Z-stacks). `cpsam` is also available for nuclear+cytoplasmic segmentation.
 4. Adjust model settings if needed (e.g., `Object diameter (px)`).
 
-    > To quickly measure object diameter, create a  napari    shapes layer (left toolbar, new shapes layer       icon) and     draw a line across a representative   nucleus. Then click     `Layers` → `Measure` → `Toggle   shapes dimensions    measurement (napari builtins)` to     see the length. See  <https://napari.org/stable/howtos/layers/shapes.html>    for more details.
+    > To quickly estimate object diameter, create a napari Shapes layer, draw a line across a representative nucleus, then use `Layers` → `Measure` → `Toggle shapes dimensions measurement (napari builtins)`. See <https://napari.org/stable/howtos/layers/shapes.html> for details.
 
     > The default settings work well for most images.
 
@@ -89,7 +89,7 @@ If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):
 
     > The default settings work well for most images.
 
-5. (Optional) Set **Minimum size** and **Maximum size** to further filter spots.
+5. (Optional) Set **Minimum diameter** and **Maximum diameter** to filter detected spots.
 6. Click **Run**.
 
 **Output:** A labels layer named `<channel>_<detector>_spot_labels`.
@@ -121,7 +121,7 @@ To add a feature:
         > The selected segmentation defines the nuclei/cells for quantification. SenoQuant will export one cell x marker table per segmentation.
 
     - In the **Channels** box, click **Add channel** → Add intensity channel(s) to quantify.
-    - For each channel, name the channel (e.g., `DAPI`, `p16`), and select the image layer containing the marker. Optionally, click the **Set threshold** checkbox to define a intensity threshold for positive/negative calls automatically or manually. The threshold sliders are linked to the napari layer contrast limits for easy visualization.
+    - For each channel, name the channel (e.g., `DAPI`, `p16`), and select the image layer containing the marker. Optionally, click the **Set threshold** checkbox to define an intensity threshold for positive/negative calls automatically or manually. The threshold sliders are linked to the napari layer contrast limits for easy visualization.
     - Click **Save** or close the popup when done.
 
 3. (Optional) Draw ROIs with a shapes layer. Enable **ROIs** → Name the ROI → Select the shapes layer. Select the ROI **Type** to be `Include` or `Exclude`. Nuclei/cells inside `Include` ROIs or outside `Exclude` ROIs will be marked in the output table.
@@ -148,7 +148,7 @@ To add a feature:
 2. In the **Output** box, browse to select an output folder.
 3. Name the quantification run in **Save name**.
 4. Choose **Format**: `xlsx` (Excel) or `csv`.
-5. Click **Process**.
+5. Click **Process and save**.
 6. Wait for quantification to complete.
 
 **Output:** Excel/CSV files containing:
@@ -184,7 +184,7 @@ Configure only the steps you need:
 
 - **Nuclear segmentation** → Enable, select model and channel, adjust settings.
 - **Cytoplasmic segmentation** (optional) → Enable if needed.
-- **Spot detection** (optional) → Choose detector and channels; set min/max size if needed.
+- **Spot detection** (optional) → Choose detector and channels; set min/max diameter-style filtering if needed.
 
 ### 5. Configure quantification (optional)
 
@@ -198,13 +198,13 @@ If you want batch exports:
 ### 6. Set outputs and run
 
 1. **Output folder** → Choose where results are written.
-2. **Segmentation format** → Choose `tif` or `npy` for segmentation mask outputs.
-3. (Optional) **Overwrite** → Enable to replace existing outputs.
-4. Click **Run batch**.
+2. (Optional) **Overwrite** → Enable to replace existing outputs.
+3. Click **Run batch**.
 
 **Outputs:** Each input image gets its own output folder with (if enabled)
-quantification tables. Masks are also saved. The batch output root includes a
-`senoquant_settings.json` file with the batch configuration used for the run.
+quantification tables plus per-feature `feature_settings.json` metadata files.
+Masks are also saved. The batch output root includes a `senoquant_settings.json`
+file with the batch configuration used for the run.
 
 ## Settings persistence (recommended)
 

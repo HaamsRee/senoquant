@@ -74,8 +74,8 @@ def test_settings_tab_save_writes_unified_bundle(tmp_path, monkeypatch) -> None:
 
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["schema"] == "senoquant.settings"
-    assert payload["feature"]["segmentation"]["nuclear"]["model"] == "default_2d"
-    assert payload["feature"]["spots"]["detector"] == "ufish"
+    assert payload["tab_settings"]["segmentation"]["nuclear"]["model"] == "default_2d"
+    assert payload["tab_settings"]["spots"]["detector"] == "ufish"
     assert payload["batch_job"]["input_path"] == "/input"
 
 

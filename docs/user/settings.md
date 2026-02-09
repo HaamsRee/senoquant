@@ -29,17 +29,24 @@ format can be reused by:
 
 - Selected detector.
 - Current detector settings.
-- Spot size filters (minimum and maximum size).
+- Spot diameter filters (minimum and maximum diameter values in pixels).
 
 ### Batch tab state
 
 - Current batch configuration is saved into the bundle under `batch_job`.
 - This allows the same file to restore batch UI state later.
 
+### Bundle key layout
+
+- Segmentation + Spots UI state is stored under `tab_settings`.
+- Batch UI state is stored under `batch_job`.
+- Quantification feature exports use separate per-feature `feature_settings.json`
+  files and are not intended for Settings-tab reload.
+
 ## What is restored on load
 
 - Segmentation model selections and settings.
-- Spots detector settings and size filters.
+- Spots detector settings and diameter filters.
 - Batch tab state, when the loaded JSON contains a non-empty `batch_job`
   section.
 

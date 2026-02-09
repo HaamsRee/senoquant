@@ -5,14 +5,9 @@
   "order": 1,
   "settings": [
     {
-      "key": "denoise_enabled",
-      "label": "Denoise input",
-      "type": "bool",
-      "default": true
-    },
-    {
       "key": "spot_size",
       "label": "Spot size",
+      "tooltip": "Relative spot-size control; values above 1 favor larger spots, below 1 favor smaller spots.",
       "type": "float",
       "decimals": 2,
       "min": 0.25,
@@ -22,6 +17,7 @@
     {
       "key": "threshold",
       "label": "Threshold",
+      "tooltip": "Normalized intensity threshold for seeded watershed spot extraction.",
       "type": "float",
       "decimals": 2,
       "min": 0.0,

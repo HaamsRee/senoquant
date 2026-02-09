@@ -15,6 +15,7 @@
     {
       "key": "object_diameter_px",
       "label": "Object diameter (px)",
+      "tooltip": "Estimated average nucleus diameter in pixels used for object-size scaling.",
       "type": "float",
       "decimals": 1,
       "min": 1.0,
@@ -24,6 +25,7 @@
     {
       "key": "prob_thresh",
       "label": "Prob threshold",
+      "tooltip": "Minimum object probability required to keep a predicted nucleus candidate.",
       "type": "float",
       "decimals": 3,
       "min": 0.0,
@@ -33,37 +35,12 @@
     {
       "key": "nms_thresh",
       "label": "NMS threshold",
+      "tooltip": "Overlap threshold for non-maximum suppression when removing duplicate detections.",
       "type": "float",
       "decimals": 3,
       "min": 0.0,
       "max": 1.0,
       "default": 0.3
-    },
-    {
-      "key": "normalize",
-      "label": "Normalize",
-      "type": "bool",
-      "default": true
-    },
-    {
-      "key": "pmin",
-      "label": "Percentile min",
-      "type": "float",
-      "decimals": 1,
-      "min": 0.0,
-      "max": 100.0,
-      "default": 1.0,
-      "enabled_by": "normalize"
-    },
-    {
-      "key": "pmax",
-      "label": "Percentile max",
-      "type": "float",
-      "decimals": 1,
-      "min": 0.0,
-      "max": 100.0,
-      "default": 99.8,
-      "enabled_by": "normalize"
     }
   ]
 }

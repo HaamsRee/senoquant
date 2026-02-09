@@ -21,7 +21,7 @@ The Visualization tab generates summary plots from quantification exports.
 
 **Controls:**
 
-- **Select All / Deselect All** (buttons): Toggle all marker include checkboxes.
+- **Select all / Deselect all** (buttons): Toggle all marker include checkboxes.
 - **Include** (checkbox per row): Include marker in downstream plotting.
 - **Marker** (read-only): Marker name parsed from quantification columns.
 - **Threshold** (text field per row): Optional threshold value for each marker.
@@ -35,7 +35,7 @@ The Visualization tab generates summary plots from quantification exports.
 
 **Controls:**
 
-- **Plot Type** (dropdown): Select the visualization type.
+- **Plot type** (dropdown): Select the visualization type.
 
 **Available plot types:**
 
@@ -62,7 +62,7 @@ The Visualization tab generates summary plots from quantification exports.
 - **Output path** (browse field): Destination folder for saved plots.
 - **Plot name** (text field): Base name for saved files.
 - **Format** (dropdown): `png`, `svg`, or `pdf`.
-- **Save Plot** (button): Copy the latest processed plots to the output folder.
+- **Save plot** (button): Copy the latest processed plots to the output folder.
 
 ## Plot behavior details
 

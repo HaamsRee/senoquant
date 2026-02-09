@@ -106,7 +106,7 @@ class StarDistOnnxRuntimeMixin:
                     overlap = (0,) * ndim
             self._overlap_cache[model_path] = overlap
 
-        max_tile = 1024
+        max_tile = 256
         if self._variant.cap_xy_only and image.ndim == 3:
             capped_shape = (
                 image.shape[0],

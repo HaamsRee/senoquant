@@ -19,7 +19,16 @@ from senoquant.tabs.spots.models.base import SenoQuantSpotDetector
 def _write_detector(tmp_path: Path, name: str) -> None:
     model_dir = tmp_path / name
     model_dir.mkdir(parents=True)
-    (model_dir / "details.json").write_text(json.dumps({"settings": []}))
+    (model_dir / "details.json").write_text(
+        json.dumps(
+            {
+                "name": name,
+                "description": f"{name} test detector",
+                "version": "0.1.0",
+                "settings": [],
+            }
+        )
+    )
     (model_dir / "model.py").write_text(
         "from senoquant.tabs.spots.models.base import SenoQuantSpotDetector\n"
         "class CustomDetector(SenoQuantSpotDetector):\n"

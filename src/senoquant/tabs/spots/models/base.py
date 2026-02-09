@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from senoquant.utils.model_details_schema import validate_model_details
+
 
 class SenoQuantSpotDetector:
     """Handle per-detector storage and metadata paths.
@@ -48,7 +50,12 @@ class SenoQuantSpotDetector:
         if not self.details_path.exists():
             return {}
         with self.details_path.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
+            payload = json.load(handle)
+        return validate_model_details(
+            payload,
+            details_path=self.details_path,
+            require_tasks=False,
+        )
 
     def list_settings(self) -> list[dict]:
         """Return the settings definitions for this detector.

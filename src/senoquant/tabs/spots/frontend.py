@@ -17,6 +17,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from senoquant.utils import append_run_metadata, layer_data_asarray
+from senoquant.utils.setting_tooltips import build_setting_tooltip
 
 try:
     from napari.layers import Image, Labels
@@ -40,50 +41,72 @@ def _filter_labels_by_size(
     min_size: int = 0,
     max_size: int = 0,
 ) -> np.ndarray:
-    """Filter a labeled mask by region size.
-    
+    """Filter a labeled mask by equivalent diameter.
+
     Parameters
     ----------
     mask : numpy.ndarray
         Labeled mask array.
     min_size : int, optional
-        Minimum region size in pixels (0 = no minimum).
+        Minimum spot diameter in pixels (0 = no minimum).
     max_size : int, optional
-        Maximum region size in pixels (0 = no maximum).
-        
+        Maximum spot diameter in pixels (0 = no maximum).
+
     Returns
     -------
     numpy.ndarray
         Filtered labeled mask with regions outside size range removed.
     """
     from skimage.measure import regionprops
-    
+
     if mask is None or mask.size == 0:
         return mask
-        
+
     # If both are 0, no filtering needed
     if min_size == 0 and max_size == 0:
         return mask
-        
+
+    if mask.ndim == 2:
+        min_threshold = (
+            np.pi * (float(min_size) / 2.0) ** 2 if min_size > 0 else 0.0
+        )
+        max_threshold = (
+            np.pi * (float(max_size) / 2.0) ** 2 if max_size > 0 else 0.0
+        )
+    elif mask.ndim == 3:
+        min_threshold = (
+            (4.0 / 3.0) * np.pi * (float(min_size) / 2.0) ** 3
+            if min_size > 0
+            else 0.0
+        )
+        max_threshold = (
+            (4.0 / 3.0) * np.pi * (float(max_size) / 2.0) ** 3
+            if max_size > 0
+            else 0.0
+        )
+    else:
+        min_threshold = float(min_size)
+        max_threshold = float(max_size)
+
     # Get region properties
     regions = regionprops(mask)
     if not regions:
         return mask
-        
+
     # Build a mask of labels to keep
     filtered_mask = np.zeros_like(mask)
     for region in regions:
-        area = region.area
+        effective_size = float(region.area)
         keep = True
-        
-        if min_size > 0 and area < min_size:
+
+        if min_threshold > 0 and effective_size < min_threshold:
             keep = False
-        if max_size > 0 and area > max_size:
+        if max_threshold > 0 and effective_size > max_threshold:
             keep = False
-            
+
         if keep:
             filtered_mask[mask == region.label] = region.label
-            
+
     return filtered_mask
 
 
@@ -202,6 +225,10 @@ class SpotsTab(QWidget):
         self._layer_combo = RefreshingComboBox(
             refresh_callback=self._refresh_layer_choices
         )
+        if hasattr(self._layer_combo, "setToolTip"):
+            self._layer_combo.setToolTip("Channel to run detector on")
+        if hasattr(self._layer_combo, "setStatusTip"):
+            self._layer_combo.setStatusTip("Channel to run detector on")
         self._configure_combo(self._layer_combo)
         self._detector_combo = QComboBox()
         self._configure_combo(self._detector_combo)
@@ -214,7 +241,7 @@ class SpotsTab(QWidget):
 
         section_layout.addLayout(form_layout)
         section_layout.addWidget(self._make_settings_section())
-        section_layout.addWidget(self._make_size_filter_section())
+        section_layout.addWidget(self._make_diameter_filter_section())
 
         self._run_button = QPushButton("Run")
         self._run_button.clicked.connect(self._run_detector)
@@ -266,15 +293,15 @@ class SpotsTab(QWidget):
         """
         return self._make_titled_section("Detector settings")
 
-    def _make_size_filter_section(self) -> QGroupBox:
-        """Build the spot size filter section.
+    def _make_diameter_filter_section(self) -> QGroupBox:
+        """Build the spot diameter filter section.
 
         Returns
         -------
         QGroupBox
-            Group box containing size filter controls.
+            Group box containing diameter filter controls.
         """
-        section = QGroupBox("Filter spots by size (pixels)")
+        section = QGroupBox("Filter spots by diameter (pixels)")
         section.setFlat(False)
         
         layout = QFormLayout()
@@ -288,8 +315,8 @@ class SpotsTab(QWidget):
         self._max_size_spin.setRange(0, 100000)
         self._max_size_spin.setValue(0)
         
-        layout.addRow("Minimum size", self._min_size_spin)
-        layout.addRow("Maximum size", self._max_size_spin)
+        layout.addRow("Minimum diameter", self._min_size_spin)
+        layout.addRow("Maximum diameter", self._max_size_spin)
         
         section.setLayout(layout)
         return section
@@ -450,6 +477,7 @@ class SpotsTab(QWidget):
             label = setting.get("label", setting.get("key", "Setting"))
             key = setting.get("key", label)
             self._settings_meta[key] = setting
+            tooltip = build_setting_tooltip(setting)
 
             if setting_type == "float":
                 widget = QDoubleSpinBox()
@@ -461,6 +489,10 @@ class SpotsTab(QWidget):
                 )
                 widget.setSingleStep(0.1)
                 widget.setValue(float(setting.get("default", 0.0)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "int":
@@ -471,11 +503,19 @@ class SpotsTab(QWidget):
                 )
                 widget.setSingleStep(1)
                 widget.setValue(int(setting.get("default", 0)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
             elif setting_type == "bool":
                 widget = QCheckBox()
                 widget.setChecked(bool(setting.get("default", False)))
+                if hasattr(widget, "setToolTip"):
+                    widget.setToolTip(tooltip)
+                if hasattr(widget, "setStatusTip"):
+                    widget.setStatusTip(tooltip)
                 widget.toggled.connect(self._apply_setting_dependencies)
                 self._settings_widgets[key] = widget
                 form_layout.addRow(label, widget)
@@ -711,12 +751,13 @@ class SpotsTab(QWidget):
             return
         mask = result.get("mask")
         if mask is not None:
+            run_settings = self._spot_run_settings(settings)
             filtered_mask = self._apply_size_filter(mask)
             self._add_labels_layer(
                 layer,
                 filtered_mask,
                 detector_name,
-                settings=settings,
+                settings=run_settings,
             )
         debug_images = result.get("debug_images")
         if isinstance(debug_images, dict):
@@ -836,13 +877,13 @@ class SpotsTab(QWidget):
                 image_layer.visible = True
 
     def _apply_size_filter(self, mask: np.ndarray) -> np.ndarray:
-        """Filter spots by size based on min/max settings.
-        
+        """Filter spots by diameter based on min/max settings.
+
         Parameters
         ----------
         mask : numpy.ndarray
             Labeled spot mask from detector.
-            
+
         Returns
         -------
         numpy.ndarray
@@ -850,15 +891,34 @@ class SpotsTab(QWidget):
         """
         if self._min_size_spin is None or self._max_size_spin is None:
             return mask
-            
+
         min_size = self._min_size_spin.value()
         max_size = self._max_size_spin.value()
-        
+
         # If both are 0 (disabled), return original mask
         if min_size == 0 and max_size == 0:
             return mask
-            
+
         return _filter_labels_by_size(mask, min_size, max_size)
+
+    def _spot_run_settings(self, settings: dict | None) -> dict:
+        """Return detector settings enriched with diameter-filter parameters."""
+        merged_settings: dict[str, object] = {}
+        if isinstance(settings, dict):
+            merged_settings.update(settings)
+
+        min_size = 0
+        max_size = 0
+        if self._min_size_spin is not None:
+            min_size = int(self._min_size_spin.value())
+        if self._max_size_spin is not None:
+            max_size = int(self._max_size_spin.value())
+
+        merged_settings["size_filter"] = {
+            "min_size": min_size,
+            "max_size": max_size,
+        }
+        return merged_settings
 
     def _spot_label_name(self, source_layer, detector_name: str) -> str:
         """Return a standardized spot labels layer name."""

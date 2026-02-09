@@ -105,7 +105,7 @@ def test_process_folder_runs_detection(tmp_path: Path, monkeypatch) -> None:
     def fake_load_channel_data(_path, _index, _scene_id):
         return np.ones((2, 2), dtype=np.float32), {"physical_pixel_sizes": {"Y": 1.0, "X": 1.0}}
 
-    def fake_write_array(out_dir, name, data, fmt):
+    def fake_write_array(out_dir, name, data):
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / f"{name}.npy"
         np.save(path, data)
@@ -152,7 +152,7 @@ def test_process_folder_writes_root_settings_bundle(tmp_path: Path, monkeypatch)
     def fake_load_channel_data(_path, _index, _scene_id):
         return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
 
-    def fake_write_array(out_dir, name, data, fmt):
+    def fake_write_array(out_dir, name, data):
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / f"{name}.npy"
         np.save(path, data)
@@ -224,7 +224,7 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
     def fake_load_channel_data(_path, _index, _scene_id):
         return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
 
-    def fake_write_array(out_dir, name, data, fmt):
+    def fake_write_array(out_dir, name, data):
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / f"{name}.npy"
         np.save(path, data)
@@ -268,7 +268,17 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
     expected_by_task = {
         "nuclear": ("segmentation_model", "nuclear", {"threshold": 0.3}),
         "cytoplasmic": ("segmentation_model", "cyto", {"radius": 5}),
-        "spots": ("spot_detector", "ufish", {"threshold": 0.4}),
+        "spots": (
+            "spot_detector",
+            "ufish",
+            {
+                "threshold": 0.4,
+                "size_filter": {
+                    "min_size": 0,
+                    "max_size": 0,
+                },
+            },
+        ),
     }
     for metadata in captured_meta.values():
         task = metadata.get("task")
@@ -338,7 +348,7 @@ def test_process_folder_nuclear_only_cyto_uses_generated_nuclear_labels(
         load_calls.append(int(index))
         return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
 
-    def fake_write_array(out_dir, name, data, fmt):
+    def fake_write_array(out_dir, name, data):
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / f"{name}.npy"
         np.save(path, data)
