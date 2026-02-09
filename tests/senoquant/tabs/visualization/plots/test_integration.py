@@ -47,9 +47,9 @@ def test_spatial_plot(input_data, tmp_path):
     backend = VisualizationBackend()
     output_dir = tmp_path / "output_spatial"
     
-    feature_type = "Spatial Plot"
-    data = build_plot_data(feature_type)
-    config = PlotConfig(type_name=feature_type, data=data)
+    plot_type = "Spatial Plot"
+    data = build_plot_data(plot_type)
+    config = PlotConfig(type_name=plot_type, data=data)
     context = MockContext(config, None)
     handler = SpatialPlot(None, context)
     context.plot_handler = handler
@@ -75,9 +75,9 @@ def test_spatial_plot_missing_coords(input_data_no_coords, tmp_path):
     backend = VisualizationBackend()
     output_dir = tmp_path / "output_spatial_fail"
     
-    feature_type = "Spatial Plot"
-    data = build_plot_data(feature_type)
-    config = PlotConfig(type_name=feature_type, data=data)
+    plot_type = "Spatial Plot"
+    data = build_plot_data(plot_type)
+    config = PlotConfig(type_name=plot_type, data=data)
     context = MockContext(config, None)
     handler = SpatialPlot(None, context)
     context.plot_handler = handler
@@ -101,9 +101,9 @@ def test_double_expression_plot(input_data, tmp_path):
     backend = VisualizationBackend()
     output_dir = tmp_path / "output_de"
     
-    feature_type = "Double Expression"
-    data = build_plot_data(feature_type)
-    config = PlotConfig(type_name=feature_type, data=data)
+    plot_type = "Double Expression"
+    data = build_plot_data(plot_type)
+    config = PlotConfig(type_name=plot_type, data=data)
     context = MockContext(config, None)
     handler = DoubleExpressionPlot(None, context)
     context.plot_handler = handler
@@ -129,9 +129,9 @@ def test_double_expression_plot_validation(input_data, tmp_path):
     backend = VisualizationBackend()
     output_dir = tmp_path / "output_de_val"
     
-    feature_type = "Double Expression"
-    data = build_plot_data(feature_type)
-    config = PlotConfig(type_name=feature_type, data=data)
+    plot_type = "Double Expression"
+    data = build_plot_data(plot_type)
+    config = PlotConfig(type_name=plot_type, data=data)
     context = MockContext(config, None)
     handler = DoubleExpressionPlot(None, context)
     context.plot_handler = handler
@@ -165,9 +165,9 @@ def test_umap_plot(input_data, tmp_path):
     backend = VisualizationBackend()
     output_dir = tmp_path / "output_umap"
     
-    feature_type = "UMAP"
-    data = build_plot_data(feature_type)
-    config = PlotConfig(type_name=feature_type, data=data)
+    plot_type = "UMAP"
+    data = build_plot_data(plot_type)
+    config = PlotConfig(type_name=plot_type, data=data)
     context = MockContext(config, None)
     handler = UMAPPlot(None, context)
     context.plot_handler = handler
@@ -192,9 +192,9 @@ def test_backend_save_flag(input_data, tmp_path):
     backend = VisualizationBackend()
     output_dir = tmp_path / "output_nosave"
     
-    feature_type = "Spatial Plot"
-    data = build_plot_data(feature_type)
-    config = PlotConfig(type_name=feature_type, data=data)
+    plot_type = "Spatial Plot"
+    data = build_plot_data(plot_type)
+    config = PlotConfig(type_name=plot_type, data=data)
     context = MockContext(config, None)
     handler = SpatialPlot(None, context)
     context.plot_handler = handler

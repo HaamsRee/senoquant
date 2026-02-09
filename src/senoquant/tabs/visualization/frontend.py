@@ -27,7 +27,7 @@ from qtpy.QtWidgets import (
 )
 
 from .backend import VisualizationBackend
-from .plots import PlotConfig, build_plot_data, get_feature_registry
+from .plots import PlotConfig, build_plot_data, get_plot_registry
 from .plots.base import RefreshingComboBox
 
 
@@ -42,6 +42,31 @@ class PlotUIContext:
     left_layout: QVBoxLayout
     right_layout: QVBoxLayout
     plot_handler: object | None = None
+
+
+class ResizingLabel(QLabel):
+    """QLabel that scales its pixmap to fill available space."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.setAlignment(Qt.AlignCenter)
+        self._pixmap: QPixmap | None = None
+
+    def setPixmap(self, pixmap: QPixmap) -> None:
+        self._pixmap = pixmap
+        self._update_pixmap()
+
+    def resizeEvent(self, event) -> None:
+        self._update_pixmap()
+        super().resizeEvent(event)
+
+    def _update_pixmap(self) -> None:
+        if self._pixmap and not self._pixmap.isNull():
+            scaled = self._pixmap.scaled(
+                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            super().setPixmap(scaled)
 
 
 class VisualizationTab(QWidget):
@@ -77,23 +102,20 @@ class VisualizationTab(QWidget):
             Whether to show the output configuration controls.
         show_process_button : bool, optional
             Whether to show the process button.
-        # enable_rois : bool, optional
-        #     Whether to show ROI configuration controls within features.
         show_right_column : bool, optional
-            Whether to show the right-hand feature column.
+            Whether to show the right-hand plot column.
         enable_thresholds : bool, optional
-            Whether to show threshold controls within features.
+            Whether to show threshold controls within plots.
         """
         super().__init__()
         self._backend = backend or VisualizationBackend()
         self._viewer = napari_viewer
-        # self._enable_rois = enable_rois
         self._show_right_column = show_right_column
         self._enable_thresholds = enable_thresholds
-        self._feature_configs: list[PlotUIContext] = []
-        self._feature_registry = get_feature_registry()
-        self._features_watch_timer: QTimer | None = None
-        self._features_last_size: tuple[int, int] | None = None
+        self._plot_configs: list[PlotUIContext] = []
+        self._plot_registry = get_plot_registry()
+        self._plots_watch_timer: QTimer | None = None
+        self._plots_last_size: tuple[int, int] | None = None
 
         layout = QVBoxLayout()
         
@@ -102,12 +124,11 @@ class VisualizationTab(QWidget):
         layout.addWidget(self._make_plots_section())
         
         # Add plot display area
-        layout.addWidget(self._make_plot_display_section(show_process_button))
+        layout.addWidget(self._make_plot_display_section(show_process_button), 1)
         
         if show_output_section:
             layout.addWidget(self._make_output_section())
         
-        layout.addStretch(1)
         self.setLayout(layout)
 
     def _make_input_section(self) -> QGroupBox:
@@ -410,8 +431,6 @@ class VisualizationTab(QWidget):
         
         # Create a resizable widget for displaying plots (no scrolling)
         self._plot_display_widget = QWidget()
-        self._plot_display_widget.setMinimumHeight(300)
-        self._plot_display_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._plot_display_layout = QVBoxLayout()
         self._plot_display_layout.setContentsMargins(0, 0, 0, 0)
         self._plot_display_layout.setSpacing(6)
@@ -421,7 +440,7 @@ class VisualizationTab(QWidget):
         # Add Process button
         if show_process_button:
             process_button = QPushButton("Process")
-            process_button.clicked.connect(self._process_features)
+            process_button.clicked.connect(self._process_plots)
             section_layout.addWidget(process_button)
             self._process_button = process_button
         
@@ -453,9 +472,9 @@ class VisualizationTab(QWidget):
         frame = QFrame()
         frame.setFrameShape(QFrame.StyledPanel)
         frame.setFrameShadow(QFrame.Plain)
-        frame.setObjectName("features-section-frame")
+        frame.setObjectName("plots-section-frame")
         frame.setStyleSheet(
-            "QFrame#features-section-frame {"
+            "QFrame#plots-section-frame {"
             "  border: 1px solid palette(mid);"
             "  border-radius: 4px;"
             "}"
@@ -465,21 +484,21 @@ class VisualizationTab(QWidget):
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self._features_scroll_area = scroll_area
+        self._plots_scroll_area = scroll_area
 
-        features_container = QWidget()
-        self._features_container = features_container
-        features_container.setSizePolicy(
+        plots_container = QWidget()
+        self._plots_container = plots_container
+        plots_container.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Minimum
         )
-        features_container.setMinimumWidth(200)
-        self._features_min_width = 200
-        self._features_layout = QVBoxLayout()
-        self._features_layout.setContentsMargins(0, 0, 0, 0)
-        self._features_layout.setSpacing(8)
-        self._features_layout.setSizeConstraint(QVBoxLayout.SetMinAndMaxSize)
-        features_container.setLayout(self._features_layout)
-        scroll_area.setWidget(features_container)
+        plots_container.setMinimumWidth(200)
+        self._plots_min_width = 200
+        self._plots_layout = QVBoxLayout()
+        self._plots_layout.setContentsMargins(0, 0, 0, 0)
+        self._plots_layout.setSpacing(8)
+        self._plots_layout.setSizeConstraint(QVBoxLayout.SetMinAndMaxSize)
+        plots_container.setLayout(self._plots_layout)
+        scroll_area.setWidget(plots_container)
 
         frame_layout = QVBoxLayout()
         frame_layout.setContentsMargins(10, 12, 10, 10)
@@ -492,9 +511,9 @@ class VisualizationTab(QWidget):
 
         section.setLayout(section_layout)
 
-        self._add_feature_row()
-        self._apply_features_layout()
-        self._start_features_watch()
+        self._add_plot_row()
+        self._apply_plots_layout()
+        self._start_plots_watch()
         return section
 
     def showEvent(self, event) -> None:
@@ -506,10 +525,10 @@ class VisualizationTab(QWidget):
             Qt show event passed by the widget.
         """
         super().showEvent(event)
-        self._apply_features_layout()
+        self._apply_plots_layout()
 
     def resizeEvent(self, event) -> None:
-        """Resize handler to keep the features list at a capped height.
+        """Resize handler to keep the plots list at a capped height.
 
         Parameters
         ----------
@@ -517,15 +536,15 @@ class VisualizationTab(QWidget):
             Qt resize event passed by the widget.
         """
         super().resizeEvent(event)
-        self._apply_features_layout()
+        self._apply_plots_layout()
         # Rescale any preview images to fit the new size
         try:
             self._rescale_all_plot_labels()
         except Exception:
             pass
 
-    def _add_feature_row(self, state: PlotConfig | None = None) -> None:
-        """Add a new feature input row."""
+    def _add_plot_row(self, state: PlotConfig | None = None) -> None:
+        """Add a new plot input row."""
         if isinstance(state, bool):
             state = None
         
@@ -546,10 +565,10 @@ class VisualizationTab(QWidget):
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
 
         type_combo = RefreshingComboBox(
-            refresh_callback=self._notify_features_changed
+            refresh_callback=self._notify_plots_changed
         )
-        feature_types = self._feature_types()
-        type_combo.addItems(feature_types)
+        plot_types = self._plot_types()
+        type_combo.addItems(plot_types)
         self._configure_combo(type_combo)
 
         form_layout.addRow("Plot Type", type_combo)
@@ -580,28 +599,28 @@ class VisualizationTab(QWidget):
         if self._show_right_column:
             content_layout.addWidget(right_container, 2)
         section_layout.addLayout(content_layout)
-        self._apply_features_layout()
+        self._apply_plots_layout()
 
-        # Determine feature type first
-        feature_type = (
+        # Determine plot type first
+        plot_type = (
             state.type_name
             if state is not None and state.type_name
             else type_combo.currentText()
         )
         if state is None:
             state = PlotConfig(
-                type_name=feature_type,
-                data=build_plot_data(feature_type),
+                type_name=plot_type,
+                data=build_plot_data(plot_type),
             )
-        if feature_type in feature_types:
+        if plot_type in plot_types:
             type_combo.blockSignals(True)
-            type_combo.setCurrentText(feature_type)
+            type_combo.setCurrentText(plot_type)
             type_combo.blockSignals(False)
 
-        # Create feature section with feature type as title
-        feature_section = QGroupBox()
-        feature_section.setFlat(True)
-        feature_section.setStyleSheet(
+        # Create plot section with plot type as title
+        plot_section = QGroupBox()
+        plot_section.setFlat(True)
+        plot_section.setStyleSheet(
             "QGroupBox {"
             "  margin-top: 6px;"
             "}"
@@ -611,30 +630,30 @@ class VisualizationTab(QWidget):
             "  padding: 0 6px;"
             "}"
         )
-        feature_section.setLayout(section_layout)
-        feature_section.setSizePolicy(
+        plot_section.setLayout(section_layout)
+        plot_section.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
 
-        self._features_layout.addWidget(feature_section)
+        self._plots_layout.addWidget(plot_section)
         context = PlotUIContext(
             state=state,
-            section=feature_section,
+            section=plot_section,
             type_combo=type_combo,
             left_dynamic_layout=left_dynamic_layout,
             left_layout=left_layout,
             right_layout=right_layout,
         )
-        self._feature_configs.append(context)
+        self._plot_configs.append(context)
         type_combo.currentTextChanged.connect(
-            lambda _text, ctx=context: self._on_feature_type_changed(ctx)
+            lambda _text, ctx=context: self._on_plot_type_changed(ctx)
         )
-        self._build_feature_handler(context, preserve_data=True)
-        self._notify_features_changed()
-        self._features_layout.activate()
-        QTimer.singleShot(0, self._apply_features_layout)
+        self._build_plot_handler(context, preserve_data=True)
+        self._notify_plots_changed()
+        self._plots_layout.activate()
+        QTimer.singleShot(0, self._apply_plots_layout)
 
-    def _on_feature_type_changed(self, context: PlotUIContext) -> None:
+    def _on_plot_type_changed(self, context: PlotUIContext) -> None:
         """Update a plot section when its type changes.
 
         Parameters
@@ -642,9 +661,9 @@ class VisualizationTab(QWidget):
         context : PlotUIContext
             Plot UI context and data.
         """
-        self._build_feature_handler(context, preserve_data=False)
+        self._build_plot_handler(context, preserve_data=False)
 
-    def _build_feature_handler(
+    def _build_plot_handler(
         self,
         context: PlotUIContext,
         *,
@@ -653,42 +672,43 @@ class VisualizationTab(QWidget):
         left_dynamic_layout = context.left_dynamic_layout
         self._clear_layout(left_dynamic_layout)
         self._clear_layout(context.right_layout)
-        feature_type = context.type_combo.currentText()
-        context.state.type_name = feature_type
+        plot_type = context.type_combo.currentText()
+        context.state.type_name = plot_type
         if not preserve_data:
-            context.state.data = build_plot_data(feature_type)
+            context.state.data = build_plot_data(plot_type)
 
-        feature_handler = self._feature_handler_for_type(feature_type, context)
-        print(f"[Frontend] Built handler for {feature_type}: {feature_handler}")
-        context.plot_handler = feature_handler
-        if feature_handler is not None:
-            feature_handler.build()
+        plot_handler = self._plot_handler_for_type(plot_type, context)
+        print(f"[Frontend] Built handler for {plot_type}: {plot_handler}")
+        context.plot_handler = plot_handler
+        if plot_handler is not None:
+            plot_handler.build()
             print(f"[Frontend] Handler build() called")
         else:
             print(f"[Frontend] Handler is None!")
-        self._notify_features_changed()
+        self._notify_plots_changed()
 
 
-    def _notify_features_changed(self) -> None:
+    def _notify_plots_changed(self) -> None:
         """Notify plot handlers that the plot list has changed."""
-        for feature_cls in self._feature_registry.values():
-            feature_cls.update_type_options(self, self._feature_configs)
-        for context in self._feature_configs:
+        for plot_cls in self._plot_registry.values():
+            plot_cls.update_type_options(self, self._plot_configs)
+        for context in self._plot_configs:
             handler = context.plot_handler
             if handler is not None:
-                handler.on_features_changed(self._feature_configs)
+                handler.on_plots_changed(self._plot_configs)
         # Update default plot name shown in the output section
         self._update_default_plot_name()
 
     def _update_default_plot_name(self) -> None:
         """Compute and set a sensible default for the Plot name field.
 
-        Uses the joined feature type names separated by hyphens. Only sets
+        
+        Uses the joined plot type names separated by hyphens. Only sets
         the field when the user has not provided a custom name (empty) or
         when the current value matches the previous auto-generated value.
         """
         try:
-            names = [ctx.state.type_name for ctx in self._feature_configs if getattr(ctx, 'state', None)]
+            names = [ctx.state.type_name for ctx in self._plot_configs if getattr(ctx, 'state', None)]
             if not names:
                 auto = "visualization"
             else:
@@ -702,19 +722,30 @@ class VisualizationTab(QWidget):
             # Fail silently; this is only a nicety
             pass
 
-    def _feature_types(self) -> list[str]:
-        """Return the available feature type names."""
-        return list(self._feature_registry.keys())
+    def _plot_types(self) -> list[str]:
+        """Return the available plot type names."""
+        return list(self._plot_registry.keys())
 
-    def load_feature_configs(self, configs: list[PlotConfig]) -> None:
+    def _remove_plot(self, plot_section: QGroupBox) -> None:
+        """Remove a plot configuration and its UI section."""
+        # This method was missing; this is a basic implementation.
+        for i, context in enumerate(self._plot_configs):
+            if context.section is plot_section:
+                self._plot_configs.pop(i)
+                plot_section.deleteLater()
+                self._notify_plots_changed()
+                QTimer.singleShot(0, self._apply_plots_layout)
+                break
+
+    def load_plot_configs(self, configs: list[PlotConfig]) -> None:
         """Replace the current plot list with provided configs."""
-        for context in list(self._feature_configs):
-            self._remove_feature(context.section)
+        for context in list(self._plot_configs):
+            self._remove_plot(context.section)
         if not configs:
-            self._add_feature_row()
+            self._add_plot_row()
             return
         for config in configs:
-            self._add_feature_row(config)
+            self._add_plot_row(config)
 
     def _select_input_path(self) -> None:
         """Open a folder picker for the input path."""
@@ -732,16 +763,16 @@ class VisualizationTab(QWidget):
         if path:
             self._output_path_input.setText(path)
 
-    def _process_features(self) -> None:
+    def _process_plots(self) -> None:
         """Trigger visualization processing for configured plots."""
         # Clear previous plots
         while self._plot_display_layout.count():
             child = self._plot_display_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
-        
-        print(f"[Frontend] Processing {len(self._feature_configs)} plot configs")
-        for i, cfg in enumerate(self._feature_configs):
+
+        print(f"[Frontend] Processing {len(self._plot_configs)} plot configs")
+        for i, cfg in enumerate(self._plot_configs):
             print(f"[Frontend]   Config {i}: type={cfg.state.type_name}, handler={cfg.plot_handler}")
         
         # Clean up previous result temp files if they exist
@@ -757,7 +788,7 @@ class VisualizationTab(QWidget):
         if callable(process):
             input_path = Path(self._input_path.text())
             result = process(
-                self._feature_configs,
+                self._plot_configs,
                 input_path,
                 self._output_path_input.text(),
                 self._save_name_input.text(),
@@ -835,7 +866,7 @@ class VisualizationTab(QWidget):
             process = getattr(self._backend, "process", None)
             if callable(process):
                 result = process(
-                    self._feature_configs,
+                    self._plot_configs,
                     Path(self._input_path.text()),
                     self._output_path_input.text(),
                     self._save_name_input.text(),
@@ -848,27 +879,27 @@ class VisualizationTab(QWidget):
                 self._last_visualization_result = result
                 print(f"Re-run complete. Check folder: {self._output_path_input.text() or Path.cwd()}")
 
-    def _feature_handler_for_type(
-        self, feature_type: str, context: PlotUIContext
+    def _plot_handler_for_type(
+        self, plot_type: str, context: PlotUIContext
     ):
-        """Return the feature handler for a given feature type.
+        """Return the plot handler for a given plot type.
 
-        Parameters
-        ----------
-        feature_type : str
-            Selected feature type.
+        plot_type : str
+            Selected plot type.
         config : dict
-            Feature configuration dictionary.
+            Plot configuration dictionary.
+        context : PlotUIContext
+            Plot UI context.
 
         Returns
         -------
-        SenoQuantFeature or None
-            Feature handler instance for the selected type.
+        SenoQuantPlot or None
+            Plot handler instance for the selected type.
         """
-        feature_cls = self._feature_registry.get(feature_type)
-        if feature_cls is None:
+        plot_cls = self._plot_registry.get(plot_type)
+        if plot_cls is None:
             return None
-        return feature_cls(self, context)
+        return plot_cls(self, context)
 
     def _display_plot_file(self, file_path) -> None:
         """Display a plot image file in the preview area.
@@ -885,13 +916,8 @@ class VisualizationTab(QWidget):
             # Display PNG directly and scale to fit preview widget
             pixmap = QPixmap(str(file_path))
             if not pixmap.isNull():
-                label = QLabel()
-                label.setAlignment(Qt.AlignCenter)
-                label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                # store original pixmap for later rescaling
-                label._orig_pixmap = pixmap
-                # scale now to current widget size
-                self._rescale_plot_label(label)
+                label = ResizingLabel()
+                label.setPixmap(pixmap)
                 self._plot_display_layout.addWidget(label)
         elif file_path.suffix.lower() == ".svg":
             # For SVG, display filename with link
@@ -903,27 +929,6 @@ class VisualizationTab(QWidget):
             link_label = QLabel(f'<a href="file:///{file_path}">View {file_path.name}</a>')
             link_label.setOpenExternalLinks(True)
             self._plot_display_layout.addWidget(link_label)
-
-    def _rescale_plot_label(self, label: QLabel) -> None:
-        """Rescale a QLabel containing an original QPixmap to fit preview area."""
-        try:
-            orig = getattr(label, "_orig_pixmap", None)
-            if orig is None:
-                return
-            max_w = max(10, self._plot_display_widget.width() - 20)
-            max_h = max(10, self._plot_display_widget.height() - 20)
-            scaled = orig.scaled(max_w, max_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            label.setPixmap(scaled)
-        except Exception:
-            pass
-
-    def _rescale_all_plot_labels(self) -> None:
-        """Rescale all displayed plot labels to fit the preview area."""
-        for i in range(self._plot_display_layout.count()):
-            item = self._plot_display_layout.itemAt(i)
-            widget = item.widget() if item is not None else None
-            if isinstance(widget, QLabel) and hasattr(widget, "_orig_pixmap"):
-                self._rescale_plot_label(widget)
 
     def _configure_combo(self, combo: QComboBox) -> None:
         """Apply sizing defaults to combo boxes.
@@ -957,7 +962,7 @@ class VisualizationTab(QWidget):
             if child_layout is not None:
                 self._clear_layout(child_layout)
 
-    def _feature_index(self, context: PlotUIContext) -> int:
+    def _plot_index(self, context: PlotUIContext) -> int:
         """Return the 0-based index for a plot config.
 
         Parameters
@@ -970,50 +975,51 @@ class VisualizationTab(QWidget):
         int
             0-based index of the plot.
         """
-        return self._feature_configs.index(context)
-    def _start_features_watch(self) -> None:
-        """Start a timer to monitor feature sizing changes.
+        return self._plot_configs.index(context)
+
+    def _start_plots_watch(self) -> None:
+        """Start a timer to monitor plot sizing changes.
 
         The watcher polls for content size changes and reapplies layout
         constraints without blocking the UI thread.
         """
-        if self._features_watch_timer is not None:
+        if self._plots_watch_timer is not None:
             return
-        self._features_watch_timer = QTimer(self)
-        self._features_watch_timer.setInterval(150)
-        self._features_watch_timer.timeout.connect(self._poll_features_geometry)
-        self._features_watch_timer.start()
+        self._plots_watch_timer = QTimer(self)
+        self._plots_watch_timer.setInterval(150)
+        self._plots_watch_timer.timeout.connect(self._poll_plots_geometry)
+        self._plots_watch_timer.start()
 
-    def _poll_features_geometry(self) -> None:
+    def _poll_plots_geometry(self) -> None:
         """Recompute layout sizing when content size changes."""
-        if not hasattr(self, "_features_scroll_area"):
+        if not hasattr(self, "_plots_scroll_area"):
             return
-        size = self._features_content_size()
-        if size == self._features_last_size:
+        size = self._plots_content_size()
+        if size == self._plots_last_size:
             return
-        self._features_last_size = size
-        self._apply_features_layout(size)
+        self._plots_last_size = size
+        self._apply_plots_layout(size)
 
-    def _apply_features_layout(
+    def _apply_plots_layout(
         self, content_size: tuple[int, int] | None = None
     ) -> None:
-        """Apply sizing rules for the features container and scroll area.
+        """Apply sizing rules for the plots container and scroll area.
 
         Parameters
         ----------
         content_size : tuple of int or None
-            Optional (width, height) of the features content. If None, the
+            Optional (width, height) of the plots content. If None, the
             size is computed from the current layout.
         """
-        if not hasattr(self, "_features_scroll_area"):
+        if not hasattr(self, "_plots_scroll_area"):
             return
         if content_size is None:
-            content_size = self._features_content_size()
+            content_size = self._plots_content_size()
         content_width, content_height = content_size
 
-        total_min = getattr(self, "_features_min_width", 0)
-        if total_min <= 0 and hasattr(self, "_features_container"):
-            total_min = self._features_container.minimumWidth()
+        total_min = getattr(self, "_plots_min_width", 0)
+        if total_min <= 0 and hasattr(self, "_plots_container"):
+            total_min = self._plots_container.minimumWidth()
         left_hint = 0
         right_hint = 0
         if hasattr(self, "_left_container") and self._left_container is not None:
@@ -1039,54 +1045,54 @@ class VisualizationTab(QWidget):
             except RuntimeError:
                 self._right_container = None
 
-        if hasattr(self, "_features_container"):
-            self._features_container.setMinimumHeight(0)
-            self._features_container.setMinimumWidth(
+        if hasattr(self, "_plots_container"):
+            self._plots_container.setMinimumHeight(0)
+            self._plots_container.setMinimumWidth(
                 max(total_min, content_width)
             )
-            self._features_container.updateGeometry()
+            self._plots_container.updateGeometry()
 
         screen = self.window().screen() if self.window() is not None else None
         if screen is None:
             screen = QGuiApplication.primaryScreen()
         screen_height = screen.availableGeometry().height() if screen else 720
         target_height = max(180, int(screen_height * 0.5))
-        frame = self._features_scroll_area.frameWidth() * 2
+        frame = self._plots_scroll_area.frameWidth() * 2
         scroll_slack = 2
         effective_height = content_height + scroll_slack
         height = max(0, min(target_height, effective_height + frame))
-        self._features_scroll_area.setUpdatesEnabled(False)
-        self._features_scroll_area.setFixedHeight(height)
-        self._features_scroll_area.setUpdatesEnabled(True)
-        self._features_scroll_area.updateGeometry()
-        widget = self._features_scroll_area.widget()
+        self._plots_scroll_area.setUpdatesEnabled(False)
+        self._plots_scroll_area.setFixedHeight(height)
+        self._plots_scroll_area.setUpdatesEnabled(True)
+        self._plots_scroll_area.updateGeometry()
+        widget = self._plots_scroll_area.widget()
         if widget is not None:
             widget.adjustSize()
             widget.updateGeometry()
-        self._features_scroll_area.viewport().updateGeometry()
-        bar = self._features_scroll_area.verticalScrollBar()
+        self._plots_scroll_area.viewport().updateGeometry()
+        bar = self._plots_scroll_area.verticalScrollBar()
         if bar.maximum() > 0:
-            self._features_scroll_area.setVerticalScrollBarPolicy(
+            self._plots_scroll_area.setVerticalScrollBarPolicy(
                 Qt.ScrollBarAsNeeded
             )
         else:
-            self._features_scroll_area.setVerticalScrollBarPolicy(
+            self._plots_scroll_area.setVerticalScrollBarPolicy(
                 Qt.ScrollBarAlwaysOff
             )
             bar.setRange(0, 0)
             bar.setValue(0)
 
-    def _features_content_size(self) -> tuple[int, int]:
-        """Compute the content size for the features layout.
+    def _plots_content_size(self) -> tuple[int, int]:
+        """Compute the content size for the plots layout.
 
         Returns
         -------
         tuple of int
             (width, height) of the content.
         """
-        if not hasattr(self, "_features_layout"):
+        if not hasattr(self, "_plots_layout"):
             return (0, 0)
-        layout = self._features_layout
+        layout = self._plots_layout
         layout.activate()
         margins = layout.contentsMargins()
         spacing = layout.spacing()
@@ -1108,10 +1114,10 @@ class VisualizationTab(QWidget):
         if count > 1:
             total_height += spacing * (count - 1)
         total_width = margins.left() + margins.right() + max_width
-        if hasattr(self, "_features_container"):
-            self._features_container.adjustSize()
-            container_size = self._features_container.sizeHint().expandedTo(
-                self._features_container.minimumSizeHint()
+        if hasattr(self, "_plots_container"):
+            self._plots_container.adjustSize()
+            container_size = self._plots_container.sizeHint().expandedTo(
+                self._plots_container.minimumSizeHint()
             )
             total_width = max(total_width, container_size.width())
             total_height = max(total_height, container_size.height())

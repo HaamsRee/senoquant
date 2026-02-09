@@ -25,14 +25,14 @@ Key responsibilities:
 
 ## Plot discovery and state
 
-Plot classes are discovered dynamically by `get_feature_registry()` in
+Plot classes are discovered dynamically by `get_plot_registry()` in
 `src/senoquant/tabs/visualization/plots/__init__.py`.
 
 Discovery behavior:
 
 - Imports all modules under `plots/`.
 - Collects subclasses of `SenoQuantPlot`.
-- Uses each class `feature_type` as the dropdown key.
+- Uses each class `plot_type` as the dropdown key.
 - Sorts by class attribute `order`.
 
 Plot runtime state is stored in `PlotConfig`:
@@ -41,13 +41,13 @@ Plot runtime state is stored in `PlotConfig`:
 - `type_name`: selected plot type.
 - `data`: plot-specific payload (`PlotData` subclass).
 
-`FEATURE_DATA_FACTORY` maps plot type names to typed `PlotData` classes.
+`PLOT_DATA_FACTORY` maps plot type names to typed `PlotData` classes.
 
 ## Runtime flow
 
 Single run flow:
 
-1. `VisualizationTab._process_features()` gathers selected markers and thresholds.
+1. `VisualizationTab._process_plots()` gathers selected markers and thresholds.
 2. It calls `VisualizationBackend.process(..., save=False, cleanup=False)`.
 3. Backend calls each handler's `plot(temp_dir, input_path, export_format, markers, thresholds)`.
 4. Returned paths are stored in `VisualizationResult.plot_outputs`.
@@ -66,7 +66,7 @@ Plot handlers subclass `SenoQuantPlot` from
 
 Required class attributes:
 
-- `feature_type`: user-facing plot name in the dropdown.
+- `plot_type`: user-facing plot name in the dropdown.
 - `order`: integer sort key in the registry.
 
 Required methods:
@@ -84,9 +84,9 @@ Behavior notes:
 
 1. Add a module under `src/senoquant/tabs/visualization/plots/`.
 2. Define a `PlotData` subclass if typed state is needed.
-3. Implement a `SenoQuantPlot` subclass with `feature_type` and `order`.
+3. Implement a `SenoQuantPlot` subclass with `plot_type` and `order`.
 4. Implement `plot(...)` to produce outputs in the provided `temp_dir`.
-5. Register typed data in `FEATURE_DATA_FACTORY` when applicable.
+5. Register typed data in `PLOT_DATA_FACTORY` when applicable.
 6. Add tests under `tests/senoquant/tabs/visualization/`.
 
 Minimal skeleton:
@@ -103,7 +103,7 @@ class MyPlotData(PlotData):
 
 
 class MyPlot(SenoQuantPlot):
-    feature_type = "My Plot"
+    plot_type = "My Plot"
     order = 30
 
     def build(self) -> None:

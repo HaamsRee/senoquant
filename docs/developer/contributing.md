@@ -176,9 +176,9 @@ See [Quantification features](quantification-features.md) for the detailed guide
 ### Visualization plot
 
 1. **Create module**: `src/senoquant/tabs/visualization/plots/my_plot.py`.
-2. **Define plot class**: Subclass `SenoQuantPlot` with `feature_type` and `order`.
+2. **Define plot class**: Subclass `SenoQuantPlot` with `plot_type` and `order`.
 3. **Implement output**: Write files in `plot(temp_dir, input_path, export_format, ...)`.
-4. **Register typed data**: Add custom `PlotData` class to `FEATURE_DATA_FACTORY` when needed.
+4. **Register typed data**: Add custom `PlotData` class to `PLOT_DATA_FACTORY` when needed.
 5. **Test**: Add handler and backend tests under `tests/senoquant/tabs/visualization/`.
 
 See [Visualization tab](visualization.md) for implementation details.
