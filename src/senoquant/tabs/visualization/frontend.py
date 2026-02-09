@@ -168,9 +168,9 @@ class VisualizationTab(QWidget):
         # Add Select/Deselect buttons
         btn_layout = QHBoxLayout()
         btn_layout.setContentsMargins(0, 8, 0, 5)
-        sel_all = QPushButton("Select All")
+        sel_all = QPushButton("Select all")
         sel_all.clicked.connect(self._select_all_markers)
-        desel_all = QPushButton("Deselect All")
+        desel_all = QPushButton("Deselect all")
         desel_all.clicked.connect(self._deselect_all_markers)
         btn_layout.addWidget(sel_all)
         btn_layout.addWidget(desel_all)
@@ -405,7 +405,7 @@ class VisualizationTab(QWidget):
         section_layout.addLayout(form_layout)
         
         # Add Save button
-        save_button = QPushButton("Save Plot")
+        save_button = QPushButton("Save plot")
         save_button.clicked.connect(self._save_plots)
         section_layout.addWidget(save_button)
         self._save_button = save_button
@@ -426,11 +426,16 @@ class VisualizationTab(QWidget):
         QGroupBox
             Group box containing generated plot images and process button.
         """
-        section = QGroupBox("Plot Preview")
+        section = QGroupBox("Plot preview")
         section_layout = QVBoxLayout()
         
         # Create a resizable widget for displaying plots (no scrolling)
         self._plot_display_widget = QWidget()
+<<<<<<< feature_viz
+=======
+        self._plot_display_widget.setMinimumHeight(200)
+        self._plot_display_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+>>>>>>> main
         self._plot_display_layout = QVBoxLayout()
         self._plot_display_layout.setContentsMargins(0, 0, 0, 0)
         self._plot_display_layout.setSpacing(6)
@@ -571,7 +576,7 @@ class VisualizationTab(QWidget):
         type_combo.addItems(plot_types)
         self._configure_combo(type_combo)
 
-        form_layout.addRow("Plot Type", type_combo)
+        form_layout.addRow("Plot type", type_combo)
         left_layout.addLayout(form_layout)
 
         left_dynamic_container = QWidget()

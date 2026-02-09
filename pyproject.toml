@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "senoquant"
-version = "1.0.0b4"
+version = "1.0.0b5"
 description = "napari plugin for spatial quantification of senescence markers in tissue imaging"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -67,6 +67,7 @@ dependencies = [
   "dask[distributed]>=2024.4",
   "matplotlib>=3.8",
   "umap-learn>=0.5",
+  "jsonschema>=3.2",
 ]
 
 [project.urls]
@@ -108,11 +109,14 @@ all = [
   "dask[distributed]>=2024.4",
   "matplotlib>=3.8",
   "umap-learn>=0.5",
+  "jsonschema>=3.2",
 ]
 
 [tool.setuptools.package-data]
 senoquant = [
   "napari.yaml",
+  "utils/settings_bundle.schema.json",
+  "utils/model_details.schema.json",
   "tabs/segmentation/models/*/details.json",
   "tabs/segmentation/models/*/model.py",
   "tabs/spots/models/*/details.json",

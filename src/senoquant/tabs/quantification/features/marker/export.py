@@ -2,8 +2,7 @@
 
 This module serializes per-label morphology and per-channel intensity
 summaries for the marker feature. When thresholds are enabled for a
-channel, both raw and thresholded intensity columns are exported along
-with a compatibility JSON metadata file recording threshold settings.
+channel, both raw and thresholded intensity columns are exported.
 It also exports segmentation masks and a canonical settings bundle payload
 containing per-layer run history for downstream reload workflows.
 """
@@ -15,7 +14,7 @@ from dataclasses import asdict
 import json
 import warnings
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, TYPE_CHECKING
+from typing import Iterable, Sequence, TYPE_CHECKING
 
 import numpy as np
 from skimage.measure import regionprops_table
@@ -56,8 +55,7 @@ def export_marker(
     iterable of Path
         Paths to files produced by the export routine. Each segmentation
         produces one table and one ``.npy`` mask export. A shared
-        ``marker_thresholds.json`` compatibility file and a unified
-        ``senoquant_settings.json`` bundle are also emitted.
+        ``feature_settings.json`` bundle is also emitted.
 
     Notes
     -----
@@ -77,11 +75,6 @@ def export_marker(
     channels = [channel for channel in data.channels if channel.channel]
     if not data.segmentations or not channels:
         return []
-
-    if enable_thresholds:
-        metadata_path = _write_threshold_metadata(temp_dir, channels)
-        if metadata_path is not None:
-            outputs.append(metadata_path)
 
     all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for segmentation in data.segmentations:
@@ -764,42 +757,6 @@ def _apply_threshold(
     return mean, raw, integ
 
 
-def _write_threshold_metadata(
-    temp_dir: Path, channels: list
-) -> Optional[Path]:
-    """Persist threshold metadata as a compatibility sidecar file.
-
-    Parameters
-    ----------
-    temp_dir : Path
-        Temporary output directory.
-    channels : list
-        Channel configurations to serialize.
-
-    Returns
-    -------
-    pathlib.Path or None
-        Path to ``marker_thresholds.json``.
-    """
-    payload = {
-        "channels": [
-            {
-                "name": channel.name,
-                "channel": channel.channel,
-                "threshold_enabled": bool(channel.threshold_enabled),
-                "threshold_method": channel.threshold_method,
-                "threshold_min": channel.threshold_min,
-                "threshold_max": channel.threshold_max,
-            }
-            for channel in channels
-        ]
-    }
-    output_path = temp_dir / "marker_thresholds.json"
-    with output_path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
-    return output_path
-
-
 def _write_mask_output(temp_dir: Path, stem: str, labels: np.ndarray) -> Path:
     """Write a segmentation mask as a ``.npy`` array file."""
     output_path = _next_available_path(temp_dir, stem, ".npy")
@@ -852,6 +809,7 @@ def _write_marker_settings_bundle(
     - Timestamped layer run history for replaying run order.
     """
     feature_payload = {
+        "kind": "feature_settings",
         "feature_id": feature.feature_id,
         "feature_type": feature.type_name or "Markers",
         "feature_name": feature.name,
@@ -860,10 +818,10 @@ def _write_marker_settings_bundle(
         "config": asdict(data),
     }
     payload = build_settings_bundle(
-        feature=feature_payload,
+        feature_settings=feature_payload,
         segmentation_runs=segmentation_runs,
     )
-    output_path = temp_dir / "senoquant_settings.json"
+    output_path = temp_dir / "feature_settings.json"
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
     return output_path

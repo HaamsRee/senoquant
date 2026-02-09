@@ -84,15 +84,16 @@ def test_export_marker_writes_settings_and_masks(tmp_path: Path) -> None:
 
     outputs = list(export_marker(feature, tmp_path, viewer=viewer, export_format="csv"))
 
-    settings_paths = [path for path in outputs if path.name == "senoquant_settings.json"]
+    settings_paths = [path for path in outputs if path.name == "feature_settings.json"]
     mask_paths = [path for path in outputs if path.name.endswith("_mask.npy")]
     assert settings_paths
     assert mask_paths
     assert np.array_equal(np.load(mask_paths[0]), labels)
+    assert not any(path.name == "marker_thresholds.json" for path in outputs)
 
     payload = json.loads(settings_paths[0].read_text(encoding="utf-8"))
     assert payload["schema"] == "senoquant.settings"
-    assert payload["feature"]["feature_type"] == "Markers"
+    assert payload["feature_settings"]["feature_type"] == "Markers"
     assert payload["segmentation_runs"]
     assert payload["segmentation_runs"][0]["layer_name"] == "cells"
     assert payload["segmentation_runs"][0]["run_history"][0]["runner_name"] == "default_2d"

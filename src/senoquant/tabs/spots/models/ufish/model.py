@@ -6,17 +6,17 @@ import numpy as np
 from scipy import ndimage as ndi
 from skimage.filters import laplace
 from skimage.morphology import local_maxima
-from skimage.restoration import denoise_wavelet
 from skimage.segmentation import watershed
 
 from ..base import SenoQuantSpotDetector
+from senoquant.tabs.spots.models.denoise import wavelet_denoise_input
 from senoquant.utils import layer_data_asarray
 from senoquant.tabs.spots.ufish_utils import UFishConfig, enhance_image
 
 
 DEFAULT_THRESHOLD = 0.5
 USE_LAPLACE_FOR_PEAKS = False
-DEFAULT_DENOISE_ENABLED = False
+DEFAULT_DENOISE_ENABLED = True
 DEFAULT_SPOT_SIZE = 1.0
 MIN_SPOT_SIZE = 0.25
 MAX_SPOT_SIZE = 4.0
@@ -100,43 +100,6 @@ def _spot_size_to_detection_scale(spot_size: float) -> float:
     spot_size < 1 means detect smaller spots (zoom in input).
     """
     return 1.0 / _clamp_spot_size(spot_size)
-
-
-def _denoise_input(
-    image: np.ndarray,
-    *,
-    enabled: bool,
-) -> np.ndarray:
-    """Optionally denoise image to suppress tiny bright peaks.
-
-    Uses wavelet denoising with BayesShrink.
-    """
-    if not enabled:
-        return image.astype(np.float32, copy=False)
-    data = image.astype(np.float32, copy=False)
-    if data.ndim == 2:
-        denoised = denoise_wavelet(
-            data,
-            method="BayesShrink",
-            mode="soft",
-            rescale_sigma=True,
-            channel_axis=None,
-        )
-        return np.asarray(denoised, dtype=np.float32)
-
-    denoised = np.empty_like(data, dtype=np.float32)
-    for z in range(data.shape[0]):
-        denoised[z] = np.asarray(
-            denoise_wavelet(
-                data[z],
-                method="BayesShrink",
-                mode="soft",
-                rescale_sigma=True,
-                channel_axis=None,
-            ),
-            dtype=np.float32,
-        )
-    return denoised.astype(np.float32, copy=False)
 
 
 def _scale_image_for_detection(
@@ -272,7 +235,7 @@ class UFishDetector(SenoQuantSpotDetector):
         settings = kwargs.get("settings", {}) or {}
         threshold = _clamp_threshold(float(settings.get("threshold", DEFAULT_THRESHOLD)))
         use_laplace = USE_LAPLACE_FOR_PEAKS
-        denoise_enabled = bool(settings.get("denoise_enabled", DEFAULT_DENOISE_ENABLED))
+        denoise_enabled = DEFAULT_DENOISE_ENABLED
         spot_size = _clamp_spot_size(
             float(settings.get("spot_size", DEFAULT_SPOT_SIZE))
         )
@@ -283,7 +246,7 @@ class UFishDetector(SenoQuantSpotDetector):
             raise ValueError("U-FISH detector expects 2D images or 3D stacks.")
 
         data = _normalize_input_percentile(data)
-        denoised = _denoise_input(
+        denoised = wavelet_denoise_input(
             data,
             enabled=denoise_enabled,
         )

@@ -105,7 +105,7 @@ class QuantificationTab(QWidget):
         if show_output_section:
             layout.addWidget(self._make_output_section())
         if show_process_button:
-            process_button = QPushButton("Process")
+            process_button = QPushButton("Process and save")
             process_button.clicked.connect(self._process_features)
             layout.addWidget(process_button)
             self._process_button = process_button

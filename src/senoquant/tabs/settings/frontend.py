@@ -116,10 +116,12 @@ class SettingsTab(QWidget):
         if not path:
             return
         bundle = self._backend.load_bundle(path)
-        feature_payload = bundle.get("feature", {})
-        if isinstance(feature_payload, dict):
-            self._apply_segmentation_settings(feature_payload.get("segmentation"))
-            self._apply_spots_settings(feature_payload.get("spots"))
+        tab_settings_payload = bundle.get("tab_settings", {})
+        if isinstance(tab_settings_payload, dict):
+            self._apply_segmentation_settings(
+                tab_settings_payload.get("segmentation")
+            )
+            self._apply_spots_settings(tab_settings_payload.get("spots"))
         batch_payload = bundle.get("batch_job", {})
         if isinstance(batch_payload, dict) and batch_payload:
             self._apply_batch_settings(batch_payload)

@@ -11,7 +11,7 @@ The Quantification tab extracts measurements from segmented images and exports t
 - **Output folder** (browse field): Select folder where results will be saved.
 - **Save name** (text field): Name for the output subfolder (optional).
 - **Format** (dropdown): Choose `xlsx` or `csv` for export format.
-- **Process** (button): Execute quantification and save results.
+- **Process and save** (button): Execute quantification and save results.
 
 ### Feature configuration dialog
 
@@ -208,7 +208,7 @@ Results are saved to: `<output_folder>/<output_name>/<feature_name>/`
 Each feature creates its own subfolder containing:
 - One file per segmentation (Markers).
 - Two files per segmentation: `*_cells` and `*_spots` (Spots).
-- `marker_thresholds.json` (Markers with thresholds enabled).
+- `feature_settings.json` (feature configuration snapshot and run metadata).
 
 **File naming:**
 - Markers: `<segmentation_label>.<format>`.

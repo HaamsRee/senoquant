@@ -66,7 +66,7 @@ def export_spots(
     iterable of Path
         Paths to files produced by the export routine. Each segmentation
         produces two tables: ``*_cells`` and ``*_spots``. Segmentation
-        masks (``.npy``) and a shared ``senoquant_settings.json`` bundle
+        masks (``.npy``) and a shared ``feature_settings.json`` bundle
         are also written, including timestamped run history for layer run
         ordering. If no outputs are produced, an empty list is returned.
 
@@ -1541,6 +1541,7 @@ def _write_spots_settings_bundle(
     - Timestamped layer run history for replaying run order.
     """
     feature_payload = {
+        "kind": "feature_settings",
         "feature_id": feature.feature_id,
         "feature_type": feature.type_name or "Spots",
         "feature_name": feature.name,
@@ -1548,10 +1549,10 @@ def _write_spots_settings_bundle(
         "config": asdict(data),
     }
     payload = build_settings_bundle(
-        feature=feature_payload,
+        feature_settings=feature_payload,
         segmentation_runs=segmentation_runs,
     )
-    output_path = temp_dir / "senoquant_settings.json"
+    output_path = temp_dir / "feature_settings.json"
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
     return output_path

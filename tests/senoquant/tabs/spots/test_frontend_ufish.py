@@ -66,3 +66,30 @@ def test_spot_labels_metadata_without_name_lookup() -> None:
     assert labels_layer.metadata.get("task") == "spots"
     assert labels_layer.metadata.get("path") == "file.tif"
     assert labels_layer.metadata["run_history"][-1]["runner_type"] == "spot_detector"
+
+
+def test_handle_run_result_adds_size_filter_to_run_settings() -> None:
+    """Persist current diameter filter values in spot run metadata settings."""
+    viewer = DummyViewer([Image(np.zeros((4, 4), dtype=np.float32), "img")])
+    tab = spots_frontend.SpotsTab(napari_viewer=viewer)
+    source_layer = viewer.layers["img"]
+
+    assert tab._min_size_spin is not None
+    assert tab._max_size_spin is not None
+    tab._min_size_spin.setValue(3)
+    tab._max_size_spin.setValue(9)
+
+    tab._handle_run_result(
+        source_layer,
+        "detector",
+        {"threshold": 0.4},
+        {"mask": np.ones((4, 4), dtype=np.uint16)},
+    )
+
+    labels_layer = viewer.layers["img_detector_spot_labels"]
+    settings = labels_layer.metadata["run_history"][-1]["settings"]
+    assert settings["threshold"] == 0.4
+    assert settings["size_filter"] == {
+        "min_size": 3,
+        "max_size": 9,
+    }
