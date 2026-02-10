@@ -24,7 +24,7 @@ across diverse tissue contexts.
 
 ### Installer (recommended)
 
-#### Windows
+#### Windows ( please use Google Chrome )
 
 Download the Windows installer (`.exe`) from the [latest release](https://github.com/HaamsRee/senoquant/releases/latest) under "Assets."
 
@@ -36,7 +36,7 @@ Download the macOS installer (`.pkg`) from the [latest release](https://github.c
 
 Installer support for Linux is under construction.
 
-> **Note 1:** The installer may trigger security warnings on macOS and Windows. This is expected for open-source software distributed outside of official app stores. Follow the system prompts to allow installation. On Windows, you may need to click "More info" and then "Run anyway" on the warning popup. On macOS, when you see the warning that "Apple could not verify...," click "Done" to dismiss, then go to System Settings > Privacy & Security and click "Open Anyway" for the SenoQuant installer.
+> **Note 1:** The installer may trigger security warnings on macOS and Windows when using Microsoft Edge. This is expected for open-source software distributed outside of official app stores. Follow the system prompts to allow installation. On Windows, you may need to click "More info" and then "Run anyway" on the warning popup. On macOS, when you see the warning that "Apple could not verify...," click "Done" to dismiss, then go to System Settings > Privacy & Security and click "Open Anyway" for the SenoQuant installer.
 
 > **Note 2:** In some corporate environments, security policies may block the installer's access to folders or the Internet. If you encounter issues, try running the installer with administrator privileges (right-click > "Run as administrator" on Windows) and ensure that your firewall allows the installer to access the Internet to download dependencies.
 
