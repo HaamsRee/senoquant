@@ -22,9 +22,9 @@ across diverse tissue contexts.
 
 ## Installation
 
-### Installer (recommended)
+### Installer (recommended - please also use Google Chrome to download)
 
-#### Windows ( please use Google Chrome )
+#### Windows
 
 Download the Windows installer (`.exe`) from the [latest release](https://github.com/HaamsRee/senoquant/releases/latest) under "Assets."
 
