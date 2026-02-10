@@ -538,10 +538,7 @@ class VisualizationTab(QWidget):
         super().resizeEvent(event)
         self._apply_plots_layout()
         # Rescale any preview images to fit the new size
-        try:
-            self._rescale_all_plot_labels()
-        except Exception:
-            pass
+
 
     def _add_plot_row(self, state: PlotConfig | None = None) -> None:
         """Add a new plot input row."""
