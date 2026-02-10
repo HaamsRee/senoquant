@@ -9,7 +9,7 @@ import pytest
 from senoquant.tabs.visualization.plots import (
     _iter_subclasses,
     build_plot_data,
-    get_feature_registry,
+    get_plot_registry,
 )
 from senoquant.tabs.visualization.plots.base import (
     PlotConfig,
@@ -19,18 +19,20 @@ from senoquant.tabs.visualization.plots.base import (
 )
 from senoquant.tabs.visualization.plots.spatialplot import SpatialPlotData
 from senoquant.tabs.visualization.plots.umap import UMAPData
+from senoquant.tabs.visualization.plots.double_expression import DoubleExpressionData
 
 
 def test_build_plot_data_known_and_unknown_types() -> None:
     """Build typed plot data for known keys and fallback for unknown."""
     assert isinstance(build_plot_data("UMAP"), UMAPData)
     assert isinstance(build_plot_data("Spatial Plot"), SpatialPlotData)
+    assert isinstance(build_plot_data("Double Expression"), DoubleExpressionData)
     assert isinstance(build_plot_data("Unknown Plot"), PlotData)
 
 
-def test_feature_registry_contains_expected_types_in_order() -> None:
+def test_plot_registry_contains_expected_types_in_order() -> None:
     """Discover plot handlers and preserve order metadata."""
-    registry = get_feature_registry()
+    registry = get_plot_registry()
     assert list(registry.keys())[:3] == [
         "Spatial Plot",
         "UMAP",
@@ -38,21 +40,21 @@ def test_feature_registry_contains_expected_types_in_order() -> None:
     ]
 
 
-def test_iter_subclasses_recurses_and_skips_empty_feature_type() -> None:
-    """Walk nested subclasses and ignore classes without feature_type."""
+def test_iter_subclasses_recurses_and_skips_empty_plot_type() -> None:
+    """Walk nested subclasses and ignore classes without plot_type."""
 
     class _NoTypePlot(SenoQuantPlot):
         pass
 
     class _NestedPlot(_NoTypePlot):
-        feature_type = "Nested"
+        plot_type = "Nested"
         order = 999
 
     all_subclasses = list(_iter_subclasses(SenoQuantPlot))
     assert _NoTypePlot in all_subclasses
     assert _NestedPlot in all_subclasses
 
-    registry = get_feature_registry()
+    registry = get_plot_registry()
     assert "" not in registry
     assert "Nested" in registry
 
@@ -66,7 +68,7 @@ def test_base_plot_methods_and_refresh_combo(monkeypatch) -> None:
         base.build()
 
     assert list(base.plot(types.SimpleNamespace(), types.SimpleNamespace(), "png")) == []
-    assert base.on_features_changed([]) is None
+    assert base.on_plots_changed([]) is None
     assert base.update_type_options(types.SimpleNamespace(), []) is None
 
     popup_calls: list[bool] = []

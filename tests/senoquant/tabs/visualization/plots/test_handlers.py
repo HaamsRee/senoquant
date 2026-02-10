@@ -98,7 +98,7 @@ def test_umap_plot_success_and_short_circuit_paths(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    """Generate UMAP plot and exercise no-file/insufficient-feature branches."""
+    """Generate UMAP plot and exercise no-file/insufficient-plot branches."""
     plot = UMAPPlot(types.SimpleNamespace(), _context("UMAP"))
     input_dir = tmp_path / "input"
     temp_dir = tmp_path / "temp"

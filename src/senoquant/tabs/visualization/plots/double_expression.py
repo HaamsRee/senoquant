@@ -23,7 +23,7 @@ class DoubleExpressionData(PlotData):
 class DoubleExpressionPlot(SenoQuantPlot):
     """Spatial scatter plot highlighting double positive cells."""
 
-    feature_type = "Double Expression"
+    plot_type = "Double Expression"
     order = 2
 
     def build(self) -> None:

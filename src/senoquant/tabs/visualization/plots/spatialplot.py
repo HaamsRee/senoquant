@@ -17,7 +17,7 @@ class SpatialPlotData(PlotData):
 class SpatialPlot(SenoQuantPlot):
     """Spatial scatter plot handler for coordinate and intensity data."""
 
-    feature_type = "Spatial Plot"
+    plot_type = "Spatial Plot"
     order = 0
 
     def build(self) -> None:

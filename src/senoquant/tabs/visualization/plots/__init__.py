@@ -30,17 +30,17 @@ def _iter_subclasses(cls: type[SenoQuantPlot]) -> Iterable[type[SenoQuantPlot]]:
         yield from _iter_subclasses(subclass)
 
 
-def get_feature_registry() -> dict[str, type[SenoQuantPlot]]:
+def get_plot_registry() -> dict[str, type[SenoQuantPlot]]:
     """Discover plot classes and return a registry by name."""
     for module in pkgutil.walk_packages(__path__, f"{__name__}."):
         importlib.import_module(module.name)
 
     registry: dict[str, type[SenoQuantPlot]] = {}
     for plot_cls in _iter_subclasses(SenoQuantPlot):
-        feature_type = getattr(plot_cls, "feature_type", "")
-        if not feature_type:
+        plot_type = getattr(plot_cls, "plot_type", "")
+        if not plot_type:
             continue
-        registry[feature_type] = plot_cls
+        registry[plot_type] = plot_cls
 
     return dict(
         sorted(
@@ -56,12 +56,12 @@ PLOT_DATA_FACTORY: dict[str, type[PlotData]] = {
 }
 
 
-def build_plot_data(feature_type: str) -> PlotData:
+def build_plot_data(plot_type: str) -> PlotData:
     """Create a plot data instance for the specified plot type.
 
     Parameters
     ----------
-    feature_type : str
+    plot_type : str
         Plot type name.
 
     Returns
@@ -69,7 +69,7 @@ def build_plot_data(feature_type: str) -> PlotData:
     PlotData
         Plot-specific configuration instance.
     """
-    data_cls = PLOT_DATA_FACTORY.get(feature_type, PlotData)
+    data_cls = PLOT_DATA_FACTORY.get(plot_type, PlotData)
     return data_cls()
 
 
@@ -78,5 +78,5 @@ __all__ = [
     "PlotData",
     "SenoQuantPlot",
     "build_plot_data",
-    "get_feature_registry",
+    "get_plot_registry",
 ]
