@@ -181,7 +181,9 @@ Quantification outputs are written into feature folders inside the same per-imag
 Within each feature folder:
 
 - Markers feature: One file per segmentation.
-- Spots feature: `<segmentation_label>_cells.<format>` and `<segmentation_label>_spots.<format>`.
+- Spots feature:
+  - With segmentation(s): `<segmentation_label>_cells.<format>` and `<segmentation_label>_spots.<format>`.
+  - Without segmentation: `all_spots.<format>`.
 - Shared feature metadata: `feature_settings.json`.
 
 Feature folder names are normalized to lowercase and spaces become underscores.

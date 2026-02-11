@@ -132,17 +132,20 @@ Measures channel intensity and morphological properties within segmentation labe
 
 ### Spots feature
 
-Measures spot counts and spot-level properties within selected cell segmentations.
+Measures spot counts and spot-level properties from configured spot labels,
+with optional cell-segmentation context.
 
 <u>**Add channels popup:**</u>
 
 **Segmentation section:**
 
-- **Add segmentation**: Add a nuclear/cytoplasmic labels layer.
+- **Add segmentation**: Add a nuclear/cytoplasmic labels layer (optional).
 - **Segmentation** (dropdown per row): Select a cell segmentation layer.
 - **Delete** (per row): Remove this segmentation.
 
-> Each segmentation added here is used to exclude background spots. SenoQuant exports one pair of files (`*_cells` and `*_spots`) per segmentation.
+> When one or more valid segmentations are configured, SenoQuant exports one pair of files (`*_cells` and `*_spots`) per segmentation.
+>
+> If no valid segmentation is configured, SenoQuant still exports all spots in a single `all_spots` file (no cells table).
 
 **Channels section:**
 
@@ -154,9 +157,13 @@ Measures spot counts and spot-level properties within selected cell segmentation
 
 > A channel row is exported only when both **Channel** and **Spots segmentation** are selected.
 >
-> If a selected layer is missing at runtime, or the spots labels shape does not match the cell segmentation shape, that channel is skipped for that segmentation.
+> If a selected layer is missing at runtime, the channel is skipped.
 >
-> Spot labels are assigned to cells by centroid position. Spots with centroids outside the selected cell segmentation are excluded.
+> When segmentations are configured, a channel is skipped for a segmentation if the spot-label shape does not match that segmentation shape.
+>
+> When no segmentations are configured, spot channels must share the same spot-label shape to be exported together.
+>
+> Spot labels are assigned to cells by centroid position when a segmentation is present. Spots outside segmentation are still exported and marked with `within_segmentation = 0`.
 >
 > Closing the popup or clicking **Save** will save the settings.
 
@@ -174,7 +181,7 @@ Measures spot counts and spot-level properties within selected cell segmentation
 
 #### Exported tables (Spots)
 
-**Cells table** (one per segmentation):
+**Cells table** (one per segmentation, only when a segmentation is configured):
 
 - `label_id` - Cell label ID from the selected segmentation.
 - `centroid_<axis>_pixels` - Cell centroid in pixels (`y/x` for 2D, `z/y/x` for 3D).
@@ -188,10 +195,11 @@ Measures spot counts and spot-level properties within selected cell segmentation
 
 > `<channel>` is derived from the channel **Name** (or the image layer name if Name is empty), sanitized to lowercase with underscores.
 
-**Spots table** (one per segmentation):
+**Spots table** (one per segmentation, or a single `all_spots` table when no segmentation is configured):
 
 - `spot_id` - Unique identifier within channel.
-- `cell_id` - Parent cell label ID.
+- `cell_id` - Parent cell label ID (0 when not assigned to a segmented cell).
+- `within_segmentation` - 1 when assigned to a segmented cell, 0 otherwise (present only when a segmentation is configured).
 - `channel` - Channel label (custom **Name** if provided, otherwise the image layer name).
 - `centroid_<axis>_pixels` - Spot centroid in pixels.
 - `centroid_<axis>_um` - Spot centroid in micrometers when physical pixel sizes are available.
@@ -207,9 +215,12 @@ Results are saved to: `<output_folder>/<output_name>/<feature_name>/`
 
 Each feature creates its own subfolder containing:
 - One file per segmentation (Markers).
-- Two files per segmentation: `*_cells` and `*_spots` (Spots).
+- Spots:
+  - With segmentation(s): two files per segmentation (`*_cells` and `*_spots`).
+  - Without segmentation: one file (`all_spots`).
 - `feature_settings.json` (feature configuration snapshot and run metadata).
 
 **File naming:**
 - Markers: `<segmentation_label>.<format>`.
-- Spots: `<segmentation_label>_cells.<format>` and `<segmentation_label>_spots.<format>`.
+- Spots (with segmentation): `<segmentation_label>_cells.<format>` and `<segmentation_label>_spots.<format>`.
+- Spots (without segmentation): `all_spots.<format>`.

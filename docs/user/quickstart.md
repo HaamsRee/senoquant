@@ -131,12 +131,12 @@ To add a feature:
 1. Click **Add channels**.
 2. In the popup:
 
-    - In the top box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer to exclude spots outside these segmented cells.
+    - (Optional) In the top box, click **Add segmentation** → Add a nuclear/cytoplasmic labels layer if you want per-cell spot summaries.
     
-        > The selected segmentation defines the nuclei/cells for spot quantification. SenoQuant will export one set of spots tables per segmentation.
+        > With segmentation(s), SenoQuant exports one `*_cells` + `*_spots` table pair per segmentation. Without segmentation, it still exports all spots in `all_spots`.
 
     - In the **Channels** box, click **Add channel** → Add spot channel(s) to quantify.
-    - For each channel, name the channel (e.g., `gH2AX`, `Telomere`), and select the spot labels layer in **Channel**. Select the corresponding **Spots segmentation** layer generated in the **Spots** tab.
+    - For each channel, name the channel (e.g., `gH2AX`, `Telomere`), select the image layer in **Channel**, and select the corresponding spot-label layer generated in the **Spots** tab under **Spots segmentation**.
     - Click **Save** or close the popup when done.
 
 3. (Optional) Enable **ROIs** → Name the ROI → Select the shapes layer. ROIs work the same way as in the Markers feature.
@@ -151,10 +151,13 @@ To add a feature:
 5. Click **Process and save**.
 6. Wait for quantification to complete.
 
-**Output:** Excel/CSV files containing:
+**Outputs:**   
+Excel/CSV files containing:
 
 - **Markers**: Marker intensities per cell, morphological features.
 - **Spots**: Spot counts per cell, spot intensities, colocalization data (if enabled).
+
+Segmentation masks are also saved, plus a `.json` file with the configuration used for the run.
 
 ## Batch processing workflow
 
