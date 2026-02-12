@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import numpy as np
 from qtpy.QtCore import QObject, QThread
 from qtpy.QtWidgets import QPushButton
 
-from senoquant.utils import append_run_metadata
+from senoquant.utils import append_run_metadata, labels_data_as_dask
 
 from .widgets import (
     Labels,
@@ -212,6 +213,7 @@ class SegmentationRunMixin:
         if self._viewer is None or source_layer is None or masks is None:
             return
         label_name = f"{source_layer.name}_{model_name}_{label_type}_labels"
+        dask_masks = labels_data_as_dask(masks)
         task_value = {
             "nuc": "nuclear",
             "cyto": "cytoplasmic",
@@ -226,7 +228,7 @@ class SegmentationRunMixin:
         labels_layer = None
         if Labels is not None and hasattr(self._viewer, "add_layer"):
             labels_layer = Labels(
-                masks,
+                dask_masks,
                 name=label_name,
                 metadata=initial_metadata,
             )
@@ -236,18 +238,24 @@ class SegmentationRunMixin:
         elif hasattr(self._viewer, "add_labels"):
             try:
                 labels_layer = self._viewer.add_labels(
-                    masks,
+                    dask_masks,
                     name=label_name,
                     metadata=initial_metadata,
                 )
             except TypeError:
                 labels_layer = self._viewer.add_labels(
-                    masks,
+                    dask_masks,
                     name=label_name,
                 )
 
         if labels_layer is None:
             return
+
+        # Materialize after insertion: faster display interactions and simpler downstream ops.
+        try:
+            labels_layer.data = np.asarray(labels_layer.data)
+        except Exception:
+            pass
 
         layer_metadata = getattr(labels_layer, "metadata", {})
         merged_metadata: dict[str, object] = {}

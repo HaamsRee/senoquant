@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dask.array as da
 import numpy as np
 
 from tests.conftest import DummyViewer, Image, Labels
@@ -66,6 +67,42 @@ def test_spot_labels_metadata_without_name_lookup() -> None:
     assert labels_layer.metadata.get("task") == "spots"
     assert labels_layer.metadata.get("path") == "file.tif"
     assert labels_layer.metadata["run_history"][-1]["runner_type"] == "spot_detector"
+
+
+def test_spot_labels_are_added_as_dask_arrays() -> None:
+    """Wrap detector masks as dask arrays, then materialize layer data."""
+
+    class _RawLayer:
+        def __init__(self, data, name: str, metadata=None):
+            self.data = data
+            self.name = name
+            self.metadata = metadata or {}
+            self.contour = None
+
+    class _CaptureViewer(DummyViewer):
+        def __init__(self, layers):
+            super().__init__(layers)
+            self.received = None
+
+        def add_labels(self, data, name: str, metadata=None):
+            self.received = data
+            layer = _RawLayer(data, name, metadata=metadata or {})
+            self.layers.append(layer)
+            return layer
+
+    viewer = _CaptureViewer([Image(np.zeros((4, 4), dtype=np.float32), "img")])
+    tab = spots_frontend.SpotsTab(napari_viewer=viewer)
+    source = Image(np.zeros((4, 4), dtype=np.float32), "img")
+
+    tab._add_labels_layer(
+        source,
+        np.ones((4, 4), dtype=np.uint16),
+        "detector",
+        settings={"threshold": 0.4},
+    )
+
+    assert isinstance(viewer.received, da.Array)
+    assert isinstance(viewer.layers[-1].data, np.ndarray)
 
 
 def test_handle_run_result_adds_size_filter_to_run_settings() -> None:
