@@ -12,6 +12,13 @@ Three files are the core wiring points:
 
 You also export tab classes from `src/senoquant/tabs/__init__.py`.
 
+Concrete examples in the current repo:
+
+- `src/senoquant/tabs/prediction/` for a tab that hosts dynamically loaded
+  model-defined widgets.
+- `src/senoquant/tabs/segmentation/` for a tab with larger split frontend
+  mixins.
+
 ## Step-by-step
 
 ### 1) Create the tab package
@@ -67,7 +74,8 @@ Update `src/senoquant/_widget.py`:
 If the tab participates in shared settings persistence, wire it in
 `SenoQuantWidget` and pass tab references into `SettingsTab` so it can
 export/import that tab's state (same pattern used for Segmentation, Spots,
-and Batch tabs).
+and Batch tabs). Prediction is currently not part of Settings-tab
+save/load.
 
 ### 4) Add tests
 

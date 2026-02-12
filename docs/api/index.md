@@ -45,6 +45,16 @@ This page is generated automatically from docstrings using `mkdocstrings`.
 
 ::: senoquant.tabs.spots.models.base
 
+## Prediction
+
+### Backend
+
+::: senoquant.tabs.prediction.backend
+
+### Model Base Classes
+
+::: senoquant.tabs.prediction.models.base
+
 ## Quantification
 
 ### Backend
