@@ -1,0 +1,1884 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="SenoQuant is a versatile napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts.">
+      
+      
+      
+      
+        <link rel="prev" href="../data/">
+      
+      
+        <link rel="next" href="../spots/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Segmentation - SenoQuant</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#segmentation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="SenoQuant" class="md-header__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SenoQuant
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Segmentation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../developer/installation/" class="md-tabs__link">
+          
+  
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="SenoQuant" class="md-nav__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    SenoQuant
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data & Readers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Segmentation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Segmentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#interface-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interface overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nuclear-segmentation-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nuclear segmentation section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cytoplasmic-segmentation-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cytoplasmic segmentation section
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nuclear-segmentation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nuclear segmentation models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cytoplasmic-segmentation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cytoplasmic segmentation models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output layers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preloading-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preloading models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default_2d-stardist-2d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_2d (StarDist 2D)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default_3d-stardist-3d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_3d (StarDist 3D)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpsam-cellpose-sam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cpsam (Cellpose SAM)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nuclear_dilation-cytoplasmic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nuclear_dilation (Cytoplasmic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#perinuclear_rings-cytoplasmic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        perinuclear_rings (Cytoplasmic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spots
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/installer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models & Detectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/stardist-onnx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StarDist ONNX Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/quantification-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization Tab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/adding-tabs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding Tabs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/batch-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Settings Bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging & Releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/repo-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#interface-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interface overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nuclear-segmentation-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nuclear segmentation section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cytoplasmic-segmentation-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cytoplasmic segmentation section
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nuclear-segmentation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nuclear segmentation models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cytoplasmic-segmentation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cytoplasmic segmentation models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output layers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preloading-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preloading models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default_2d-stardist-2d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_2d (StarDist 2D)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default_3d-stardist-3d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_3d (StarDist 3D)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpsam-cellpose-sam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cpsam (Cellpose SAM)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nuclear_dilation-cytoplasmic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nuclear_dilation (Cytoplasmic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#perinuclear_rings-cytoplasmic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        perinuclear_rings (Cytoplasmic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="segmentation">Segmentation<a class="headerlink" href="#segmentation" title="Permanent link">&para;</a></h1>
+<p>The Segmentation tab provides two sections for segmenting nuclei and cytoplasm in your images.</p>
+<h2 id="interface-overview">Interface overview<a class="headerlink" href="#interface-overview" title="Permanent link">&para;</a></h2>
+<h3 id="nuclear-segmentation-section">Nuclear segmentation section<a class="headerlink" href="#nuclear-segmentation-section" title="Permanent link">&para;</a></h3>
+<p><strong>Controls:</strong></p>
+<ul>
+<li><strong>Nuclear layer</strong> (dropdown): Select the image layer containing nuclear staining.</li>
+<li><strong>Model</strong> (dropdown): Choose a nuclear segmentation model.</li>
+<li><strong>Settings</strong> (dynamic panel): Model-specific parameters that update based on selected model.</li>
+<li><strong>Run</strong> (button): Execute nuclear segmentation on the selected image.</li>
+</ul>
+<h3 id="cytoplasmic-segmentation-section">Cytoplasmic segmentation section<a class="headerlink" href="#cytoplasmic-segmentation-section" title="Permanent link">&para;</a></h3>
+<p><strong>Controls:</strong></p>
+<ul>
+<li><strong>Cytoplasmic layer</strong> (dropdown): Select the image layer containing cytoplasmic staining.</li>
+<li><strong>Nuclear layer</strong> (dropdown): Optional nuclear segmentation mask (required for some models).</li>
+<li><strong>Model</strong> (dropdown): Choose a cytoplasmic segmentation model.</li>
+<li><strong>Settings</strong> (dynamic panel): Model-specific parameters.</li>
+<li><strong>Run</strong> (button): Execute cytoplasmic segmentation.</li>
+</ul>
+<h2 id="available-models">Available models<a class="headerlink" href="#available-models" title="Permanent link">&para;</a></h2>
+<h3 id="nuclear-segmentation-models">Nuclear segmentation models<a class="headerlink" href="#nuclear-segmentation-models" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Description</th>
+<th>Dimensionality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>default_2d</code></td>
+<td>Fine-tuned StarDist model for 2D nuclei.</td>
+<td>2D</td>
+</tr>
+<tr>
+<td><code>default_3d</code></td>
+<td>Fine-tuned StarDist model for 3D nuclei.</td>
+<td>3D</td>
+</tr>
+<tr>
+<td><code>cpsam</code></td>
+<td>Cellpose SAM model for nuclei.</td>
+<td>2D/3D</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cytoplasmic-segmentation-models">Cytoplasmic segmentation models<a class="headerlink" href="#cytoplasmic-segmentation-models" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Description</th>
+<th>Input requirements</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cpsam</code></td>
+<td>Cellpose SAM cytoplasmic.</td>
+<td>Cytoplasm image (nuclear optional).</td>
+<td>General cytoplasm segmentation.</td>
+</tr>
+<tr>
+<td><code>nuclear_dilation</code></td>
+<td>Dilates nuclear masks.</td>
+<td>Nuclear mask only.</td>
+<td>Weak or missing cytoplasmic staining.</td>
+</tr>
+<tr>
+<td><code>perinuclear_rings</code></td>
+<td>For ring-shaped regions.</td>
+<td>Nuclear mask only.</td>
+<td>Perinuclear marker analysis.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="output-layers">Output layers<a class="headerlink" href="#output-layers" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Nuclear segmentation outputs <code>&lt;image layer&gt;_&lt;model&gt;_nuc_labels</code>.</li>
+<li>Cytoplasmic segmentation outputs <code>&lt;image layer&gt;_&lt;model&gt;_cyto_labels</code>.</li>
+</ul>
+<h2 id="preloading-models">Preloading models<a class="headerlink" href="#preloading-models" title="Permanent link">&para;</a></h2>
+<p>SenoQuant instantiates discovered segmentation models when the tab loads.
+This reduces first-run latency for model execution.</p>
+<h2 id="settings-reference">Settings reference<a class="headerlink" href="#settings-reference" title="Permanent link">&para;</a></h2>
+<p>This section mirrors the model metadata in the plugin. Use it as a guide for choosing the right model and tuning its parameters.</p>
+<h3 id="default_2d-stardist-2d">default_2d (StarDist 2D)<a class="headerlink" href="#default_2d-stardist-2d" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong> 2D nuclei with clear boundaries (single z-slice or 2D projections).</p>
+<p><strong>How it works:</strong> StarDist predicts star-convex polygons around nuclei and uses non-maximum suppression to separate instances.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Object diameter (px)</strong></td>
+<td>float</td>
+<td>30.0</td>
+<td>1.0 - 500.0</td>
+<td>Expected diameter of nuclei in pixels. Adjust as needed.</td>
+</tr>
+<tr>
+<td><strong>Prob threshold</strong></td>
+<td>float</td>
+<td>0.496</td>
+<td>0.0 - 1.0</td>
+<td>Confidence threshold for accepting nuclei. Lower detects more, higher is stricter.</td>
+</tr>
+<tr>
+<td><strong>NMS threshold</strong></td>
+<td>float</td>
+<td>0.3</td>
+<td>0.0 - 1.0</td>
+<td>Non-maximum suppression threshold for separating instances. Lower splits more.</td>
+</tr>
+</tbody>
+</table>
+<p>Normalization is always applied internally using percentile clipping (<code>pmin=1.0</code>, <code>pmax=99.8</code>) and is not exposed in the UI.</p>
+<h3 id="default_3d-stardist-3d">default_3d (StarDist 3D)<a class="headerlink" href="#default_3d-stardist-3d" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong> 3D stacks where nuclei extend across multiple z-planes.</p>
+<p><strong>How it works:</strong> StarDist 3D predicts star-convex polyhedra in volumetric data.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Object diameter (px)</strong></td>
+<td>float</td>
+<td>30.0</td>
+<td>1.0 - 500.0</td>
+<td>Expected diameter of nuclei in pixels.</td>
+</tr>
+<tr>
+<td><strong>Prob threshold</strong></td>
+<td>float</td>
+<td>0.445</td>
+<td>0.0 - 1.0</td>
+<td>Confidence threshold for accepting nuclei.</td>
+</tr>
+<tr>
+<td><strong>NMS threshold</strong></td>
+<td>float</td>
+<td>0.3</td>
+<td>0.0 - 1.0</td>
+<td>Non-maximum suppression threshold for separating instances.</td>
+</tr>
+</tbody>
+</table>
+<p>Normalization is always applied internally using percentile clipping (<code>pmin=1.0</code>, <code>pmax=99.8</code>) and is not exposed in the UI.</p>
+<h3 id="cpsam-cellpose-sam">cpsam (Cellpose SAM)<a class="headerlink" href="#cpsam-cellpose-sam" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong> General purpose nuclear/cytoplasmic segmentation.</p>
+<p><strong>How it works:</strong> Cellpose with SAM encoder.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Object diameter (px)</strong></td>
+<td>float</td>
+<td>30.0</td>
+<td>0.1 - 1000.0</td>
+<td>Expected diameter of cells or nuclei.</td>
+</tr>
+<tr>
+<td><strong>Flow threshold</strong></td>
+<td>float</td>
+<td>0.4</td>
+<td>0.0 - 2.0</td>
+<td>Maximum allowed flow error; lower is stricter, higher accepts more masks.</td>
+</tr>
+<tr>
+<td><strong>Cellprob threshold</strong></td>
+<td>float</td>
+<td>0.0</td>
+<td>-6.0 - 6.0</td>
+<td>Threshold on cell probability; Higher = accept fewer masks.</td>
+</tr>
+<tr>
+<td><strong>Number of iterations</strong></td>
+<td>int</td>
+<td>0</td>
+<td>0 - 9999</td>
+<td>Iterations of dynamic simulation (0 = automatic; For larger/longer cells, try a higher value like 2000).</td>
+</tr>
+</tbody>
+</table>
+<p>For CPSAM, dimensionality is auto-detected from the selected image (<code>2D</code> vs <code>3D</code>) and normalization is always enabled internally.</p>
+<h3 id="nuclear_dilation-cytoplasmic">nuclear_dilation (Cytoplasmic)<a class="headerlink" href="#nuclear_dilation-cytoplasmic" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong> Approximating cytoplasm when you only have nuclear masks.</p>
+<p><strong>How it works:</strong> Binary dilation expands nuclear labels outward by a fixed number of pixels.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dilation iterations</strong></td>
+<td>int</td>
+<td>5</td>
+<td>1 - 100</td>
+<td>Number of binary dilation iterations to expand nuclear masks.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="perinuclear_rings-cytoplasmic">perinuclear_rings (Cytoplasmic)<a class="headerlink" href="#perinuclear_rings-cytoplasmic" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong> Perinuclear marker quantification (eg., nuclear envelope).</p>
+<p><strong>How it works:</strong> Erodes nuclei inward and dilates outward to form a ring mask.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Inner erosion (px)</strong></td>
+<td>int</td>
+<td>2</td>
+<td>1 - 50</td>
+<td>Pixels to erode inward from the nuclear boundary.</td>
+</tr>
+<tr>
+<td><strong>Outer dilation (px)</strong></td>
+<td>int</td>
+<td>5</td>
+<td>0 - 50</td>
+<td>Pixels to dilate outward from the nuclear boundary.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> The minimum inner erosion is set to 1 pixel as needed by the logic to associate across segmentation masks in Quantification.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

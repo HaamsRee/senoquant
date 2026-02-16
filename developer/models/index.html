@@ -1,0 +1,1934 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="SenoQuant is a versatile napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts.">
+      
+      
+      
+      
+        <link rel="prev" href="../installer/">
+      
+      
+        <link rel="next" href="../prediction/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Models & Detectors - SenoQuant</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#models-detectors-and-prediction-runners" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="SenoQuant" class="md-header__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SenoQuant
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Models & Detectors
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user/installation/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="SenoQuant" class="md-nav__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    SenoQuant
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data & Readers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/segmentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Segmentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/spots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spots
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/quantification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models & Detectors
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models & Detectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-discovery-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How discovery works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How discovery works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#segmentation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spot-detectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spot detectors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prediction-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prediction models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-schema-detailsjson-for-segmentation-and-spots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata schema (details.json) for segmentation and spots
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata schema (details.json) for segmentation and spots">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-top-level-keys-all-modelsdetectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required top-level keys (all models/detectors)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#segmentation-only-requirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation-only requirement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#segmentation-specific-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation-specific fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spots-specific-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spots-specific fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prediction-model-conventions-no-detailsjson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prediction model conventions (no details.json)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-new-segmentation-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a new segmentation model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-new-spots-detector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a new spots detector
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-new-prediction-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a new prediction model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-validation-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick validation checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stardist-onnx-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StarDist ONNX notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stardist-onnx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StarDist ONNX Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantification-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization Tab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding-tabs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding Tabs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batch-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Settings Bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging & Releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../repo-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-discovery-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How discovery works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How discovery works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#segmentation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spot-detectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spot detectors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prediction-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prediction models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-schema-detailsjson-for-segmentation-and-spots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata schema (details.json) for segmentation and spots
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata schema (details.json) for segmentation and spots">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-top-level-keys-all-modelsdetectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required top-level keys (all models/detectors)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#segmentation-only-requirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation-only requirement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#segmentation-specific-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation-specific fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spots-specific-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spots-specific fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prediction-model-conventions-no-detailsjson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prediction model conventions (no details.json)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-new-segmentation-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a new segmentation model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-new-spots-detector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a new spots detector
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-new-prediction-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a new prediction model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-validation-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick validation checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stardist-onnx-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StarDist ONNX notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="models-detectors-and-prediction-runners">Models, detectors, and prediction runners<a class="headerlink" href="#models-detectors-and-prediction-runners" title="Permanent link">&para;</a></h1>
+<p>This guide is the source-of-truth for adding:</p>
+<ul>
+<li>Segmentation models.</li>
+<li>Spot detectors.</li>
+<li>Prediction models.</li>
+</ul>
+<p>Discovery is folder-based and dynamic across all three systems, but metadata
+rules differ:</p>
+<ul>
+<li>Segmentation/Spots read UI schemas from <code>details.json</code>.</li>
+<li>Prediction models define UI directly in Qt code and do not require
+  <code>details.json</code>.</li>
+</ul>
+<h2 id="how-discovery-works">How discovery works<a class="headerlink" href="#how-discovery-works" title="Permanent link">&para;</a></h2>
+<h3 id="segmentation-models">Segmentation models<a class="headerlink" href="#segmentation-models" title="Permanent link">&para;</a></h3>
+<p>Folder location:</p>
+<p><code>src/senoquant/tabs/segmentation/models/&lt;model_name&gt;/</code></p>
+<p>Discovery behavior:</p>
+<ul>
+<li><code>SegmentationBackend.list_model_names(task=...)</code> scans subfolders.</li>
+<li>A model is shown for a task only if <code>details.json</code> has
+  <code>tasks.&lt;task&gt;.supported = true</code>.</li>
+<li>Runtime class loading looks for the first subclass of
+  <code>SenoQuantSegmentationModel</code> in <code>model.py</code>.</li>
+<li>If <code>model.py</code> is missing, the base class is used, but <code>run()</code> is not
+  implemented, so the model is not runnable.</li>
+</ul>
+<h3 id="spot-detectors">Spot detectors<a class="headerlink" href="#spot-detectors" title="Permanent link">&para;</a></h3>
+<p>Folder location:</p>
+<p><code>src/senoquant/tabs/spots/models/&lt;detector_name&gt;/</code></p>
+<p>Discovery behavior:</p>
+<ul>
+<li><code>SpotsBackend.list_detector_names()</code> scans subfolders.</li>
+<li>Runtime class loading looks for the first subclass of
+  <code>SenoQuantSpotDetector</code> in <code>model.py</code>.</li>
+<li>If <code>model.py</code> is missing, the base class is used, but <code>run()</code> is not
+  implemented, so the detector is not runnable.</li>
+</ul>
+<h3 id="prediction-models">Prediction models<a class="headerlink" href="#prediction-models" title="Permanent link">&para;</a></h3>
+<p>Folder location:</p>
+<p><code>src/senoquant/tabs/prediction/models/&lt;model_name&gt;/</code></p>
+<p>Discovery behavior:</p>
+<ul>
+<li><code>PredictionBackend.list_model_names()</code> scans subfolders.</li>
+<li>Runtime class loading looks for the first subclass of
+  <code>SenoQuantPredictionModel</code> in <code>model.py</code>.</li>
+<li><code>display_order()</code> controls dropdown ordering (lower first).</li>
+<li>If <code>model.py</code> is missing, the base class is used, but <code>run()</code> is not
+  implemented, so the model is not runnable.</li>
+</ul>
+<h2 id="metadata-schema-detailsjson-for-segmentation-and-spots">Metadata schema (<code>details.json</code>) for segmentation and spots<a class="headerlink" href="#metadata-schema-detailsjson-for-segmentation-and-spots" title="Permanent link">&para;</a></h2>
+<p>Both segmentation and spots use a <code>settings</code> list to auto-build the UI.
+Manifest validation is enforced at load time via:</p>
+<ul>
+<li><code>src/senoquant/utils/model_details.schema.json</code></li>
+<li><code>src/senoquant/utils/model_details_schema.py</code></li>
+<li><code>SenoQuantSegmentationModel.load_details()</code> (requires <code>tasks</code>)</li>
+<li><code>SenoQuantSpotDetector.load_details()</code> (does not require <code>tasks</code>)</li>
+</ul>
+<p>If validation fails, model/detector loading raises a <code>ValueError</code> with the
+<code>details.json</code> path and validation message.</p>
+<h3 id="required-top-level-keys-all-modelsdetectors">Required top-level keys (all models/detectors)<a class="headerlink" href="#required-top-level-keys-all-modelsdetectors" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>name</code> (string)</li>
+<li><code>description</code> (string)</li>
+<li><code>version</code> (string)</li>
+<li><code>settings</code> (array)</li>
+</ul>
+<h3 id="segmentation-only-requirement">Segmentation-only requirement<a class="headerlink" href="#segmentation-only-requirement" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>tasks</code> object must be present and include both:</li>
+<li><code>tasks.nuclear</code></li>
+<li><code>tasks.cytoplasmic</code></li>
+</ul>
+<p>Supported setting types:</p>
+<ul>
+<li>Use <code>float</code>.</li>
+<li>Use <code>int</code>.</li>
+<li>Use <code>bool</code>.</li>
+</ul>
+<p>Supported dependency keys:</p>
+<ul>
+<li><code>enabled_by</code>: setting key of a controlling checkbox.</li>
+<li><code>disabled_by</code>: setting key of a controlling checkbox.</li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li>In current UI code, <code>enabled_by</code> and <code>disabled_by</code> are treated as a
+  single key string.</li>
+<li><code>order</code> controls dropdown sorting (lower comes first).</li>
+<li>For <code>float</code> and <code>int</code> settings, <code>min</code>, <code>max</code>, and <code>default</code> are required.</li>
+<li>For <code>bool</code> settings, <code>default</code> is required.</li>
+</ul>
+<h3 id="segmentation-specific-fields">Segmentation-specific fields<a class="headerlink" href="#segmentation-specific-fields" title="Permanent link">&para;</a></h3>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Custom segmentation model.&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;tasks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;nuclear&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;supported&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;cytoplasmic&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;supported&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;input_modes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cytoplasmic&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nuclear+cytoplasmic&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nuclear&quot;</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">&quot;nuclear_channel_optional&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>input_modes</code> behavior:</p>
+<ul>
+<li><code>["cytoplasmic"]</code>: cytoplasmic image only.</li>
+<li>Includes <code>nuclear+cytoplasmic</code>: uses both cytoplasmic and nuclear inputs.</li>
+<li><code>["nuclear"]</code>: nuclear-only cytoplasmic model (no cytoplasmic image).</li>
+</ul>
+<h3 id="spots-specific-fields">Spots-specific fields<a class="headerlink" href="#spots-specific-fields" title="Permanent link">&para;</a></h3>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_detector&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Custom spot detector.&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="prediction-model-conventions-no-detailsjson">Prediction model conventions (no <code>details.json</code>)<a class="headerlink" href="#prediction-model-conventions-no-detailsjson" title="Permanent link">&para;</a></h2>
+<p>Prediction models are code-driven. Required file:</p>
+<ul>
+<li><code>src/senoquant/tabs/prediction/models/&lt;model_name&gt;/model.py</code></li>
+</ul>
+<p>The tab-level controls are fixed in
+<code>src/senoquant/tabs/prediction/frontend.py</code>:</p>
+<ul>
+<li><code>Select model</code> dropdown.</li>
+<li><code>Model interface</code> box (model-defined widget).</li>
+<li><code>Run</code> button outside the box.</li>
+</ul>
+<p>Each model class should:</p>
+<ul>
+<li>Subclass <code>SenoQuantPredictionModel</code>.</li>
+<li>Optionally implement <code>display_order()</code> for dropdown sorting.</li>
+<li>Implement <code>build_widget(parent, viewer)</code> for model-specific controls.</li>
+<li>Implement <code>collect_widget_settings(settings_widget)</code> for serializable settings.</li>
+<li>Implement <code>run(viewer=..., settings=...)</code> returning prediction layer specs.</li>
+</ul>
+<p>Prediction backend accepts output layer specs as dicts or tuple-like payloads;
+see <code>PredictionBackend._normalize_layer_spec(...)</code> in
+<code>src/senoquant/tabs/prediction/backend.py</code>.</p>
+<h2 id="add-a-new-segmentation-model">Add a new segmentation model<a class="headerlink" href="#add-a-new-segmentation-model" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Create the folder:
+   <code>src/senoquant/tabs/segmentation/models/my_model/</code>.</li>
+<li>Add <code>details.json</code> with <code>tasks</code> and <code>settings</code>.</li>
+<li>Add <code>model.py</code> with a subclass of <code>SenoQuantSegmentationModel</code>.</li>
+<li>Implement <code>run(self, **kwargs)</code> and return <code>{"masks": &lt;label_array&gt;}</code>.</li>
+<li>Restart napari and verify the model appears in the correct task dropdown.</li>
+</ol>
+<p>Minimal template:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">senoquant.tabs.segmentation.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SenoQuantSegmentationModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">senoquant.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">layer_data_asarray</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MySegmentationModel</span><span class="p">(</span><span class="n">SenoQuantSegmentationModel</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;task&quot;</span><span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">task</span> <span class="o">==</span> <span class="s2">&quot;nuclear&quot;</span><span class="p">:</span>
+            <span class="n">layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;layer&quot;</span><span class="p">)</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">layer_data_asarray</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">task</span> <span class="o">==</span> <span class="s2">&quot;cytoplasmic&quot;</span><span class="p">:</span>
+            <span class="c1"># Segmentation tab passes `cytoplasmic_layer`.</span>
+            <span class="c1"># Batch currently passes `layer` for the same input.</span>
+            <span class="n">cyto_layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cytoplasmic_layer&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;layer&quot;</span><span class="p">)</span>
+            <span class="n">nuclear_layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nuclear_layer&quot;</span><span class="p">)</span>
+            <span class="c1"># pick the inputs your mode requires</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">layer_data_asarray</span><span class="p">(</span><span class="n">cyto_layer</span> <span class="ow">or</span> <span class="n">nuclear_layer</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported task: </span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">masks</span> <span class="o">=</span> <span class="n">my_segmentation_function</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;masks&quot;</span><span class="p">:</span> <span class="n">masks</span><span class="p">}</span>
+</code></pre></div>
+<p>Important runtime contracts:</p>
+<ul>
+<li>Nuclear runs pass <code>task="nuclear"</code> and <code>layer=&lt;Image&gt;</code>.</li>
+<li>Cytoplasmic runs pass <code>task="cytoplasmic"</code> and:</li>
+<li>Segmentation tab: <code>cytoplasmic_layer</code>, optional <code>nuclear_layer</code>.</li>
+<li>Batch path: <code>layer</code>, optional <code>nuclear_layer</code>.</li>
+<li>nuclear-only models (<code>input_modes == ["nuclear"]</code>): <code>nuclear_layer</code>.</li>
+</ul>
+<h2 id="add-a-new-spots-detector">Add a new spots detector<a class="headerlink" href="#add-a-new-spots-detector" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Create the folder:
+   <code>src/senoquant/tabs/spots/models/my_detector/</code>.</li>
+<li>Add <code>details.json</code>.</li>
+<li>Add <code>model.py</code> with a subclass of <code>SenoQuantSpotDetector</code>.</li>
+<li>Implement <code>run(self, **kwargs)</code> and return <code>{"mask": &lt;label_array&gt;}</code>.</li>
+<li>Restart napari and verify detector appears in Spots dropdown.</li>
+</ol>
+<p>Minimal template:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">senoquant.tabs.spots.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SenoQuantSpotDetector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">senoquant.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">layer_data_asarray</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyDetector</span><span class="p">(</span><span class="n">SenoQuantSpotDetector</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;my_detector&quot;</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="n">layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;layer&quot;</span><span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">layer_data_asarray</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">my_spot_detector</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;mask&quot;</span><span class="p">:</span> <span class="n">mask</span><span class="p">}</span>
+</code></pre></div>
+<p>Important runtime contracts:</p>
+<ul>
+<li>Detector runs receive <code>layer</code> and <code>settings</code>.</li>
+<li>Output layer naming and metadata are handled in <code>SpotsTab</code>, not in the
+  detector.</li>
+<li>Both Spots tab and Batch apply optional post-detection filtering through
+  <code>_filter_labels_by_size(...)</code> (<code>src/senoquant/tabs/spots/frontend.py</code>).</li>
+<li><code>min_size</code> / <code>max_size</code> values are treated as diameter thresholds (pixels):
+  2D uses effective area (<code>pi * (d/2)^2</code>), 3D uses effective volume
+  (<code>(4/3) * pi * (d/2)^3</code>).</li>
+</ul>
+<h2 id="add-a-new-prediction-model">Add a new prediction model<a class="headerlink" href="#add-a-new-prediction-model" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Create the folder:
+   <code>src/senoquant/tabs/prediction/models/my_model/</code>.</li>
+<li>Add <code>model.py</code> with a subclass of <code>SenoQuantPredictionModel</code>.</li>
+<li>Implement <code>build_widget()</code>, <code>collect_widget_settings()</code>, and <code>run()</code>.</li>
+<li>Return output as layer specs under a <code>layers</code> list.</li>
+<li>Restart napari and verify the model appears in <strong>Select model</strong>.</li>
+</ol>
+<p>Minimal template:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">qtpy.QtWidgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">QLabel</span><span class="p">,</span> <span class="n">QVBoxLayout</span><span class="p">,</span> <span class="n">QWidget</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">senoquant.tabs.prediction.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SenoQuantPredictionModel</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyPredictionWidget</span><span class="p">(</span><span class="n">QWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">viewer</span><span class="p">,</span> <span class="n">parent</span><span class="p">:</span> <span class="n">QWidget</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_viewer</span> <span class="o">=</span> <span class="n">viewer</span>
+        <span class="n">layout</span> <span class="o">=</span> <span class="n">QVBoxLayout</span><span class="p">()</span>
+        <span class="n">layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="n">QLabel</span><span class="p">(</span><span class="s2">&quot;Configure my prediction model&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setLayout</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;scale&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyPredictionModel</span><span class="p">(</span><span class="n">SenoQuantPredictionModel</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_widget</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">viewer</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">MyPredictionWidget</span><span class="p">(</span><span class="n">viewer</span><span class="o">=</span><span class="n">viewer</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">collect_widget_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings_widget</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">settings_widget</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">settings_widget</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;layers&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="o">...</span><span class="p">,</span>  <span class="c1"># numpy array</span>
+                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_prediction_output&quot;</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">settings</span><span class="p">,</span>
+        <span class="p">}</span>
+</code></pre></div>
+<h2 id="quick-validation-checklist">Quick validation checklist<a class="headerlink" href="#quick-validation-checklist" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Folder name, class constructor name, and <code>super("&lt;name&gt;")</code> all match.</li>
+<li>Segmentation/Spots: <code>details.json</code> passes <code>model_details.schema.json</code> validation.</li>
+<li>Segmentation manifests include both <code>tasks.nuclear</code> and <code>tasks.cytoplasmic</code>.</li>
+<li><code>run()</code> returns expected keys:</li>
+<li>Segmentation: <code>masks</code>.</li>
+<li>Spots: <code>mask</code>.</li>
+<li>Prediction: <code>layers</code> (or a sequence normalized by backend).</li>
+<li>Settings keys in code match <code>details.json</code> keys (segmentation/spots only).</li>
+<li>New model/detector/prediction runner appears in UI and can run on a sample image.</li>
+</ul>
+<h2 id="stardist-onnx-notes">StarDist ONNX notes<a class="headerlink" href="#stardist-onnx-notes" title="Permanent link">&para;</a></h2>
+<p>The StarDist conversion utilities and compiled extension still live under:</p>
+<ul>
+<li><code>src/senoquant/tabs/segmentation/stardist_onnx_utils/</code>.</li>
+<li><code>stardist_ext/</code>.</li>
+</ul>
+<p>For conversion workflow details, see <code>docs/developer/stardist-onnx.md</code>.
+For packaging details, see <code>docs/developer/packaging.md</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

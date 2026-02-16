@@ -1,0 +1,2019 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="SenoQuant is a versatile napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts.">
+      
+      
+      
+      
+        <link rel="prev" href="../installation/">
+      
+      
+        <link rel="next" href="../data/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Quick Start - SenoQuant</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#quick-start" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="SenoQuant" class="md-header__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SenoQuant
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Quick Start
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../developer/installation/" class="md-tabs__link">
+          
+  
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="SenoQuant" class="md-nav__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    SenoQuant
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-launch-napari-and-load-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Launch napari and load image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-open-senoquant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Open SenoQuant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-run-nuclear-segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Run nuclear segmentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-optional-run-cytoplasmic-segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. (Optional) Run cytoplasmic segmentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-optional-detect-spots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. (Optional) Detect spots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-optional-run-a-prediction-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. (Optional) Run a prediction model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-configure-quantification-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Configure quantification features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Configure quantification features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configure-a-markers-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure a Markers feature
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-a-spots-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure a Spots feature
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-run-quantification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Run quantification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batch-processing-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch processing workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Batch processing workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-open-the-batch-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Open the Batch tab
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-configure-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configure inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-map-channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Map channels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-enable-processing-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Enable processing steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-configure-quantification-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Configure quantification (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-set-outputs-and-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Set outputs and run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-persistence-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings persistence (recommended)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data & Readers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../segmentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Segmentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spots
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/installer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models & Detectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/stardist-onnx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StarDist ONNX Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/quantification-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization Tab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/adding-tabs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding Tabs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/batch-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Settings Bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging & Releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/repo-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-launch-napari-and-load-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Launch napari and load image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-open-senoquant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Open SenoQuant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-run-nuclear-segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Run nuclear segmentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-optional-run-cytoplasmic-segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. (Optional) Run cytoplasmic segmentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-optional-detect-spots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. (Optional) Detect spots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-optional-run-a-prediction-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. (Optional) Run a prediction model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-configure-quantification-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Configure quantification features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Configure quantification features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configure-a-markers-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure a Markers feature
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-a-spots-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure a Spots feature
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-run-quantification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Run quantification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batch-processing-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch processing workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Batch processing workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-open-the-batch-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Open the Batch tab
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-configure-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configure inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-map-channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Map channels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-enable-processing-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Enable processing steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-configure-quantification-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Configure quantification (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-set-outputs-and-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Set outputs and run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-persistence-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings persistence (recommended)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h1>
+<p>This guide walks through the basic workflow for analyzing senescence markers in tissue images using SenoQuant.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>napari installed with SenoQuant.</li>
+<li>System meets the <a href="../installation/#system-requirements">installation requirements</a>.</li>
+<li>Multi-channel microscopy image (supported formats: <code>.tif</code>, <code>.czi</code>, <code>.lif</code>, <code>.nd2</code>, etc.).</li>
+<li>Channels containing: Nuclei, IF markers, and/or spots.</li>
+</ul>
+<h2 id="basic-workflow">Basic workflow<a class="headerlink" href="#basic-workflow" title="Permanent link">&para;</a></h2>
+<h3 id="1-launch-napari-and-load-image">1. Launch napari and load image<a class="headerlink" href="#1-launch-napari-and-load-image" title="Permanent link">&para;</a></h3>
+<p><strong>If you used the Installer:</strong></p>
+<ul>
+<li>Launch <strong>SenoQuant</strong> from the Start Menu or the desktop icon.</li>
+</ul>
+<p><strong>Manual installs (conda/uv):</strong></p>
+<p>In your terminal, activate the conda environment where SenoQuant is installed and start napari:</p>
+<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>activate<span class="w"> </span>senoquant
+napari<span class="w"> </span>--with<span class="w"> </span>senoquant
+</code></pre></div>
+<p><strong>Load your image:</strong></p>
+<ul>
+<li>
+<p><code>File</code> → <code>Open File(s)...</code> → Select your image.</p>
+<blockquote>
+<p>A popup may appear for you to select the appropriate reader plugin. Choose <code>senoquant</code>.</p>
+</blockquote>
+</li>
+<li>
+<p>Or drag-and-drop the file into the napari window.</p>
+</li>
+</ul>
+<p><strong>Expected result:</strong> Each channel appears as a separate layer in the layer list. If you're opening a multi-scene file, select the desired scene(s) from the popup.</p>
+<h3 id="2-open-senoquant">2. Open SenoQuant<a class="headerlink" href="#2-open-senoquant" title="Permanent link">&para;</a></h3>
+<p>SenoQuant should launch automatically in Step 1. If not:</p>
+<p><code>Plugins</code> → <code>SenoQuant</code></p>
+<p>The plugin window opens as a docked widget with 7 tabs:</p>
+<ul>
+<li><strong>Segmentation</strong></li>
+<li><strong>Spots</strong></li>
+<li><strong>Prediction</strong></li>
+<li><strong>Quantification</strong></li>
+<li><strong>Visualization</strong></li>
+<li><strong>Batch</strong></li>
+<li><strong>Settings</strong></li>
+</ul>
+<h3 id="3-run-nuclear-segmentation">3. Run nuclear segmentation<a class="headerlink" href="#3-run-nuclear-segmentation" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Switch to the <strong>Segmentation</strong> tab.</li>
+<li>In the Nuclear segmentation box, select <strong>Nuclear layer</strong>: Choose the DAPI or nuclear stain channel.</li>
+<li>Select <strong>Model</strong>: <code>default_2d</code> (for 2D images) or <code>default_3d</code> (for Z-stacks). <code>cpsam</code> is also available for nuclear+cytoplasmic segmentation.</li>
+<li>
+<p>Adjust model settings if needed (e.g., <code>Object diameter (px)</code>).</p>
+<blockquote>
+<p>To quickly estimate object diameter, create a napari Shapes layer, draw a line across a representative nucleus, then use <code>Layers</code> → <code>Measure</code> → <code>Toggle shapes dimensions measurement (napari builtins)</code>. See <a href="https://napari.org/stable/howtos/layers/shapes.html">https://napari.org/stable/howtos/layers/shapes.html</a> for details.</p>
+<p>The default settings work well for most images.</p>
+</blockquote>
+</li>
+<li>
+<p>Click <strong>Run</strong>.</p>
+</li>
+</ol>
+<p><strong>Output:</strong> A new labels layer named <code>&lt;channel&gt;_&lt;model&gt;_nuc_labels</code> appears in the layer list.</p>
+<h3 id="4-optional-run-cytoplasmic-segmentation">4. (Optional) Run cytoplasmic segmentation<a class="headerlink" href="#4-optional-run-cytoplasmic-segmentation" title="Permanent link">&para;</a></h3>
+<p>If you need to catch cytoplasmic regions for marker quantification:</p>
+<ol>
+<li>In the <strong>Segmentation</strong> tab, go to the Cytoplasmic segmentation box.</li>
+<li>Select <strong>Model</strong>: <code>cpsam</code>, <code>nuclear_dilation</code> or <code>perinuclear_rings</code>.</li>
+<li>Select image/labels layers.</li>
+<li>Adjust model settings if needed.</li>
+<li>Click <strong>Run</strong>.</li>
+</ol>
+<p><strong>Output:</strong> A new labels layer named <code>&lt;channel&gt;_&lt;model&gt;_cyto_labels</code>.</p>
+<h3 id="5-optional-detect-spots">5. (Optional) Detect spots<a class="headerlink" href="#5-optional-detect-spots" title="Permanent link">&para;</a></h3>
+<p>If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):</p>
+<ol>
+<li>Switch to the <strong>Spots</strong> tab.</li>
+<li>Select <strong>Image Layer</strong>: Choose the channel with spots.</li>
+<li>Select <strong>Detector</strong>: <code>rmp</code>, <code>ufish</code>.</li>
+<li>
+<p>Adjust detection settings (for example, <code>Threshold</code>).</p>
+<blockquote>
+<p>The default settings work well for most images.</p>
+</blockquote>
+</li>
+<li>
+<p>(Optional) Set <strong>Minimum diameter</strong> and <strong>Maximum diameter</strong> to filter detected spots.</p>
+</li>
+<li>Click <strong>Run</strong>.</li>
+</ol>
+<p><strong>Output:</strong> A labels layer named <code>&lt;channel&gt;_&lt;detector&gt;_spot_labels</code>.</p>
+<h3 id="6-optional-run-a-prediction-model">6. (Optional) Run a prediction model<a class="headerlink" href="#6-optional-run-a-prediction-model" title="Permanent link">&para;</a></h3>
+<p>Use this tab for computer-vision models that predict senescence-associated
+feature layers.</p>
+<ol>
+<li>Switch to the <strong>Prediction</strong> tab.</li>
+<li>Select <strong>Select model</strong>: <code>demo_model</code> (current placeholder).</li>
+<li>In <strong>Model interface</strong>:</li>
+<li>Select <strong>Image layer</strong>.</li>
+<li>Set <strong>Multiplier</strong>.</li>
+<li>Click <strong>Run</strong>.</li>
+</ol>
+<p><strong>Output:</strong> A new image layer named <code>&lt;image layer&gt;_demo_model</code>.</p>
+<h3 id="7-configure-quantification-features">7. Configure quantification features<a class="headerlink" href="#7-configure-quantification-features" title="Permanent link">&para;</a></h3>
+<p>The quantification tab organizes exports by <strong>Features</strong>. A feature defines <em>what</em> to quantify and <em>how</em>. In the current version, two feature types are supported: <strong>Markers</strong> and <strong>Spots</strong>. This is based on common data types in senescence research:</p>
+<ul>
+<li><strong>Markers</strong>: Measure intensity-based markers (e.g., IF markers) within nuclear/cytoplasmic masks.</li>
+<li><strong>Spots</strong>: Count spots and analyze colocalization within cell masks.</li>
+</ul>
+<p>To add a feature:</p>
+<ol>
+<li>Switch to the <strong>Quantification</strong> tab.</li>
+<li>
+<p>Click <strong>Add feature</strong> → Select feature <strong>Type</strong>:</p>
+<ul>
+<li><strong>Markers</strong>: For intensity-based IF marker quantification.</li>
+<li><strong>Spots</strong>: For spot counting and colocalization.</li>
+</ul>
+</li>
+<li>
+<p>Name your feature (e.g., <code>IF markers</code>, <code>IF spots</code>).</p>
+</li>
+</ol>
+<h4 id="configure-a-markers-feature">Configure a Markers feature<a class="headerlink" href="#configure-a-markers-feature" title="Permanent link">&para;</a></h4>
+<ol>
+<li>Click <strong>Add channels</strong>.</li>
+<li>
+<p>In the popup:</p>
+<ul>
+<li>
+<p>In the top <strong>Segmentations</strong> box, click <strong>Add segmentation</strong> → Add nuclear/cytoplasmic labels layer.</p>
+<blockquote>
+<p>The selected segmentation defines the nuclei/cells for quantification. SenoQuant will export one cell x marker table per segmentation.</p>
+</blockquote>
+</li>
+<li>
+<p>In the <strong>Channels</strong> box, click <strong>Add channel</strong> → Add intensity channel(s) to quantify.</p>
+</li>
+<li>For each channel, name the channel (e.g., <code>DAPI</code>, <code>p16</code>), and select the image layer containing the marker. Optionally, click the <strong>Set threshold</strong> checkbox to define an intensity threshold for positive/negative calls automatically or manually. The threshold sliders are linked to the napari layer contrast limits for easy visualization.</li>
+<li>Click <strong>Save</strong> or close the popup when done.</li>
+</ul>
+</li>
+<li>
+<p>(Optional) Draw ROIs with a shapes layer. Enable <strong>ROIs</strong> → Name the ROI → Select the shapes layer. Select the ROI <strong>Type</strong> to be <code>Include</code> or <code>Exclude</code>. Nuclei/cells inside <code>Include</code> ROIs or outside <code>Exclude</code> ROIs will be marked in the output table.</p>
+</li>
+</ol>
+<h4 id="configure-a-spots-feature">Configure a Spots feature<a class="headerlink" href="#configure-a-spots-feature" title="Permanent link">&para;</a></h4>
+<ol>
+<li>Click <strong>Add channels</strong>.</li>
+<li>
+<p>In the popup:</p>
+<ul>
+<li>
+<p>(Optional) In the top box, click <strong>Add segmentation</strong> → Add a nuclear/cytoplasmic labels layer if you want per-cell spot summaries.</p>
+<blockquote>
+<p>With segmentation(s), SenoQuant exports one <code>*_cells</code> + <code>*_spots</code> table pair per segmentation. Without segmentation, it still exports all spots in <code>all_spots</code>.</p>
+</blockquote>
+</li>
+<li>
+<p>In the <strong>Channels</strong> box, click <strong>Add channel</strong> → Add spot channel(s) to quantify.</p>
+</li>
+<li>For each channel, name the channel (e.g., <code>gH2AX</code>, <code>Telomere</code>), select the image layer in <strong>Channel</strong>, and select the corresponding spot-label layer generated in the <strong>Spots</strong> tab under <strong>Spots segmentation</strong>.</li>
+<li>Click <strong>Save</strong> or close the popup when done.</li>
+</ul>
+</li>
+<li>
+<p>(Optional) Enable <strong>ROIs</strong> → Name the ROI → Select the shapes layer. ROIs work the same way as in the Markers feature.</p>
+</li>
+<li>(Optional) Enable <strong>Export colocalization</strong> to analyze spot colocalization between two or more spot channels. Colocalization will only be computed if two or more spot channels are added to the feature.</li>
+</ol>
+<h3 id="8-run-quantification">8. Run quantification<a class="headerlink" href="#8-run-quantification" title="Permanent link">&para;</a></h3>
+<ol>
+<li>In the <strong>Quantification</strong> tab, ensure all features are configured</li>
+<li>In the <strong>Output</strong> box, browse to select an output folder.</li>
+<li>Name the quantification run in <strong>Save name</strong>.</li>
+<li>Choose <strong>Format</strong>: <code>xlsx</code> (Excel) or <code>csv</code>.</li>
+<li>Click <strong>Process and save</strong>.</li>
+<li>Wait for quantification to complete.</li>
+</ol>
+<p><strong>Outputs:</strong> <br />
+Excel/CSV files containing:</p>
+<ul>
+<li><strong>Markers</strong>: Marker intensities per cell, morphological features.</li>
+<li><strong>Spots</strong>: Spot counts per cell, spot intensities, colocalization data (if enabled).</li>
+</ul>
+<p>Segmentation masks are also saved, plus a <code>.json</code> file with the configuration used for the run.</p>
+<h2 id="batch-processing-workflow">Batch processing workflow<a class="headerlink" href="#batch-processing-workflow" title="Permanent link">&para;</a></h2>
+<p>For high-throughput analysis of multiple images:</p>
+<h3 id="1-open-the-batch-tab">1. Open the Batch tab<a class="headerlink" href="#1-open-the-batch-tab" title="Permanent link">&para;</a></h3>
+<p>In the SenoQuant dock widget, select <strong>Batch</strong>.</p>
+<h3 id="2-configure-inputs">2. Configure inputs<a class="headerlink" href="#2-configure-inputs" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Input folder</strong> → Choose the directory containing images.</li>
+<li><strong>Extensions</strong> → List the file types to include (e.g., <code>.tif, .nd2, .czi</code>).</li>
+<li>(Optional) <strong>Include subfolders</strong> → Enable if your data are nested.</li>
+<li>(Optional) <strong>Process all scenes</strong> → Enable for multi-scene files.</li>
+</ol>
+<h3 id="3-map-channels">3. Map channels<a class="headerlink" href="#3-map-channels" title="Permanent link">&para;</a></h3>
+<p>Add channel names and indices so they appear in all dropdowns:</p>
+<ul>
+<li><strong>Name</strong>: <code>DAPI</code>, <code>FITC</code>, <code>Cy3</code>, etc.</li>
+<li><strong>Index</strong>: zero-based channel index</li>
+</ul>
+<h3 id="4-enable-processing-steps">4. Enable processing steps<a class="headerlink" href="#4-enable-processing-steps" title="Permanent link">&para;</a></h3>
+<p>Configure only the steps you need:</p>
+<ul>
+<li><strong>Nuclear segmentation</strong> → Enable, select model and channel, adjust settings.</li>
+<li><strong>Cytoplasmic segmentation</strong> (optional) → Enable if needed.</li>
+<li><strong>Spot detection</strong> (optional) → Choose detector and channels; set min/max diameter-style filtering if needed.</li>
+</ul>
+<h3 id="5-configure-quantification-optional">5. Configure quantification (optional)<a class="headerlink" href="#5-configure-quantification-optional" title="Permanent link">&para;</a></h3>
+<p>If you want batch exports:</p>
+<ol>
+<li>Enable <strong>Quantification</strong>.</li>
+<li>Click <strong>Add feature</strong> and set up <strong>Markers</strong> or <strong>Spots</strong> features as in the single-image workflow.</li>
+</ol>
+<blockquote>
+<p>Note: ROI selection and threshold tuning are not available in batch mode.</p>
+</blockquote>
+<h3 id="6-set-outputs-and-run">6. Set outputs and run<a class="headerlink" href="#6-set-outputs-and-run" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Output folder</strong> → Choose where results are written.</li>
+<li>(Optional) <strong>Overwrite</strong> → Enable to replace existing outputs.</li>
+<li>Click <strong>Run batch</strong>.</li>
+</ol>
+<p><strong>Outputs:</strong> Each input image gets its own output folder with (if enabled)
+quantification tables plus per-feature <code>feature_settings.json</code> metadata files.
+Masks are also saved. The batch output root includes a <code>senoquant_settings.json</code>
+file with the batch configuration used for the run.</p>
+<h2 id="settings-persistence-recommended">Settings persistence (recommended)<a class="headerlink" href="#settings-persistence-recommended" title="Permanent link">&para;</a></h2>
+<p>Before closing napari, save your configuration:</p>
+<ol>
+<li>Open the <strong>Settings</strong> tab.</li>
+<li>Click <strong>Save settings</strong> and store <code>senoquant_settings.json</code>.</li>
+</ol>
+<p>To continue later, click <strong>Load settings</strong> in the same tab.
+If the JSON contains batch configuration, the Batch tab is populated too.</p>
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../segmentation/">Segmentation</a> - Detailed model settings and parameters</li>
+<li><a href="../spots/">Spots</a> - Advanced spot detection configuration</li>
+<li><a href="../prediction/">Prediction</a> - Prediction model workflow and placeholder example</li>
+<li><a href="../quantification/">Quantification</a> - Feature export details and column definitions</li>
+<li><a href="../visualization/">Visualization</a> - Plot generation from quantification tables</li>
+<li><a href="../batch/">Batch</a> - Batch processing and automation</li>
+<li><a href="../data/">Data</a> - Supported file formats and metadata handling</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

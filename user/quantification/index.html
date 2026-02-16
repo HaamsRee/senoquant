@@ -1,0 +1,1738 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="SenoQuant is a versatile napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts.">
+      
+      
+      
+      
+        <link rel="prev" href="../prediction/">
+      
+      
+        <link rel="next" href="../visualization/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Quantification - SenoQuant</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#quantification" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="SenoQuant" class="md-header__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SenoQuant
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Quantification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../developer/installation/" class="md-tabs__link">
+          
+  
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="SenoQuant" class="md-nav__button md-logo" aria-label="SenoQuant" data-md-component="logo">
+      
+  <img src="../../assets/images/senoquant_logo.svg" alt="logo">
+
+    </a>
+    SenoQuant
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data & Readers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../segmentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Segmentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spots
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#interface-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interface overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main-interface-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main interface controls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feature-configuration-dialog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature configuration dialog
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feature-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Feature types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#markers-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Markers feature
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Markers feature">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exported-columns-markers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported columns (Markers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spots-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spots feature
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spots feature">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exported-tables-spots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported tables (Spots)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/installer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models & Detectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/stardist-onnx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StarDist ONNX Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/quantification-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantification Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization Tab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/adding-tabs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding Tabs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/batch-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Settings Bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging & Releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/repo-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#interface-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interface overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main-interface-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main interface controls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feature-configuration-dialog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature configuration dialog
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feature-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Feature types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#markers-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Markers feature
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Markers feature">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exported-columns-markers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported columns (Markers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spots-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spots feature
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spots feature">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exported-tables-spots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported tables (Spots)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="quantification">Quantification<a class="headerlink" href="#quantification" title="Permanent link">&para;</a></h1>
+<p>The Quantification tab extracts measurements from segmented images and exports them to spreadsheet files.</p>
+<h2 id="interface-overview">Interface overview<a class="headerlink" href="#interface-overview" title="Permanent link">&para;</a></h2>
+<h3 id="main-interface-controls">Main interface controls<a class="headerlink" href="#main-interface-controls" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Add feature</strong> (button): Create a new quantification feature.</li>
+<li><strong>Features list</strong> (panel): Shows all configured features with name, type, and delete button.</li>
+<li><strong>Output folder</strong> (browse field): Select folder where results will be saved.</li>
+<li><strong>Save name</strong> (text field): Name for the output subfolder (optional).</li>
+<li><strong>Format</strong> (dropdown): Choose <code>xlsx</code> or <code>csv</code> for export format.</li>
+<li><strong>Process and save</strong> (button): Execute quantification and save results.</li>
+</ul>
+<h3 id="feature-configuration-dialog">Feature configuration dialog<a class="headerlink" href="#feature-configuration-dialog" title="Permanent link">&para;</a></h3>
+<p>When you click <strong>Add feature</strong>, a numbered feature appears in the Features list:</p>
+<p><strong>Common fields:</strong></p>
+<ul>
+<li><strong>Name</strong>: Custom name for this feature (e.g., <code>IF markers</code>, <code>IF spots</code>).</li>
+<li><strong>Feature type</strong> (dropdown): Select "Markers" or "Spots".</li>
+<li><strong>Delete</strong> (button): Remove this feature.</li>
+</ul>
+<h2 id="feature-types">Feature types<a class="headerlink" href="#feature-types" title="Permanent link">&para;</a></h2>
+<p>The quantification tab organizes exports by <strong>Features</strong>. A feature defines <em>what</em> to quantify and <em>how</em>. In the current version, two feature types are supported: <strong>Markers</strong> and <strong>Spots</strong>. This is based on common data types in senescence research:</p>
+<ul>
+<li><strong>Markers</strong>: Measure intensity-based markers (e.g., IF markers) within nuclear/cytoplasmic masks.</li>
+<li><strong>Spots</strong>: Count spots and analyze colocalization within cell masks.</li>
+</ul>
+<h3 id="markers-feature">Markers feature<a class="headerlink" href="#markers-feature" title="Permanent link">&para;</a></h3>
+<p>Measures channel intensity and morphological properties within segmentation labels.</p>
+<p><u><strong>Add channels popup:</strong></u></p>
+<p><strong>Segmentation section:</strong></p>
+<ul>
+<li><strong>Add segmentation</strong>: Add a segmentation layer.</li>
+<li><strong>Labels</strong> (dropdown per row): Select a labels layer (nuclear or cytoplasmic masks).</li>
+<li><strong>Delete</strong> (per row): Remove this segmentation.</li>
+</ul>
+<blockquote>
+<p>Each segmentation added here will be applied to all channels in this feature. SenoQuant will export one cell x marker table per segmentation.</p>
+</blockquote>
+<p><strong>Channels section:</strong></p>
+<ul>
+<li><strong>Add channel</strong>: Add an image channel.</li>
+<li><strong>Channel</strong> (dropdown per row): Select an image layer to measure intensities from.</li>
+<li>
+<p><strong>Set threshold</strong> (checkbox per row): Enable intensity thresholding.</p>
+<ul>
+<li><strong>Threshold</strong> (slider): Threshold level (enabled when checkbox checked). The values set here are linked to the napari layer contrast limits for easy visualization. <strong>Mean</strong> intensities outside and within the thresholded region will marked in the output files.</li>
+<li>
+<p><strong>Method</strong> (dropdown): Various thresholding methods:</p>
+<ul>
+<li><code>Manual</code>: Set threshold using slider.</li>
+<li><code>Otsu</code>: Automatic Otsu thresholding.</li>
+<li><code>Yen</code>: Automatic Yen thresholding.</li>
+<li><code>Li</code>: Automatic Li thresholding.</li>
+<li><code>Isodata</code>: Automatic Isodata thresholding.</li>
+<li><code>Triangle</code>: Automatic Triangle thresholding.</li>
+</ul>
+<blockquote>
+<p>Click the "Auto threshold" button to compute the threshold using the selected automatic method. For more details on these methods, refer to the <a href="https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_thresholding.html">skimage documentation</a>.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Delete</strong> (per row): Remove this channel.</p>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>Closing the popup or clicking <strong>Save</strong> will save the settings.</p>
+</blockquote>
+<p><u><strong>ROI section:</strong></u></p>
+<blockquote>
+<p>Enabled by checking the <strong>ROIs</strong> checkbox in the main feature configuration box.</p>
+</blockquote>
+<ul>
+<li><strong>Add ROI</strong>: Add a region of interest filter.</li>
+<li><strong>Layer</strong> (dropdown): Select a Shapes layer.</li>
+<li><strong>Type</strong> (dropdown): "Include" (mark overlapping as 1 in output) or "Exclude" (mark overlapping as 0 in output).</li>
+<li><strong>Delete</strong>: Remove this ROI.</li>
+</ul>
+<h4 id="exported-columns-markers">Exported columns (Markers)<a class="headerlink" href="#exported-columns-markers" title="Permanent link">&para;</a></h4>
+<p><strong>Morphological metrics (2D images):</strong></p>
+<ul>
+<li><code>morph_area</code> - Area in pixels.</li>
+<li><code>morph_area_um2</code> - Area in µm² (if pixel sizes available).</li>
+<li><code>morph_perimeter</code> - Perimeter in pixels.</li>
+<li><code>morph_perimeter_crofton</code> - Crofton perimeter estimate.</li>
+<li><code>morph_circularity</code> - 4π·area/perimeter² (1.0 = perfect circle).</li>
+<li><code>morph_eccentricity</code> - 0 (circular) to 1 (elongated).</li>
+<li><code>morph_solidity</code> - area / convex hull area.</li>
+<li><code>morph_extent</code> - area / bounding box area.</li>
+<li><code>morph_feret_diameter_max</code> - Maximum Feret diameter.</li>
+<li><code>morph_major_axis_length</code> - Major axis of fitted ellipse.</li>
+<li><code>morph_minor_axis_length</code> - Minor axis of fitted ellipse.</li>
+<li><code>morph_aspect_ratio</code> - major axis / minor axis.</li>
+<li><code>morph_orientation</code> - Angle in radians.</li>
+</ul>
+<p><strong>Morphological metrics (3D images):</strong></p>
+<ul>
+<li><code>morph_volume</code> - Volume in pixels.</li>
+<li><code>morph_volume_um3</code> - Volume in µm³ (if pixel sizes available).</li>
+<li>Limited shape descriptors (regionprops 3D limitation).</li>
+</ul>
+<p><strong>Centroid coordinates:</strong></p>
+<ul>
+<li>2D: <code>centroid_y</code>, <code>centroid_x</code> (pixels and µm if available).</li>
+<li>3D: <code>centroid_z</code>, <code>centroid_y</code>, <code>centroid_x</code> (pixels and µm if available).</li>
+</ul>
+<p><strong>Intensity metrics (per channel):</strong></p>
+<ul>
+<li><code>&lt;channel&gt;_mean_intensity</code> - Mean pixel intensity.</li>
+<li><code>&lt;channel&gt;_integrated_intensity</code> - mean × area × pixel_volume.</li>
+<li><code>&lt;channel&gt;_raw_integrated_intensity</code> - Sum of pixel values.</li>
+</ul>
+<p><strong>Thresholded intensity (when enabled):</strong></p>
+<ul>
+<li><code>&lt;channel&gt;_mean_intensity_thresholded</code></li>
+<li><code>&lt;channel&gt;_integrated_intensity_thresholded</code></li>
+<li><code>&lt;channel&gt;_raw_integrated_intensity_thresholded</code></li>
+</ul>
+<blockquote>
+<p>Thresholding will zero the <code>_thresholded</code> fields of cells with <strong>mean</strong> intensities outside the thresholding bounds.</p>
+</blockquote>
+<p><strong>Reference columns:</strong></p>
+<ul>
+<li><code>label_id</code> - Unique ID of the segmentation instance (a nucleus or a cytoplasm).</li>
+<li><code>file_path</code> - Full source path.</li>
+<li><code>segmentation_type</code> - "nuclear" or "cytoplasmic".</li>
+<li><code>overlaps_with</code> - Semicolon-separated list of overlapping labels from other segmentations in this feature, if there are multiple segmentations configured.</li>
+</ul>
+<p><strong>ROI columns:</strong></p>
+<ul>
+<li><code>excluded_from_roi_&lt;name&gt;</code> - 0/1 flag indicating if the cell is excluded by the named ROI.</li>
+<li><code>included_in_roi_&lt;name&gt;</code> - 0/1 flag indicating if the cell is included by the named ROI.</li>
+</ul>
+<h3 id="spots-feature">Spots feature<a class="headerlink" href="#spots-feature" title="Permanent link">&para;</a></h3>
+<p>Measures spot counts and spot-level properties from configured spot labels,
+with optional cell-segmentation context.</p>
+<p><u><strong>Add channels popup:</strong></u></p>
+<p><strong>Segmentation section:</strong></p>
+<ul>
+<li><strong>Add segmentation</strong>: Add a nuclear/cytoplasmic labels layer (optional).</li>
+<li><strong>Segmentation</strong> (dropdown per row): Select a cell segmentation layer.</li>
+<li><strong>Delete</strong> (per row): Remove this segmentation.</li>
+</ul>
+<blockquote>
+<p>When one or more valid segmentations are configured, SenoQuant exports one pair of files (<code>*_cells</code> and <code>*_spots</code>) per segmentation.</p>
+<p>If no valid segmentation is configured, SenoQuant still exports all spots in a single <code>all_spots</code> file (no cells table).</p>
+</blockquote>
+<p><strong>Channels section:</strong></p>
+<ul>
+<li><strong>Add channel</strong>: Add a spot channel row.</li>
+<li><strong>Name</strong> (text): Custom channel label for output columns and colocalization labels.</li>
+<li><strong>Channel</strong> (dropdown per row): Select the image layer used for spot intensity.</li>
+<li><strong>Spots segmentation</strong> (dropdown per row): Select the labels layer containing spot instances for this channel.</li>
+<li><strong>Delete</strong> (per row): Remove this channel.</li>
+</ul>
+<blockquote>
+<p>A channel row is exported only when both <strong>Channel</strong> and <strong>Spots segmentation</strong> are selected.</p>
+<p>If a selected layer is missing at runtime, the channel is skipped.</p>
+<p>When segmentations are configured, a channel is skipped for a segmentation if the spot-label shape does not match that segmentation shape.</p>
+<p>When no segmentations are configured, spot channels must share the same spot-label shape to be exported together.</p>
+<p>Spot labels are assigned to cells by centroid position when a segmentation is present. Spots outside segmentation are still exported and marked with <code>within_segmentation = 0</code>.</p>
+<p>Closing the popup or clicking <strong>Save</strong> will save the settings.</p>
+</blockquote>
+<p><u><strong>ROI section:</strong></u></p>
+<blockquote>
+<p>Enabled by checking the <strong>ROIs</strong> checkbox in the main feature configuration box.</p>
+<p>ROI controls are the same as in the Markers feature.</p>
+</blockquote>
+<p><strong>Colocalization:</strong></p>
+<ul>
+<li><strong>Export colocalization</strong> (checkbox): Include colocalization analysis in output.</li>
+</ul>
+<blockquote>
+<p>Colocalization is computed from overlap between spot label masks across channels (not intensity correlation). This is only computed when there are at least 2 valid spot channels for a given feature.</p>
+</blockquote>
+<h4 id="exported-tables-spots">Exported tables (Spots)<a class="headerlink" href="#exported-tables-spots" title="Permanent link">&para;</a></h4>
+<p><strong>Cells table</strong> (one per segmentation, only when a segmentation is configured):</p>
+<ul>
+<li><code>label_id</code> - Cell label ID from the selected segmentation.</li>
+<li><code>centroid_&lt;axis&gt;_pixels</code> - Cell centroid in pixels (<code>y/x</code> for 2D, <code>z/y/x</code> for 3D).</li>
+<li><code>centroid_&lt;axis&gt;_um</code> - Cell centroid in micrometers when physical pixel sizes are available.</li>
+<li>Morphology columns (same naming as Markers): e.g., <code>morph_area</code>, <code>morph_volume</code>, <code>morph_*</code>.</li>
+<li><code>overlaps_with</code> - Semicolon-separated overlapping labels from other configured segmentations in the same feature.</li>
+<li>ROI columns: <code>included_in_roi_&lt;name&gt;</code> and/or <code>excluded_from_roi_&lt;name&gt;</code>.</li>
+<li><code>&lt;channel&gt;_spot_count</code> - Number of spots assigned to that cell for each configured channel.</li>
+<li><code>&lt;channel&gt;_spot_mean_intensity</code> - Mean of per-spot mean intensities for spots assigned to that cell.</li>
+<li><code>colocalization_event_count</code> (when enabled) - Count of unique overlapping spot pairs within the same cell.</li>
+</ul>
+<blockquote>
+<p><code>&lt;channel&gt;</code> is derived from the channel <strong>Name</strong> (or the image layer name if Name is empty), sanitized to lowercase with underscores.</p>
+</blockquote>
+<p><strong>Spots table</strong> (one per segmentation, or a single <code>all_spots</code> table when no segmentation is configured):</p>
+<ul>
+<li><code>spot_id</code> - Unique identifier within channel.</li>
+<li><code>cell_id</code> - Parent cell label ID (0 when not assigned to a segmented cell).</li>
+<li><code>within_segmentation</code> - 1 when assigned to a segmented cell, 0 otherwise (present only when a segmentation is configured).</li>
+<li><code>channel</code> - Channel label (custom <strong>Name</strong> if provided, otherwise the image layer name).</li>
+<li><code>centroid_&lt;axis&gt;_pixels</code> - Spot centroid in pixels.</li>
+<li><code>centroid_&lt;axis&gt;_um</code> - Spot centroid in micrometers when physical pixel sizes are available.</li>
+<li><code>spot_area_pixels</code> (2D) or <code>spot_volume_pixels</code> (3D) - Spot size in pixel units.</li>
+<li><code>spot_area_um2</code> (2D) or <code>spot_volume_um3</code> (3D) - Spot size in physical units when pixel sizes are available.</li>
+<li><code>spot_mean_intensity</code> - Mean intensity of the spot region in the selected image channel.</li>
+<li>ROI columns: <code>included_in_roi_&lt;name&gt;</code> and/or <code>excluded_from_roi_&lt;name&gt;</code>, evaluated at the spot centroid.</li>
+<li><code>colocalizes_with</code> (when enabled) - Semicolon-separated list of overlapping spots as <code>&lt;channel_label&gt;:&lt;spot_id&gt;</code>.</li>
+</ul>
+<h2 id="output-structure">Output structure<a class="headerlink" href="#output-structure" title="Permanent link">&para;</a></h2>
+<p>Results are saved to: <code>&lt;output_folder&gt;/&lt;output_name&gt;/&lt;feature_name&gt;/</code></p>
+<p>Each feature creates its own subfolder containing:
+- One file per segmentation (Markers).
+- Spots:
+  - With segmentation(s): two files per segmentation (<code>*_cells</code> and <code>*_spots</code>).
+  - Without segmentation: one file (<code>all_spots</code>).
+- <code>feature_settings.json</code> (feature configuration snapshot and run metadata).</p>
+<p><strong>File naming:</strong>
+- Markers: <code>&lt;segmentation_label&gt;.&lt;format&gt;</code>.
+- Spots (with segmentation): <code>&lt;segmentation_label&gt;_cells.&lt;format&gt;</code> and <code>&lt;segmentation_label&gt;_spots.&lt;format&gt;</code>.
+- Spots (without segmentation): <code>all_spots.&lt;format&gt;</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
