@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
+from senoquant.utils import settings_bundle as settings_bundle_mod
 from senoquant.utils.settings_bundle import (
     build_settings_bundle,
     load_settings_bundle_json_schema,
@@ -70,3 +75,64 @@ def test_settings_bundle_json_schema_matches_bundle_defaults() -> None:
 
     required_keys = set(schema["required"])
     assert required_keys.issubset(payload.keys())
+
+
+def test_parse_settings_bundle_non_dict_returns_default_bundle() -> None:
+    """Ignore non-dict payloads and return default bundle shape."""
+    payload = parse_settings_bundle("legacy-profile")
+    assert payload["batch_job"] == {}
+    assert payload["tab_settings"] == {}
+    assert payload["feature_settings"] == {}
+    assert payload["segmentation_runs"] == []
+
+
+def test_build_settings_bundle_json_safe_path_and_item_values() -> None:
+    """Convert Path and scalar-like ``item()`` values to JSON-safe payloads."""
+
+    class _ScalarLike:
+        def __init__(self, value) -> None:
+            self._value = value
+
+        def item(self):
+            return self._value
+
+    payload = build_settings_bundle(
+        batch_job={
+            "input_path": Path("/tmp/input"),
+            "threshold": _ScalarLike(0.75),
+        }
+    )
+
+    assert payload["batch_job"]["input_path"] == "/tmp/input"
+    assert payload["batch_job"]["threshold"] == pytest.approx(0.75)
+
+
+def test_build_settings_bundle_json_safe_item_failure_uses_string() -> None:
+    """Fallback to string conversion when scalar-like ``item()`` fails."""
+
+    class _BrokenScalar:
+        def item(self):
+            raise RuntimeError("broken")
+
+        def __str__(self) -> str:
+            return "broken-scalar"
+
+    payload = build_settings_bundle(batch_job={"value": _BrokenScalar()})
+    assert payload["batch_job"]["value"] == "broken-scalar"
+
+
+def test_load_settings_bundle_json_schema_rejects_non_dict_payload(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Raise ValueError when schema JSON payload is not an object."""
+    bad_schema = tmp_path / "settings_bundle.schema.json"
+    bad_schema.write_text("[]", encoding="utf-8")
+
+    monkeypatch.setattr(
+        settings_bundle_mod,
+        "SETTINGS_BUNDLE_JSON_SCHEMA_PATH",
+        bad_schema,
+    )
+
+    with pytest.raises(ValueError, match="Invalid settings bundle schema payload"):
+        load_settings_bundle_json_schema()
