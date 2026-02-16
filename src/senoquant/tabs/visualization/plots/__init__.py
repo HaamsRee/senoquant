@@ -10,6 +10,7 @@ from .base import PlotConfig, PlotData, SenoQuantPlot
 from .spatialplot import SpatialPlotData
 from .umap import UMAPData
 from .double_expression import DoubleExpressionData
+from .neighborhood import NeighborhoodEnrichmentData
 
 
 def _iter_subclasses(cls: type[SenoQuantPlot]) -> Iterable[type[SenoQuantPlot]]:
@@ -53,6 +54,7 @@ PLOT_DATA_FACTORY: dict[str, type[PlotData]] = {
     "UMAP": UMAPData,
     "Spatial Plot": SpatialPlotData,
     "Double Expression": DoubleExpressionData,
+    "Neighborhood Enrichment": NeighborhoodEnrichmentData,
 }
 
 
