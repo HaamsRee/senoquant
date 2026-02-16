@@ -381,6 +381,8 @@ def _colormap_cycle() -> Iterable[str]:
     """
     names = [
         "blue",
+        "green",
+        "red",
         "bop blue",
         "bop orange",
         "bop purple",
@@ -389,7 +391,6 @@ def _colormap_cycle() -> Iterable[str]:
         # "gist_earth",
         # "gray",
         # "gray_r",
-        "green",
         # "HiLo",
         # "hsv",
         # "I Blue",
@@ -404,7 +405,6 @@ def _colormap_cycle() -> Iterable[str]:
         # "nan",
         # "PiYG",
         # "plasma",
-        "red",
         # "turbo",
         # "twilight",
         # "twilight_shifted",
