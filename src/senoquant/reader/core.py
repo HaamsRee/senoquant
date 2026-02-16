@@ -341,13 +341,13 @@ def _colormap_cycle() -> Iterable[str]:
     """
     names = [
         "blue",
-        "bop blue",
-        "bop orange",
-        "bop purple",
-        "cyan",
         "green",
         "red",
         "yellow",
+        "cyan",
+        "bop blue",
+        "bop orange",
+        "bop purple",
     ]
     return itertools.cycle(names)
 

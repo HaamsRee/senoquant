@@ -38,11 +38,12 @@ Prediction-specific note:
 ## Reader pipeline
 
 The reader implementation lives in `src/senoquant/reader/core.py` and
-relies on BioIO to open files. The reader:
+relies on BioIO with bioio-bioformats to open files. The reader:
 
-- Validates the file via `BioImage.determine_plugin`.
+- Uses bioio-bioformats with `dask_tiles=True` for large image support.
+- Extracts channel colors from OME metadata when available.
+- Falls back to a default colormap cycle when all channels have the same color.
 - Iterates scenes and channels to create napari layers.
-- Applies a fixed colormap cycle for channel display.
 
 ## Batch pipeline
 
