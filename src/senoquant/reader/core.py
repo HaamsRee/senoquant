@@ -94,6 +94,11 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
     try:
         layers: list[tuple] = []
         colormap_cycle = _colormap_cycle()
+        # Try to get channel colors from OME metadata
+        channel_colors = _get_channel_colors_from_ome(image)
+        # If all channel colors are the same (e.g., all white), fall back to cycle
+        if channel_colors and _all_channels_same_color(channel_colors):
+            channel_colors = None
         scenes = list(getattr(image, "scenes", []) or [])
         selected_scene_indices = _select_scene_indices(path, scenes)
         if not selected_scene_indices:
@@ -111,6 +116,7 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
                     total_scenes=len(scenes),
                     path=path,
                     colormap_cycle=colormap_cycle,
+                    channel_colors=channel_colors,
                 )
             )
 
@@ -296,7 +302,7 @@ def _checked_scene_indices(scene_list) -> list[int]:
 
 
 def _open_bioimage(path: str):
-    """Open a BioImage using bioio.
+    """Open a BioImage using bioio with bioformats reader.
 
     Parameters
     ----------
@@ -310,65 +316,19 @@ def _open_bioimage(path: str):
     """
     import bioio
 
-    plugin = None
     try:
-        plugin = bioio.BioImage.determine_plugin(path)
-    except Exception:
-        plugin = None
+        import bioio_bioformats
 
-    if _should_force_tifffile(plugin, path):
-        image = _try_bioimage_readers(
-            bioio,
+        # Use dask_tiles=True to enable tile-based reading for large images.
+        # This avoids the 2GB limit in BioFormats.
+        return bioio.BioImage(
             path,
-            reader_names=("bioio_tifffile", "bioio_ome_tiff"),
+            reader=bioio_bioformats.Reader,
+            dask_tiles=True,
         )
-        if image is not None:
-            return image
-
-    return bioio.BioImage(path)
-
-
-def _should_force_tifffile(plugin, path: str) -> bool:
-    """Return True when tiff_glob should be bypassed for single-file TIFFs."""
-    if "*" in path or "?" in path:
-        return False
-    if not path.lower().endswith((".tif", ".tiff")):
-        return False
-    names = set()
-    if isinstance(plugin, str):
-        names.add(plugin)
-    else:
-        for attr in ("name", "value", "__name__", "__module__"):
-            value = getattr(plugin, attr, None)
-            if value:
-                names.add(str(value))
-        entrypoint = getattr(plugin, "entrypoint", None)
-        if entrypoint is not None:
-            for attr in ("name", "value", "__name__", "__module__"):
-                value = getattr(entrypoint, attr, None)
-                if value:
-                    names.add(str(value))
-    return any("tiff_glob" in name or "tiff-glob" in name for name in names)
-
-
-def _try_bioimage_readers(bioio, path: str, reader_names: tuple[str, ...]):
-    """Try opening a BioImage with explicit reader plugins."""
-    import importlib
-
-    for reader_name in reader_names:
-        module = None
-        try:
-            module = importlib.import_module(reader_name)
-        except Exception:
-            module = None
-        if module is not None:
-            reader_cls = getattr(module, "Reader", None)
-            if reader_cls is not None:
-                try:
-                    return bioio.BioImage(path, reader=reader_cls)
-                except Exception:
-                    continue
-    return None
+    except ImportError:
+        # Fallback to auto-detection if bioio-bioformats is not available
+        return bioio.BioImage(path)
 
 
 def _colormap_cycle() -> Iterable[str]:
@@ -385,33 +345,113 @@ def _colormap_cycle() -> Iterable[str]:
         "bop orange",
         "bop purple",
         "cyan",
-        # "fire",
-        # "gist_earth",
-        # "gray",
-        # "gray_r",
         "green",
-        # "HiLo",
-        # "hsv",
-        # "I Blue",
-        # "I Bordeaux",
-        # "I Forest",
-        # "I Orange",
-        # "I Purple",
-        # "ice",
-        # "inferno",
-        # "magenta",
-        # "magma",
-        # "nan",
-        # "PiYG",
-        # "plasma",
         "red",
-        # "turbo",
-        # "twilight",
-        # "twilight_shifted",
-        # "viridis",
         "yellow",
     ]
     return itertools.cycle(names)
+
+
+def _all_channels_same_color(channel_colors: list[dict | None]) -> bool:
+    """Check if all non-None channel colors are the same based on RGB values.
+
+    Parameters
+    ----------
+    channel_colors : list of dict or None
+        List of colormap dictionaries from OME metadata.
+
+    Returns
+    -------
+    bool
+        True if all channels have the same RGB color.
+    """
+    # Filter out None values
+    valid_colors = [c for c in channel_colors if c is not None]
+    if not valid_colors:
+        return False
+
+    # Extract RGB values from the 'colors' array (second color is the channel color)
+    rgb_values = []
+    for c in valid_colors:
+        colors = c.get("colors", [])
+        if len(colors) >= 2:
+            # Get the second color (the channel color, not black)
+            color = colors[1]
+            rgb_values.append((color[0], color[1], color[2]))
+
+    # Check if all RGB values are the same
+    return len(set(rgb_values)) == 1
+
+
+def _get_channel_colors_from_ome(image) -> list[dict | None]:
+    """Extract channel colors from OME metadata.
+
+    Parameters
+    ----------
+    image : bioio.BioImage
+        BioIO image with the current scene selected.
+
+    Returns
+    -------
+    list of dict or None
+        List of colormap dictionaries for each channel, or None if not available.
+        Each dict has 'colors', 'name', and 'interpolation' keys for napari.
+    """
+    try:
+        ome = image.ome_metadata
+    except Exception:
+        return []
+
+    if not hasattr(ome, "images") or not ome.images:
+        return []
+
+    # Get the first image's pixels channels
+    img = ome.images[0]
+    if not hasattr(img, "pixels") or not hasattr(img.pixels, "channels"):
+        return []
+
+    channels = img.pixels.channels
+    if not channels:
+        return []
+
+    channel_colors = []
+    for i, ch in enumerate(channels):
+        try:
+            color = getattr(ch, "color", None)
+            if color is None:
+                channel_colors.append(None)
+                continue
+
+            # Get RGB values from OME Color object
+            rgb_tuple = color.as_rgb_tuple()
+            # Convert to 0-1 range for napari
+            r, g, b = (x / 255.0 for x in rgb_tuple)
+
+            # Get the original color name (could be a string or tuple)
+            original = getattr(color, "_original", None)
+            if isinstance(original, str):
+                color_name = original
+            elif isinstance(original, tuple):
+                # It's an RGBA tuple, use the string representation
+                color_name = str(color)
+            else:
+                color_name = str(color)
+
+            # Create a colormap from black to the channel color
+            # This allows the channel to be visible regardless of its base color
+            colors = [[0.0, 0.0, 0.0, 1.0], [r, g, b, 1.0]]
+
+            channel_colors.append(
+                {
+                    "colors": colors,
+                    "name": f"channel_{i}_{color_name}",
+                    "interpolation": "linear",
+                }
+            )
+        except Exception:
+            channel_colors.append(None)
+
+    return channel_colors
 
 
 def _physical_pixel_sizes(image) -> dict[str, float | None]:
@@ -464,8 +504,12 @@ def _iter_channel_layers(
     total_scenes: int,
     path: str,
     colormap_cycle: Iterable[str] | None = None,
+    channel_colors: list[dict | None] | None = None,
 ) -> list[tuple]:
     """Split BioIO data into single-channel (Z)YX napari layers.
+
+    Uses dask-based delayed reading to handle large images that would
+    otherwise exceed the 2GB memory limit in BioFormats.
 
     Parameters
     ----------
@@ -483,6 +527,8 @@ def _iter_channel_layers(
         Original image path to store in the metadata.
     colormap_cycle : iterable of str or None, optional
         Iterator that provides colormap names to assign to each layer.
+    channel_colors : list of dict or None, optional
+        List of colormap dictionaries from OME metadata for each channel.
 
     Returns
     -------
@@ -505,6 +551,8 @@ def _iter_channel_layers(
     layers: list[tuple] = []
     t_index = 0
 
+    # Use dask-based delayed reading to handle large images
+    # This avoids the 2GB limit in BioFormats by not loading all data at once
     if c_size > 1:
         order = "CZYX" if z_size > 1 else "CYX"
         kwargs = {}
@@ -512,7 +560,8 @@ def _iter_channel_layers(
             kwargs["T"] = t_index
         if "Z" in axes_present and "Z" not in order:
             kwargs["Z"] = 0
-        data = image.get_image_data(order, **kwargs)
+        # Use get_image_dask_data for lazy loading instead of get_image_data
+        data = _get_dask_data(image, order, **kwargs)
         channel_iter = range(c_size)
     else:
         order = "ZYX" if z_size > 1 else "YX"
@@ -523,10 +572,12 @@ def _iter_channel_layers(
             kwargs["C"] = 0
         if "Z" in axes_present and "Z" not in order:
             kwargs["Z"] = 0
-        data = image.get_image_data(order, **kwargs)
+        # Use get_image_dask_data for lazy loading instead of get_image_data
+        data = _get_dask_data(image, order, **kwargs)
         channel_iter = [0]
 
     for channel_index in channel_iter:
+        # For dask arrays, we keep them as-is (lazy) - napari can handle them
         layer_data = data[channel_index] if c_size > 1 else data
 
         layer_name = f"{base_name} - {scene_name}" if total_scenes > 1 else base_name
@@ -545,8 +596,51 @@ def _iter_channel_layers(
                 "physical_pixel_sizes": physical_sizes,
             },
         }
-        if colormap_cycle is not None:
+        # Use OME channel color if available, otherwise fall back to cycle
+        if channel_colors and channel_index < len(channel_colors):
+            ome_color = channel_colors[channel_index]
+            if ome_color is not None:
+                meta["colormap"] = ome_color
+            elif colormap_cycle is not None:
+                meta["colormap"] = next(colormap_cycle)
+        elif colormap_cycle is not None:
             meta["colormap"] = next(colormap_cycle)
         layers.append((layer_data, meta, "image"))
 
     return layers
+
+
+def _get_dask_data(image, order: str, **kwargs):
+    """Get image data using dask for lazy loading, then compute to numpy.
+
+    With dask_tiles=True enabled in the BioImage, the dask array is already
+    chunked into tiles that avoid the 2GB BioFormats limit. We simply
+    compute the result to a numpy array for napari compatibility.
+
+    Parameters
+    ----------
+    image : bioio.BioImage
+        BioIO image with the current scene selected.
+    order : str
+        Dimension order (e.g., "CZYX", "CYX", "ZYX", "YX").
+    **kwargs
+        Additional dimension indices to select specific planes.
+
+    Returns
+    -------
+    numpy array
+        Computed numpy array of the image data.
+    """
+    try:
+        # Get dask data (already chunked by dask_tiles=True)
+        dask_data = image.get_image_dask_data(order, **kwargs)
+        # Compute to numpy array for napari compatibility
+        return dask_data.compute()
+    except Exception as e:
+        # Fall back to regular loading if dask fails
+        try:
+            return image.get_image_data(order, **kwargs)
+        except Exception:
+            raise RuntimeError(
+                f"Failed to load image data. Error: {e}"
+            ) from e

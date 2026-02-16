@@ -41,7 +41,7 @@ mkdocs serve
 ## Repository map
 - `src/senoquant/`: main plugin package.
 - `src/senoquant/_widget.py`: top-level napari widget wiring.
-- `src/senoquant/tabs/`: feature tabs (`segmentation`, `spots`, `prediction`, `quantification`, `visualization`, `batch`, `settings`).
+- `src/senoquant/tabs/`: feature tabs (`segmentation`, `spots`, `prediction`, `quantification`, `visualization`, `batch`, `settings`). All tabs follow frontend/backend split with `frontend.py` and `backend.py`.
 - `src/senoquant/utils/settings_bundle.py`: shared `senoquant.settings` bundle schema helpers used by Settings, Batch, and quantification exports.
 - `tests/`: pytest suite (UI smoke tests, backends, readers, exports, models).
 - `docs/`: user + developer docs and API reference scaffolding.
