@@ -83,6 +83,14 @@ log_exec "Upgrading pip" \
 log_exec "Installing uv" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" python -m pip install uv
 
+# Install pip-system-certs for SSL certificate handling
+log_exec "Installing pip-system-certs" \
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install pip-system-certs
+
+# Install scyjava for BioFormats Java dependency
+log_exec "Installing scyjava (BioFormats dependency)" \
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install scyjava
+
 # Install napari
 log_exec "Installing napari" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install "napari[all]"
