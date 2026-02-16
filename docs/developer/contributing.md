@@ -122,8 +122,10 @@ mkdocs build
 ### Architecture patterns
 
 - **Frontend/backend split**: Each tab has `frontend.py` (Qt UI) and `backend.py` (pure logic).
-- **Settings schema**: Keep `details.json` compatible with `src/senoquant/utils/model_details.schema.json`.
-- **Model discovery**: Place models in `models/<name>/` with `details.json` and optional `model.py`.
+- **Settings schema**: For segmentation/spots, keep `details.json` compatible with `src/senoquant/utils/model_details.schema.json`.
+- **Model discovery**:
+  - Segmentation/spots use `models/<name>/details.json` + `model.py`.
+  - Prediction uses `models/<name>/model.py` (no `details.json` required).
 - **Dataclasses**: Use `@dataclass(slots=True)` for config objects.
 
 ### Naming conventions
@@ -163,6 +165,15 @@ See [Models & Detectors](models.md) for the detailed guide.
 
 Use the same pattern as segmentation models under `src/senoquant/tabs/spots/models/`.
 
+### Prediction model
+
+1. **Create folder**: `src/senoquant/tabs/prediction/models/my_model/`.
+2. **Implement logic**: `model.py` subclassing `SenoQuantPredictionModel`.
+3. **Provide UI hooks**: implement `build_widget()` + `collect_widget_settings()`.
+4. **Return layers**: implement `run()` to return napari-compatible layer specs.
+
+See [Prediction models](prediction.md) for the detailed guide.
+
 ### Quantification feature
 
 1. **Create module**: `src/senoquant/tabs/quantification/features/my_feature/`.
@@ -176,9 +187,9 @@ See [Quantification features](quantification-features.md) for the detailed guide
 ### Visualization plot
 
 1. **Create module**: `src/senoquant/tabs/visualization/plots/my_plot.py`.
-2. **Define plot class**: Subclass `SenoQuantPlot` with `feature_type` and `order`.
+2. **Define plot class**: Subclass `SenoQuantPlot` with `plot_type` and `order`.
 3. **Implement output**: Write files in `plot(temp_dir, input_path, export_format, ...)`.
-4. **Register typed data**: Add custom `PlotData` class to `FEATURE_DATA_FACTORY` when needed.
+4. **Register typed data**: Add custom `PlotData` class to `PLOT_DATA_FACTORY` when needed.
 5. **Test**: Add handler and backend tests under `tests/senoquant/tabs/visualization/`.
 
 See [Visualization tab](visualization.md) for implementation details.
@@ -215,7 +226,9 @@ Improve U-FISH spot detector threshold behavior
 
 1. **Protobuf version conflicts**: Reinstall protobuf after TensorFlow when doing ONNX conversion.
 2. **Headless testing**: `conftest.py` stubs handle missing Qt/napari; avoid top-level GUI imports in test files.
-3. **Model not discovered**: Check folder naming and confirm `details.json` exists.
+3. **Model not discovered**:
+   - Segmentation/Spots: check folder naming and confirm `details.json` exists.
+   - Prediction: check folder naming and confirm `model.py` defines a `SenoQuantPredictionModel` subclass.
 4. **Batch quantification failures**: Verify the `BatchViewer` shim has correct layer names.
 
 ## Getting help

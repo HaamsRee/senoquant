@@ -12,10 +12,11 @@ tab modules.
 
 ## UI structure
 
-The main widget (`SenoQuantWidget`) composes six tabs:
+The main widget (`SenoQuantWidget`) composes seven tabs:
 
 - Segmentation (`src/senoquant/tabs/segmentation`).
 - Spots (`src/senoquant/tabs/spots`).
+- Prediction (`src/senoquant/tabs/prediction`).
 - Quantification (`src/senoquant/tabs/quantification`).
 - Visualization (`src/senoquant/tabs/visualization`).
 - Batch (`src/senoquant/tabs/batch`).
@@ -27,6 +28,12 @@ Each tab follows a frontend/backend split:
 - `backend.py` performs the model discovery or processing logic.
 - Segmentation additionally uses `segmentation/_frontend/` mixins to keep UI
   code split across smaller modules.
+
+Prediction-specific note:
+
+- The tab-level UI is fixed (`Select model`, `Model interface`, `Run`), and
+  each prediction model contributes its own Qt widget through
+  `SenoQuantPredictionModel.build_widget(...)`.
 
 ## Reader pipeline
 
@@ -51,6 +58,19 @@ Batch processing is orchestrated by `BatchBackend` in
 6. Persist `senoquant_settings.json` in the batch output root with the
    effective `batch_job` configuration.
 
+## Prediction pipeline
+
+Prediction runs are orchestrated by `PredictionTab` +
+`PredictionBackend`:
+
+1. Discover model folders under `src/senoquant/tabs/prediction/models/`.
+2. Load the selected model class from `<model_name>/model.py`.
+3. Build model-defined UI in the `Model interface` box.
+4. Collect model widget settings and run model code in a background thread.
+5. Normalize model output into napari layer specs and add layers to the
+   viewer.
+6. Append run metadata (`task="prediction"`, runner name/type, settings).
+
 ## Settings storage
 
 The Settings tab uses `SettingsBackend` to read/write unified
@@ -63,11 +83,12 @@ The Settings tab uses `SettingsBackend` to read/write unified
 
 ### Cross-tab settings orchestration
 
-`SenoQuantWidget` instantiates Segmentation, Spots, Batch, and Settings tabs
-as shared objects. Settings uses these references to:
+`SenoQuantWidget` instantiates all tab widgets. Settings currently receives
+Segmentation, Spots, and Batch tab references and uses them to:
 
 - Export segmentation and spots configuration into `tab_settings`.
 - Export batch state into `batch_job`.
 - Restore those states when loading a bundle.
 
-Quantification settings are currently not restored by the Settings tab.
+Prediction, Quantification, and Visualization settings are currently not
+restored by the Settings tab.

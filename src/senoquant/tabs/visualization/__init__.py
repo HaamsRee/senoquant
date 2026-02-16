@@ -1,1 +1,1 @@
-"""Visualization tab modules."""
+"""Visualization tab."""

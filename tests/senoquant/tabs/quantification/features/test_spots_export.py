@@ -207,3 +207,148 @@ def test_export_spots_cells_add_cross_segmentation_overlap_column(
     assert nuclear_by_label["2"] == "cytoplasmic_20"
     assert cytoplasmic_by_label["10"] == "nuclear_1"
     assert cytoplasmic_by_label["20"] == "nuclear_2"
+
+
+def test_export_spots_without_segmentation_still_writes_spots(
+    tmp_path: Path,
+) -> None:
+    """Export all spots even when no cell segmentation is configured."""
+    spot_labels = np.array([[1, 0], [0, 2]], dtype=np.int32)
+    image = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+
+    viewer = DummyViewer(
+        [
+            Labels(spot_labels, "spots"),
+            Image(image, "chan1"),
+        ]
+    )
+    data = SpotsFeatureData(
+        segmentations=[],
+        channels=[
+            SpotsChannelConfig(
+                name="Ch1",
+                channel="chan1",
+                spots_segmentation="spots",
+            )
+        ],
+    )
+    feature = FeatureConfig(name="Spots", type_name="Spots", data=data)
+
+    outputs = list(export_spots(feature, tmp_path, viewer=viewer, export_format="csv"))
+    csv_paths = [path for path in outputs if path.suffix == ".csv"]
+    assert any(path.name == "all_spots.csv" for path in csv_paths)
+    assert all(not path.name.endswith("_cells.csv") for path in csv_paths)
+
+    spot_path = next(path for path in csv_paths if path.name == "all_spots.csv")
+    with spot_path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 2
+    assert {row["spot_id"] for row in rows} == {"1", "2"}
+    assert "within_segmentation" not in rows[0]
+
+
+def test_export_spots_marks_outside_segmentation_rows(tmp_path: Path) -> None:
+    """Keep outside spots and annotate them with within_segmentation."""
+    cell_labels = np.array(
+        [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+        dtype=np.int32,
+    )
+    spot_labels = np.array(
+        [[2, 0, 0], [0, 1, 0], [0, 0, 0]],
+        dtype=np.int32,
+    )
+    image = np.array(
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]],
+        dtype=np.float32,
+    )
+
+    viewer = DummyViewer(
+        [
+            Labels(cell_labels, "cells"),
+            Labels(spot_labels, "spots"),
+            Image(image, "chan1"),
+        ]
+    )
+    data = SpotsFeatureData(
+        segmentations=[SpotsSegmentationConfig(label="cells")],
+        channels=[
+            SpotsChannelConfig(
+                name="Ch1",
+                channel="chan1",
+                spots_segmentation="spots",
+            )
+        ],
+    )
+    feature = FeatureConfig(name="Spots", type_name="Spots", data=data)
+
+    outputs = list(export_spots(feature, tmp_path, viewer=viewer, export_format="csv"))
+    spot_path = next(path for path in outputs if path.name == "cells_spots.csv")
+    with spot_path.open("r", encoding="utf-8", newline="") as handle:
+        spot_rows = list(csv.DictReader(handle))
+    by_id = {row["spot_id"]: row for row in spot_rows}
+    assert {row["spot_id"] for row in spot_rows} == {"1", "2"}
+    assert by_id["1"]["within_segmentation"] == "1"
+    assert by_id["2"]["within_segmentation"] == "0"
+    assert by_id["1"]["cell_id"] == "1"
+    assert by_id["2"]["cell_id"] == "0"
+
+    cell_path = next(path for path in outputs if path.name == "cells_cells.csv")
+    with cell_path.open("r", encoding="utf-8", newline="") as handle:
+        cell_rows = list(csv.DictReader(handle))
+    assert len(cell_rows) == 1
+    assert cell_rows[0]["ch1_spot_count"] == "1"
+
+
+def test_export_spots_colocalization_keeps_outside_spots(tmp_path: Path) -> None:
+    """Preserve outside-spot rows needed by colocalization references."""
+    cell_labels = np.array(
+        [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+        dtype=np.int32,
+    )
+    spot_a = np.array(
+        [[2, 2, 0], [0, 1, 0], [0, 0, 0]],
+        dtype=np.int32,
+    )
+    spot_b = np.array(
+        [[5, 0, 0], [0, 6, 0], [0, 0, 0]],
+        dtype=np.int32,
+    )
+    image_a = np.ones((3, 3), dtype=np.float32)
+    image_b = np.ones((3, 3), dtype=np.float32)
+
+    viewer = DummyViewer(
+        [
+            Labels(cell_labels, "cells"),
+            Labels(spot_a, "spots_a"),
+            Labels(spot_b, "spots_b"),
+            Image(image_a, "chan_a"),
+            Image(image_b, "chan_b"),
+        ]
+    )
+    data = SpotsFeatureData(
+        segmentations=[SpotsSegmentationConfig(label="cells")],
+        channels=[
+            SpotsChannelConfig(
+                name="A",
+                channel="chan_a",
+                spots_segmentation="spots_a",
+            ),
+            SpotsChannelConfig(
+                name="B",
+                channel="chan_b",
+                spots_segmentation="spots_b",
+            ),
+        ],
+        export_colocalization=True,
+    )
+    feature = FeatureConfig(name="Spots", type_name="Spots", data=data)
+
+    outputs = list(export_spots(feature, tmp_path, viewer=viewer, export_format="csv"))
+    spot_path = next(path for path in outputs if path.name == "cells_spots.csv")
+    with spot_path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    by_key = {(row["channel"], row["spot_id"]): row for row in rows}
+    assert by_key[("A", "2")]["within_segmentation"] == "0"
+    assert by_key[("B", "5")]["within_segmentation"] == "0"
+    assert by_key[("A", "2")]["colocalizes_with"] == "B:5"
+    assert by_key[("B", "5")]["colocalizes_with"] == "A:2"

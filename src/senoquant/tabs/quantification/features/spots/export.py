@@ -1,12 +1,11 @@
 """Spots feature export logic.
 
-This module produces two export tables for every configured nuclear or
-cytoplasmic segmentation:
+This module always exports a **spots** table with per-spot geometry, ROI
+membership, and channel metadata.
 
-1. A **cells** table with morphology, ROI membership, and per-channel
-   spot summaries (counts and mean spot intensity per cell).
-2. A **spots** table with per-spot geometry, ROI membership, and the
-   channel the spot belongs to.
+When one or more valid nuclear/cytoplasmic segmentations are configured, it
+also exports matching **cells** tables with morphology and per-channel spot
+summaries (counts and mean spot intensity per cell).
 
 The export matches the markers feature style for morphology and physical
 unit reporting. If physical pixel sizes are available in the metadata for
@@ -50,8 +49,8 @@ def export_spots(
     ----------
     feature : FeatureConfig
         Spots feature configuration to export. Must contain a
-        :class:`SpotsFeatureData` payload with at least one segmentation
-        and one channel.
+        :class:`SpotsFeatureData` payload with at least one channel.
+        Cell segmentations are optional.
     temp_dir : Path
         Temporary directory where outputs should be written.
     viewer : object, optional
@@ -64,16 +63,24 @@ def export_spots(
     Returns
     -------
     iterable of Path
-        Paths to files produced by the export routine. Each segmentation
-        produces two tables: ``*_cells`` and ``*_spots``. Segmentation
-        masks (``.npy``) and a shared ``feature_settings.json`` bundle
-        are also written, including timestamped run history for layer run
-        ordering. If no outputs are produced, an empty list is returned.
+        Paths to files produced by the export routine.
+        - With valid segmentations: each segmentation produces
+          ``*_cells`` and ``*_spots`` tables.
+        - Without valid segmentations: a single ``all_spots`` table is
+          produced.
+        Segmentation masks (``.npy``) and a shared
+        ``feature_settings.json`` bundle are also written, including
+        timestamped run history for layer run ordering. If no outputs are
+        produced, an empty list is returned.
 
     Notes
     -----
-    - Cell morphology comes from the segmentation labels.
+    - Cell morphology comes from segmentation labels when segmentation is
+      configured.
     - Spot-to-cell assignment is based on the spot centroid location.
+      Spots whose centroids fall outside segmentation are retained in the
+      spots table with ``cell_id = 0`` and ``within_segmentation = 0``.
+      Per-cell spot metrics count only spots with ``within_segmentation = 1``.
     - Spot intensities are computed from the channel image referenced by
       each channel config. Missing or mismatched images result in ``NaN``
       mean intensities for those spots.
@@ -84,10 +91,12 @@ def export_spots(
 
     Workflow summary
     ----------------
-    1. Resolve the requested cell segmentation and compute cell morphology.
+    1. Resolve configured cell segmentations (if any) and compute cell
+       morphology.
     2. Build per-channel spot exports (counts, mean intensity, spot rows).
     3. Optionally compute colocalization adjacency and append columns.
-    4. Write ``*_cells`` and ``*_spots`` outputs for each segmentation.
+    4. Write ``*_cells`` + ``*_spots`` per segmentation, or ``all_spots``
+       when no valid cell segmentation exists.
     """
     data = feature.data
     if not isinstance(data, SpotsFeatureData) or viewer is None:
@@ -103,8 +112,8 @@ def export_spots(
         for channel in data.channels
         if channel.channel and channel.spots_segmentation
     ]
-    # Require both segmentations and channels to export anything.
-    if not data.segmentations or not channels:
+    # Channels are required; segmentation filters are optional.
+    if not channels:
         return []
 
     cross_map = _build_cell_cross_segmentation_map(viewer, data.segmentations)
@@ -123,8 +132,10 @@ def export_spots(
             if raw_path:
                 file_path = str(raw_path)
 
+    valid_segmentations: list[
+        tuple[int, str, object, np.ndarray, np.ndarray, np.ndarray]
+    ] = []
     for index, segmentation in enumerate(data.segmentations, start=0):
-        # --- Resolve the cell segmentation labels layer ---
         label_name = segmentation.label.strip()
         if not label_name:
             continue
@@ -134,77 +145,137 @@ def export_spots(
         cell_labels = layer_data_asarray(labels_layer)
         if cell_labels.size == 0:
             continue
-        file_stem = _sanitize_name(label_name or f"segmentation_{index}")
-        cell_task = _segmentation_task_from_layer(
-            labels_layer, label_name, default_task="nuclear"
-        )
-        if ("cell_segmentation", label_name) not in exported_layers:
-            mask_path = _write_mask_output(
-                temp_dir,
-                stem=f"{file_stem}_cells_mask",
-                labels=cell_labels,
-            )
-            outputs.append(mask_path)
-            segmentation_runs.append(
-                {
-                    "layer_name": label_name,
-                    "role": "cell_segmentation",
-                    "task": cell_task,
-                    "mask_file": mask_path.name,
-                    "run_history": _layer_run_history(labels_layer),
-                }
-            )
-            exported_layers.add(("cell_segmentation", label_name))
-
-        # --- Compute per-cell morphology from the segmentation ---
         cell_ids, cell_centroids = _compute_centroids(cell_labels)
         if cell_ids.size == 0:
             continue
+        valid_segmentations.append(
+            (
+                index,
+                label_name,
+                labels_layer,
+                cell_labels,
+                cell_ids,
+                cell_centroids,
+            )
+        )
+
+    segmentation_contexts: list[
+        tuple[int, str | None, object | None, np.ndarray | None, np.ndarray, np.ndarray]
+    ] = []
+    for (
+        index,
+        label_name,
+        labels_layer,
+        cell_labels,
+        cell_ids,
+        cell_centroids,
+    ) in valid_segmentations:
+        segmentation_contexts.append(
+            (index, label_name, labels_layer, cell_labels, cell_ids, cell_centroids)
+        )
+    if not segmentation_contexts:
+        segmentation_contexts.append(
+            (
+                0,
+                None,
+                None,
+                None,
+                np.empty((0,), dtype=int),
+                np.empty((0, 0), dtype=float),
+            )
+        )
+
+    for (
+        index,
+        label_name,
+        labels_layer,
+        cell_labels,
+        cell_ids,
+        cell_centroids,
+    ) in segmentation_contexts:
+        has_segmentation = (
+            label_name is not None and labels_layer is not None and cell_labels is not None
+        )
+        if has_segmentation:
+            assert label_name is not None
+            assert labels_layer is not None
+            assert cell_labels is not None
+            file_stem = _sanitize_name(label_name or f"segmentation_{index}")
+            cell_task = _segmentation_task_from_layer(
+                labels_layer, label_name, default_task="nuclear"
+            )
+            if ("cell_segmentation", label_name) not in exported_layers:
+                mask_path = _write_mask_output(
+                    temp_dir,
+                    stem=f"{file_stem}_cells_mask",
+                    labels=cell_labels,
+                )
+                outputs.append(mask_path)
+                segmentation_runs.append(
+                    {
+                        "layer_name": label_name,
+                        "role": "cell_segmentation",
+                        "task": cell_task,
+                        "mask_file": mask_path.name,
+                        "run_history": _layer_run_history(labels_layer),
+                    }
+                )
+                exported_layers.add(("cell_segmentation", label_name))
+        else:
+            file_stem = "all"
 
         # --- Derive physical pixel sizes from metadata if available ---
-        cell_pixel_sizes = _pixel_sizes(labels_layer, cell_labels.ndim)
-        if cell_pixel_sizes is None and first_channel_layer is not None:
-            cell_pixel_sizes = _pixel_sizes(
-                first_channel_layer, cell_labels.ndim
-            )
+        cell_pixel_sizes = None
+        if has_segmentation and cell_labels is not None and labels_layer is not None:
+            cell_pixel_sizes = _pixel_sizes(labels_layer, cell_labels.ndim)
+            if cell_pixel_sizes is None and first_channel_layer is not None:
+                cell_pixel_sizes = _pixel_sizes(
+                    first_channel_layer, cell_labels.ndim
+                )
 
         # --- Seed the cell table with morphology and ROI membership columns ---
-        cell_rows = _initialize_rows(
-            cell_ids, cell_centroids, cell_pixel_sizes
-        )
-        for row in cell_rows:
-            row["file_path"] = file_path
-        
-        # --- Add morphological descriptors to the cell table ---
-        add_morphology_columns(cell_rows, cell_labels, cell_ids, cell_pixel_sizes)
-        
-        _add_roi_columns(
-            cell_rows,
-            cell_labels,
-            cell_ids,
-            viewer,
-            data.rois,
-            label_name,
-        )
-        _add_cross_reference_column(cell_rows, label_name, cell_ids, cross_map)
-        cell_header = list(cell_rows[0].keys()) if cell_rows else []
-
-        # --- Prepare containers and ROI masks for the spots table ---
-        spot_rows: list[dict[str, object]] = []
-        spot_header: list[str] = []
-        spot_table_pixel_sizes = None
-        if first_channel_layer is not None:
-            spot_table_pixel_sizes = _pixel_sizes(
-                first_channel_layer, cell_labels.ndim
+        cell_rows: list[dict[str, object]] = []
+        cell_header: list[str] = []
+        if has_segmentation and cell_labels is not None and label_name is not None:
+            cell_rows = _initialize_rows(
+                cell_ids,
+                cell_centroids,
+                cell_pixel_sizes,
             )
-        spot_roi_columns = _spot_roi_columns(
-            viewer, data.rois, label_name, cell_labels.shape
-        )
+            for row in cell_rows:
+                row["file_path"] = file_path
+            add_morphology_columns(
+                cell_rows, cell_labels, cell_ids, cell_pixel_sizes
+            )
+            _add_roi_columns(
+                cell_rows,
+                cell_labels,
+                cell_ids,
+                viewer,
+                data.rois,
+                label_name,
+            )
+            _add_cross_reference_column(cell_rows, label_name, cell_ids, cross_map)
+            cell_header = list(cell_rows[0].keys()) if cell_rows else []
 
         # --- Resolve per-channel label layers before heavy computation ---
-        channel_entries = _build_channel_entries(
-            viewer, channels, cell_labels.shape, label_name
-        )
+        spot_shape: tuple[int, ...] | None = None
+        if has_segmentation and cell_labels is not None and label_name is not None:
+            channel_entries = _build_channel_entries(
+                viewer,
+                channels,
+                cell_labels.shape,
+                label_name,
+            )
+            spot_shape = cell_labels.shape
+        else:
+            channel_entries, spot_shape = _build_channel_entries_without_segmentation(
+                viewer,
+                channels,
+            )
+        if spot_shape is None:
+            continue
+
         for entry in channel_entries:
             spot_layer_name = str(entry.get("spots_layer_name", "")).strip()
             spot_layer = entry.get("spots_layer")
@@ -234,6 +305,22 @@ def export_spots(
                 }
             )
             exported_layers.add(("spots_segmentation", spot_layer_name))
+
+        # --- Prepare containers and ROI masks for the spots table ---
+        spot_rows: list[dict[str, object]] = []
+        spot_header: list[str] = []
+        spot_table_pixel_sizes = None
+        if first_channel_layer is not None:
+            spot_table_pixel_sizes = _pixel_sizes(
+                first_channel_layer, len(spot_shape)
+            )
+        spot_roi_columns = _spot_roi_columns(
+            viewer,
+            data.rois,
+            label_name or "all_spots",
+            spot_shape,
+        )
+
         adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
         if data.export_colocalization and len(channel_entries) >= 2:
             adjacency = _build_colocalization_adjacency(channel_entries)
@@ -258,6 +345,7 @@ def export_spots(
 
         # --- Apply colocalization columns (if requested) ---
         if data.export_colocalization:
+            max_cell_id = int(cell_labels.max()) if cell_labels is not None else 0
             _apply_colocalization_columns(
                 cell_rows,
                 cell_ids,
@@ -266,19 +354,20 @@ def export_spots(
                 spot_lookup,
                 adjacency,
                 channel_entries,
-                int(cell_labels.max()),
+                max_cell_id,
             )
 
         # --- Emit cells and spots tables for the segmentation ---
-        if cell_rows:
+        if has_segmentation and cell_rows:
             cell_path = temp_dir / f"{file_stem}_cells.{export_format}"
             _write_table(cell_path, cell_header, cell_rows, export_format)
             outputs.append(cell_path)
         if not spot_header:
             spot_header = _spot_header(
-                cell_labels.ndim,
+                len(spot_shape),
                 spot_table_pixel_sizes,
                 spot_roi_columns,
+                include_within_segmentation=has_segmentation,
             )
         if data.export_colocalization:
             if "colocalizes_with" not in spot_header:
@@ -501,10 +590,66 @@ def _build_channel_entries(
     return entries
 
 
+def _build_channel_entries_without_segmentation(
+    viewer: object,
+    channels: list,
+) -> tuple[list[dict[str, object]], tuple[int, ...] | None]:
+    """Resolve channels for export when no cell segmentation is configured.
+
+    Parameters
+    ----------
+    viewer : object
+        napari viewer instance used to resolve layers.
+    channels : list
+        Spots channel configurations (image + labels names).
+
+    Returns
+    -------
+    tuple
+        ``(entries, shape)`` where ``entries`` mirrors
+        :func:`_build_channel_entries` and ``shape`` is the shared spots
+        segmentation shape used for ROI checks and header generation.
+    """
+    entries: list[dict[str, object]] = []
+    reference_shape: tuple[int, ...] | None = None
+    for channel in channels:
+        channel_label = _channel_label(channel)
+        channel_layer = _find_layer(viewer, channel.channel, "Image")
+        spots_layer = _find_layer(viewer, channel.spots_segmentation, "Labels")
+        if spots_layer is None:
+            warnings.warn(
+                "Spots export: spots segmentation layer "
+                f"'{channel.spots_segmentation}' not found.",
+                RuntimeWarning,
+            )
+            continue
+        spots_labels = layer_data_asarray(spots_layer)
+        if reference_shape is None:
+            reference_shape = spots_labels.shape
+        elif spots_labels.shape != reference_shape:
+            warnings.warn(
+                "Spots export: segmentation shape mismatch for unsegmented export "
+                f"'{channel.spots_segmentation}' vs {reference_shape}. "
+                "Skipping this channel.",
+                RuntimeWarning,
+            )
+            continue
+        entries.append(
+            {
+                "channel_label": channel_label,
+                "channel_layer": channel_layer,
+                "spots_layer": spots_layer,
+                "spots_layer_name": channel.spots_segmentation,
+                "spots_labels": spots_labels,
+            }
+        )
+    return entries, reference_shape
+
+
 def _append_channel_exports(
     channel_index: int,
     entry: dict[str, object],
-    cell_labels: np.ndarray,
+    cell_labels: np.ndarray | None,
     cell_ids: np.ndarray,
     cell_header: list[str],
     cell_rows: list[dict[str, object]],
@@ -523,8 +668,9 @@ def _append_channel_exports(
         Index of the channel in the resolved channel list.
     entry : dict
         Channel entry from :func:`_build_channel_entries`.
-    cell_labels : numpy.ndarray
-        Cell segmentation labels array.
+    cell_labels : numpy.ndarray or None
+        Cell segmentation labels array. ``None`` means no cell segmentation
+        is available and all spots are exported without cell assignment.
     cell_ids : numpy.ndarray
         Cell ids derived from the segmentation.
     cell_header : list of str
@@ -543,22 +689,30 @@ def _append_channel_exports(
         ROI masks for spot ROI membership columns.
     file_path : str
         Source image path copied to exported spot rows.
+
+    Notes
+    -----
+    Spot rows are always exported for every detected spot. When cell
+    segmentation exists, spot rows include a ``within_segmentation`` flag
+    and keep ``cell_id = 0`` for spots outside segmentation.
     """
     channel_label = entry["channel_label"]
     channel_layer = entry["channel_layer"]
     spots_labels = entry["spots_labels"]
+    has_segmentation = cell_labels is not None and cell_rows and cell_ids.size > 0
 
     # Compute spot centroids in the channel segmentation.
     spot_ids, spot_centroids = _compute_centroids(spots_labels)
     if spot_ids.size == 0:
         # No spots -> still emit per-cell count/mean columns with zeros/nans.
-        _append_cell_metrics(
-            cell_rows,
-            np.zeros_like(cell_ids, dtype=int),
-            np.full_like(cell_ids, np.nan, dtype=float),
-            channel_label,
-            cell_header,
-        )
+        if has_segmentation:
+            _append_cell_metrics(
+                cell_rows,
+                np.zeros_like(cell_ids, dtype=int),
+                np.full_like(cell_ids, np.nan, dtype=float),
+                channel_label,
+                cell_header,
+            )
         return
 
     # Spot areas (pixels) and mean intensity (per spot).
@@ -578,46 +732,46 @@ def _append_channel_exports(
     if spot_mean_intensity is None:
         spot_mean_intensity = np.full(spot_area_px.shape, np.nan, dtype=float)
 
-    # Assign spots to cells using the centroid location.
-    cell_ids_for_spots = _spot_cell_ids_from_centroids(
-        cell_labels, spot_centroids
-    )
-    valid_mask = cell_ids_for_spots > 0
-    valid_cell_ids = cell_ids_for_spots[valid_mask]
-    valid_spot_ids = spot_ids[valid_mask]
-    valid_centroids = spot_centroids[valid_mask]
-    valid_areas = spot_area_px[valid_mask]
-    valid_means = spot_mean_intensity[valid_mask]
+    # Assign spots to cells using the centroid location when segmentation exists.
+    if has_segmentation and cell_labels is not None:
+        cell_ids_for_spots = _spot_cell_ids_from_centroids(
+            cell_labels, spot_centroids
+        )
+        within_segmentation = cell_ids_for_spots > 0
+        valid_cell_ids = cell_ids_for_spots[within_segmentation]
+        valid_means = spot_mean_intensity[within_segmentation]
+        cell_counts, cell_means = _cell_spot_metrics(
+            valid_cell_ids, valid_means, int(cell_labels.max())
+        )
+        _append_cell_metrics(
+            cell_rows,
+            cell_counts[cell_ids],
+            cell_means[cell_ids],
+            channel_label,
+            cell_header,
+        )
+    else:
+        cell_ids_for_spots = np.zeros_like(spot_ids, dtype=int)
+        within_segmentation = np.ones_like(spot_ids, dtype=bool)
 
-    # Aggregate per-cell metrics and append columns to the cell table.
-    cell_counts, cell_means = _cell_spot_metrics(
-        valid_cell_ids, valid_means, int(cell_labels.max())
-    )
-    _append_cell_metrics(
-        cell_rows,
-        cell_counts[cell_ids],
-        cell_means[cell_ids],
-        channel_label,
-        cell_header,
-    )
-
-    # Append per-spot rows for this channel, preserving ROI membership.
+    # Append per-spot rows for this channel (all spots), preserving ROI membership.
     spot_rows_for_channel = _spot_rows(
-        valid_spot_ids,
-        valid_cell_ids,
-        valid_centroids,
-        valid_areas,
-        valid_means,
+        spot_ids,
+        cell_ids_for_spots,
+        spot_centroids,
+        spot_area_px,
+        spot_mean_intensity,
         channel_label,
         spot_table_pixel_sizes,
         spot_roi_columns,
         file_path,
+        within_segmentation=within_segmentation if has_segmentation else None,
     )
     if spot_rows_for_channel:
         if not spot_header:
             spot_header.extend(list(spot_rows_for_channel[0].keys()))
         for row, spot_id, cell_id in zip(
-            spot_rows_for_channel, valid_spot_ids, valid_cell_ids
+            spot_rows_for_channel, spot_ids, cell_ids_for_spots
         ):
             spot_lookup[(channel_index, int(spot_id))] = {
                 "row": row,
@@ -1194,6 +1348,7 @@ def _spot_rows(
     pixel_sizes: np.ndarray | None,
     roi_columns: list[tuple[str, np.ndarray]],
     file_path: str,
+    within_segmentation: np.ndarray | None = None,
 ) -> list[dict[str, object]]:
     """Build per-spot rows for export.
 
@@ -1218,6 +1373,9 @@ def _spot_rows(
         Precomputed ROI column names and boolean masks.
     file_path : str
         Source image path to include on each row.
+    within_segmentation : numpy.ndarray or None, optional
+        Optional mask aligned to ``spot_ids`` indicating whether each spot
+        falls within the configured cell segmentation.
 
     Returns
     -------
@@ -1239,6 +1397,8 @@ def _spot_rows(
             "channel": channel_label,
             "file_path": file_path,
         }
+        if within_segmentation is not None and idx < within_segmentation.size:
+            row["within_segmentation"] = int(bool(within_segmentation[idx]))
         for axis, value in zip(axes, centroid):
             row[f"centroid_{axis}_pixels"] = float(value)
         if pixel_sizes is not None and pixel_sizes.size == len(axes):
@@ -1379,6 +1539,8 @@ def _spot_header(
     ndim: int,
     pixel_sizes: np.ndarray | None,
     roi_columns: list[tuple[str, np.ndarray]],
+    *,
+    include_within_segmentation: bool = False,
 ) -> list[str]:
     """Build the header for the spots table.
 
@@ -1390,6 +1552,8 @@ def _spot_header(
         Per-axis pixel sizes in micrometers.
     roi_columns : list of tuple
         ROI columns to append to the header.
+    include_within_segmentation : bool, optional
+        Whether to include a ``within_segmentation`` column in the header.
 
     Returns
     -------
@@ -1399,6 +1563,8 @@ def _spot_header(
     axes = _axis_names(ndim)
     size_key_px, size_key_um, _scale = _spot_size_keys(ndim, pixel_sizes)
     header = ["spot_id", "cell_id", "channel", "file_path"]
+    if include_within_segmentation:
+        header.append("within_segmentation")
     header.extend([f"centroid_{axis}_pixels" for axis in axes])
     if pixel_sizes is not None and pixel_sizes.size == len(axes):
         header.extend([f"centroid_{axis}_um" for axis in axes])

@@ -121,6 +121,7 @@ senoquant = [
   "tabs/segmentation/models/*/model.py",
   "tabs/spots/models/*/details.json",
   "tabs/spots/models/*/model.py",
+  "tabs/prediction/models/*/model.py",
 ]
 
 [tool.setuptools.packages.find]

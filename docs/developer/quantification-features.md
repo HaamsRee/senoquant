@@ -143,16 +143,22 @@ Reference columns added in marker rows:
 ### Spots export
 
 `src/senoquant/tabs/quantification/features/spots/export.py` currently writes,
-per selected segmentation:
+depending on segmentation availability:
 
-- `<segmentation>_cells.csv|xlsx`.
-- `<segmentation>_spots.csv|xlsx`.
+- With one or more valid segmentations:
+  - `<segmentation>_cells.csv|xlsx`.
+  - `<segmentation>_spots.csv|xlsx`.
+- Without valid segmentations:
+  - `all_spots.csv|xlsx`.
 - Shared feature metadata bundle: `feature_settings.json`.
 
 Reference and relationship columns:
 
 - `file_path` is included in both cells and spots tables.
 - Cells table includes `overlaps_with` for cross-segmentation overlaps.
+- Spots rows are always preserved; with segmentation configured, rows include
+  `within_segmentation` (`1` inside segmentation, `0` outside) and `cell_id=0`
+  for outside spots.
 - If `export_colocalization` is enabled:
   - The spots table includes `colocalizes_with`.
   - The cells table includes `colocalization_event_count`.

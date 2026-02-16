@@ -41,7 +41,7 @@ mkdocs serve
 ## Repository map
 - `src/senoquant/`: main plugin package.
 - `src/senoquant/_widget.py`: top-level napari widget wiring.
-- `src/senoquant/tabs/`: feature tabs (`segmentation`, `spots`, `quantification`, `visualization`, `batch`, `settings`).
+- `src/senoquant/tabs/`: feature tabs (`segmentation`, `spots`, `prediction`, `quantification`, `visualization`, `batch`, `settings`).
 - `src/senoquant/utils/settings_bundle.py`: shared `senoquant.settings` bundle schema helpers used by Settings, Batch, and quantification exports.
 - `tests/`: pytest suite (UI smoke tests, backends, readers, exports, models).
 - `docs/`: user + developer docs and API reference scaffolding.
@@ -61,6 +61,8 @@ mkdocs serve
 - Prefer `pathlib.Path` for filesystem code.
 - Use Python 3.11+ type hints.
 - For segmentation/spot model discovery, keep `models/<name>/details.json` present.
+- For prediction model discovery, implement `models/<name>/model.py` with a `SenoQuantPredictionModel` subclass (no `details.json` required).
+- Prediction tab base UI owns only model selection + model widget host + run button; per-model input controls should live in model widgets.
 - For quantification features, maintain registration in `src/senoquant/tabs/quantification/features/__init__.py` and batch config compatibility in `src/senoquant/tabs/batch/config.py`.
 
 ## Testing expectations
@@ -68,6 +70,7 @@ mkdocs serve
 - Keep tests in the matching subtree under `tests/senoquant/...`.
 - Avoid top-level GUI-heavy imports in tests; rely on stubs/fixtures in `tests/conftest.py`.
 - For settings-related changes, include coverage for Settings-tab save/load and Batch config application.
+- For prediction-related changes, include/update tests under `tests/senoquant/tabs/prediction/`.
 
 ## Safe edit boundaries
 - Avoid changing vendored/third-party code unless the task explicitly requires it:

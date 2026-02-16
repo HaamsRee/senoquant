@@ -16,7 +16,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from senoquant.utils import append_run_metadata, layer_data_asarray
+from senoquant.utils import append_run_metadata, labels_data_as_dask, layer_data_asarray
 from senoquant.utils.setting_tooltips import build_setting_tooltip
 
 try:
@@ -779,6 +779,7 @@ class SpotsTab(QWidget):
         if self._viewer is None or source_layer is None:
             return
         name = self._spot_label_name(source_layer, detector_name)
+        dask_mask = labels_data_as_dask(mask)
         source_metadata = getattr(source_layer, "metadata", {})
         initial_metadata: dict[str, object] = {}
         if isinstance(source_metadata, dict):
@@ -789,7 +790,7 @@ class SpotsTab(QWidget):
         if Labels is not None and hasattr(self._viewer, "add_layer"):
             # Add a fully configured Labels layer object to avoid name-based lookup.
             labels_layer = Labels(
-                mask,
+                dask_mask,
                 name=name,
                 metadata=initial_metadata,
             )
@@ -799,15 +800,21 @@ class SpotsTab(QWidget):
         elif hasattr(self._viewer, "add_labels"):
             try:
                 labels_layer = self._viewer.add_labels(
-                    mask,
+                    dask_mask,
                     name=name,
                     metadata=initial_metadata,
                 )
             except TypeError:
-                labels_layer = self._viewer.add_labels(mask, name=name)
+                labels_layer = self._viewer.add_labels(dask_mask, name=name)
 
         if labels_layer is None:
             return
+
+        # Materialize after insertion: faster display interactions and simpler downstream ops.
+        try:
+            labels_layer.data = np.asarray(labels_layer.data)
+        except Exception:
+            pass
 
         layer_metadata = getattr(labels_layer, "metadata", {})
         merged_metadata: dict[str, object] = {}

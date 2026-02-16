@@ -1,10 +1,17 @@
-# Models and detectors
+# Models, detectors, and prediction runners
 
-This guide is the source-of-truth for adding new segmentation models and
-spot detectors.
+This guide is the source-of-truth for adding:
 
-Model and detector discovery are folder-based and dynamic. The UI reads
-metadata from `details.json`, and runtime code is loaded from `model.py`.
+- Segmentation models.
+- Spot detectors.
+- Prediction models.
+
+Discovery is folder-based and dynamic across all three systems, but metadata
+rules differ:
+
+- Segmentation/Spots read UI schemas from `details.json`.
+- Prediction models define UI directly in Qt code and do not require
+  `details.json`.
 
 ## How discovery works
 
@@ -38,7 +45,22 @@ Discovery behavior:
 - If `model.py` is missing, the base class is used, but `run()` is not
   implemented, so the detector is not runnable.
 
-## Metadata schema (`details.json`)
+### Prediction models
+
+Folder location:
+
+`src/senoquant/tabs/prediction/models/<model_name>/`
+
+Discovery behavior:
+
+- `PredictionBackend.list_model_names()` scans subfolders.
+- Runtime class loading looks for the first subclass of
+  `SenoQuantPredictionModel` in `model.py`.
+- `display_order()` controls dropdown ordering (lower first).
+- If `model.py` is missing, the base class is used, but `run()` is not
+  implemented, so the model is not runnable.
+
+## Metadata schema (`details.json`) for segmentation and spots
 
 Both segmentation and spots use a `settings` list to auto-build the UI.
 Manifest validation is enforced at load time via:
@@ -124,6 +146,31 @@ Example:
   "settings": []
 }
 ```
+
+## Prediction model conventions (no `details.json`)
+
+Prediction models are code-driven. Required file:
+
+- `src/senoquant/tabs/prediction/models/<model_name>/model.py`
+
+The tab-level controls are fixed in
+`src/senoquant/tabs/prediction/frontend.py`:
+
+- `Select model` dropdown.
+- `Model interface` box (model-defined widget).
+- `Run` button outside the box.
+
+Each model class should:
+
+- Subclass `SenoQuantPredictionModel`.
+- Optionally implement `display_order()` for dropdown sorting.
+- Implement `build_widget(parent, viewer)` for model-specific controls.
+- Implement `collect_widget_settings(settings_widget)` for serializable settings.
+- Implement `run(viewer=..., settings=...)` returning prediction layer specs.
+
+Prediction backend accepts output layer specs as dicts or tuple-like payloads;
+see `PredictionBackend._normalize_layer_spec(...)` in
+`src/senoquant/tabs/prediction/backend.py`.
 
 ## Add a new segmentation model
 
@@ -215,14 +262,71 @@ Important runtime contracts:
   2D uses effective area (`pi * (d/2)^2`), 3D uses effective volume
   (`(4/3) * pi * (d/2)^3`).
 
+## Add a new prediction model
+
+1. Create the folder:
+   `src/senoquant/tabs/prediction/models/my_model/`.
+2. Add `model.py` with a subclass of `SenoQuantPredictionModel`.
+3. Implement `build_widget()`, `collect_widget_settings()`, and `run()`.
+4. Return output as layer specs under a `layers` list.
+5. Restart napari and verify the model appears in **Select model**.
+
+Minimal template:
+
+```python
+from qtpy.QtWidgets import QLabel, QVBoxLayout, QWidget
+from senoquant.tabs.prediction.models.base import SenoQuantPredictionModel
+
+
+class MyPredictionWidget(QWidget):
+    def __init__(self, viewer, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._viewer = viewer
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Configure my prediction model"))
+        self.setLayout(layout)
+
+    def values(self) -> dict[str, object]:
+        return {"scale": 1.0}
+
+
+class MyPredictionModel(SenoQuantPredictionModel):
+    def __init__(self, models_root=None) -> None:
+        super().__init__("my_model", models_root=models_root)
+
+    def build_widget(self, parent=None, viewer=None):
+        return MyPredictionWidget(viewer=viewer, parent=parent)
+
+    def collect_widget_settings(self, settings_widget=None) -> dict[str, object]:
+        if settings_widget is None:
+            return {}
+        return settings_widget.values()
+
+    def run(self, **kwargs) -> dict:
+        settings = kwargs.get("settings", {})
+        return {
+            "layers": [
+                {
+                    "data": ...,  # numpy array
+                    "type": "image",
+                    "name": "my_prediction_output",
+                }
+            ],
+            "settings": settings,
+        }
+```
+
 ## Quick validation checklist
 
 - Folder name, class constructor name, and `super("<name>")` all match.
-- `details.json` passes `model_details.schema.json` validation.
+- Segmentation/Spots: `details.json` passes `model_details.schema.json` validation.
 - Segmentation manifests include both `tasks.nuclear` and `tasks.cytoplasmic`.
-- `run()` returns expected keys (`masks` for segmentation, `mask` for spots).
-- Settings keys in code match settings keys in `details.json`.
-- New model/detector appears in UI and can run on a sample image.
+- `run()` returns expected keys:
+  - Segmentation: `masks`.
+  - Spots: `mask`.
+  - Prediction: `layers` (or a sequence normalized by backend).
+- Settings keys in code match `details.json` keys (segmentation/spots only).
+- New model/detector/prediction runner appears in UI and can run on a sample image.
 
 ## StarDist ONNX notes
 

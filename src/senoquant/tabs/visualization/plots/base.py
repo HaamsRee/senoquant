@@ -1,4 +1,4 @@
-"""Feature UI base classes for visualization."""
+"""Plot UI base classes for visualization."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ class PlotConfig:
 class SenoQuantPlot:
     """Base class for visualization plot UI."""
 
-    feature_type: str = ""
+    plot_type: str = ""
     order: int = 0
 
     def __init__(self, tab: "VisualizationTab", context: "PlotUIContext") -> None:
@@ -103,7 +103,7 @@ class SenoQuantPlot:
         """
         return []
 
-    def on_features_changed(self, configs: list["PlotUIContext"]) -> None:
+    def on_plots_changed(self, configs: list["PlotUIContext"]) -> None:
         """Handle updates when the plot list changes.
 
         Parameters

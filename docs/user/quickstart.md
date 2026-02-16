@@ -42,10 +42,11 @@ SenoQuant should launch automatically in Step 1. If not:
 
 `Plugins` → `SenoQuant`
 
-The plugin window opens as a docked widget with 6 tabs:
+The plugin window opens as a docked widget with 7 tabs:
 
 - **Segmentation**
 - **Spots**
+- **Prediction**
 - **Quantification**
 - **Visualization**
 - **Batch**
@@ -94,7 +95,21 @@ If your image contains punctate spots (e.g., gH2AX, telomeres, FISH spots):
 
 **Output:** A labels layer named `<channel>_<detector>_spot_labels`.
 
-### 6. Configure quantification features
+### 6. (Optional) Run a prediction model
+
+Use this tab for computer-vision models that predict senescence-associated
+feature layers.
+
+1. Switch to the **Prediction** tab.
+2. Select **Select model**: `demo_model` (current placeholder).
+3. In **Model interface**:
+   - Select **Image layer**.
+   - Set **Multiplier**.
+4. Click **Run**.
+
+**Output:** A new image layer named `<image layer>_demo_model`.
+
+### 7. Configure quantification features
 
 The quantification tab organizes exports by **Features**. A feature defines *what* to quantify and *how*. In the current version, two feature types are supported: **Markers** and **Spots**. This is based on common data types in senescence research:
 
@@ -131,18 +146,18 @@ To add a feature:
 1. Click **Add channels**.
 2. In the popup:
 
-    - In the top box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer to exclude spots outside these segmented cells.
+    - (Optional) In the top box, click **Add segmentation** → Add a nuclear/cytoplasmic labels layer if you want per-cell spot summaries.
     
-        > The selected segmentation defines the nuclei/cells for spot quantification. SenoQuant will export one set of spots tables per segmentation.
+        > With segmentation(s), SenoQuant exports one `*_cells` + `*_spots` table pair per segmentation. Without segmentation, it still exports all spots in `all_spots`.
 
     - In the **Channels** box, click **Add channel** → Add spot channel(s) to quantify.
-    - For each channel, name the channel (e.g., `gH2AX`, `Telomere`), and select the spot labels layer in **Channel**. Select the corresponding **Spots segmentation** layer generated in the **Spots** tab.
+    - For each channel, name the channel (e.g., `gH2AX`, `Telomere`), select the image layer in **Channel**, and select the corresponding spot-label layer generated in the **Spots** tab under **Spots segmentation**.
     - Click **Save** or close the popup when done.
 
 3. (Optional) Enable **ROIs** → Name the ROI → Select the shapes layer. ROIs work the same way as in the Markers feature.
 4. (Optional) Enable **Export colocalization** to analyze spot colocalization between two or more spot channels. Colocalization will only be computed if two or more spot channels are added to the feature.
 
-### 7. Run quantification
+### 8. Run quantification
 
 1. In the **Quantification** tab, ensure all features are configured
 2. In the **Output** box, browse to select an output folder.
@@ -151,10 +166,13 @@ To add a feature:
 5. Click **Process and save**.
 6. Wait for quantification to complete.
 
-**Output:** Excel/CSV files containing:
+**Outputs:**   
+Excel/CSV files containing:
 
 - **Markers**: Marker intensities per cell, morphological features.
 - **Spots**: Spot counts per cell, spot intensities, colocalization data (if enabled).
+
+Segmentation masks are also saved, plus a `.json` file with the configuration used for the run.
 
 ## Batch processing workflow
 
@@ -220,6 +238,7 @@ If the JSON contains batch configuration, the Batch tab is populated too.
 
 - [Segmentation](segmentation.md) - Detailed model settings and parameters
 - [Spots](spots.md) - Advanced spot detection configuration
+- [Prediction](prediction.md) - Prediction model workflow and placeholder example
 - [Quantification](quantification.md) - Feature export details and column definitions
 - [Visualization](visualization.md) - Plot generation from quantification tables
 - [Batch](batch.md) - Batch processing and automation

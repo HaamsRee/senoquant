@@ -52,6 +52,7 @@ format can be reused by:
 
 ## What is not restored
 
+- Prediction tab model selection and model-interface settings.
 - Quantification tab feature configuration.
 - Visualization tab plot configuration.
 - Runtime viewer state (active layer selection, visibility, colormaps).

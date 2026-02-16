@@ -4,6 +4,7 @@ from qtpy.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
 from .tabs import (
     BatchTab,
+    PredictionTab,
     QuantificationTab,
     SegmentationTab,
     SettingsTab,
@@ -36,6 +37,7 @@ class SenoQuantWidget(QWidget):
 
         tabs.addTab(segmentation_tab, "Segmentation")
         tabs.addTab(spots_tab, "Spots")
+        tabs.addTab(PredictionTab(napari_viewer=napari_viewer), "Prediction")
         tabs.addTab(QuantificationTab(napari_viewer=napari_viewer), "Quantification")
         tabs.addTab(VisualizationTab(napari_viewer=napari_viewer), "Visualization")
         tabs.addTab(batch_tab, "Batch")

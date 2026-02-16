@@ -32,6 +32,8 @@ This page summarizes the current repository layout and where core behavior is im
 - `segmentation/stardist_onnx_utils/`: StarDist runtime helpers, conversion/runtime support, vendored StarDist/CSBDeep compatibility code.
 - `spots/`: spots tab UI/backend and detector orchestration.
 - `spots/models/`: built-in detectors (`rmp`, `ufish`) plus shared detector base classes.
+- `prediction/`: prediction tab UI/backend and prediction model orchestration.
+- `prediction/models/`: built-in placeholder model (`demo_model`) and shared prediction model base class.
 - `quantification/`: quantification tab UI/backend.
 - `quantification/features/`: feature system (`Markers`, `Spots`) with per-feature config/UI/export modules.
 - `visualization/`: visualization tab UI/backend.
@@ -43,14 +45,16 @@ This page summarizes the current repository layout and where core behavior is im
 
 - `frontend.py`: Qt widgets, signal wiring, and user interactions.
 - `backend.py`: processing logic and discovery/orchestration.
-- `models/<name>/details.json`: metadata-driven settings schema for model/detector UI.
-- `models/<name>/model.py`: runtime implementation class.
+- `models/<name>/details.json`: metadata-driven settings schema used by segmentation/spots.
+- `models/<name>/model.py`: runtime implementation class (segmentation, spots, prediction).
+- Prediction models do not require `details.json`; model UI is defined directly in code.
 
 ## Test layout highlights (`tests/senoquant`)
 
 - `tabs/test_ui_smoke.py`: tab/widget smoke tests.
 - `tabs/segmentation/`: frontend/backend/model tests for segmentation.
 - `tabs/spots/`: frontend/backend/detector/filter tests for spots.
+- `tabs/prediction/`: frontend/backend/model tests for prediction.
 - `tabs/quantification/`: backend + feature export and UI tests.
 - `tabs/visualization/`: backend/plot registry/handler tests.
 - `tabs/batch/`: config/backend/io/frontend integration tests.

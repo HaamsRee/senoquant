@@ -8,9 +8,10 @@ conversions.
 
 from __future__ import annotations
 
+import dask.array as da
 import numpy as np
 
-from senoquant.utils import append_run_metadata, layer_data_asarray
+from senoquant.utils import append_run_metadata, labels_data_as_dask, layer_data_asarray
 
 
 class DummyLayer:
@@ -77,3 +78,23 @@ def test_append_run_metadata_appends_history() -> None:
     assert history[-1]["runner_name"] == "nuclear_dilation"
     assert history[-1]["settings"] == {"radius": 5}
     assert isinstance(history[-1]["timestamp"], str)
+
+
+def test_labels_data_as_dask_wraps_numpy_with_chunks() -> None:
+    """Convert dense label arrays to chunked dask arrays."""
+    labels = np.ones((3, 6, 7), dtype=np.uint16)
+
+    wrapped = labels_data_as_dask(labels)
+
+    assert isinstance(wrapped, da.Array)
+    assert wrapped.shape == labels.shape
+    assert max(wrapped.chunks[0]) == 1
+
+
+def test_labels_data_as_dask_keeps_existing_dask_array() -> None:
+    """Return an existing dask array without re-wrapping."""
+    labels = da.from_array(np.ones((4, 4), dtype=np.uint16), chunks=(2, 2))
+
+    wrapped = labels_data_as_dask(labels)
+
+    assert wrapped is labels

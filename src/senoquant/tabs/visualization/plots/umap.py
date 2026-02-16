@@ -21,7 +21,7 @@ class UMAPData(PlotData):
 class UMAPPlot(SenoQuantPlot):
     """UMAP dimensionality reduction plot handler."""
 
-    feature_type = "UMAP"
+    plot_type = "UMAP"
     order = 1
 
     def build(self) -> None:

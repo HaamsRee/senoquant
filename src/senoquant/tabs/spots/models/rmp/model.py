@@ -39,11 +39,56 @@ except ImportError:  # pragma: no cover - optional dependency
 
 Array2D = np.ndarray
 KernelShape = tuple[int, int]
+
+# Numeric stability guard used in divisions/variance computations.
 EPS = 1e-6
+
+# Robust normalization controls for top-hat response scaling.
+# Larger NOISE_FLOOR_SIGMA suppresses more low-level background.
 NOISE_FLOOR_SIGMA = 1.5
+# Lower bound on dynamic-range scaling relative to estimated noise.
 MIN_SCALE_SIGMA = 5.0
+# High percentile used to set bright-signal scale for [0, 1] normalization.
 SIGNAL_SCALE_QUANTILE = 99.9
+
+# If True, maxima are extracted from Laplacian response instead of raw enhanced image.
 USE_LAPLACE_FOR_PEAKS = False
+
+# Peak quality gates before watershed seeding.
+# Relative to robust high-intensity scale; higher => fewer weak peaks.
+PEAK_RELATIVE_INTENSITY_MIN = 0.45
+# Relative local prominence (vs 3x3 local minimum); higher => fewer plateau peaks.
+PEAK_RELATIVE_PROMINENCE_MIN = 0.35
+# Center-bias multiplier in distance-weighted response.
+# Higher => prefer component-center peaks over boundary peaks.
+PEAK_COMPONENT_DISTANCE_WEIGHT = 1.0
+# Hard center-distance gate (0..1 in each component).
+# Higher => keep only deeper interior peaks.
+PEAK_MIN_COMPONENT_DISTANCE_RATIO = 0.55
+
+# Fixed sigma passed to BayesShrink wavelet denoising.
+# Set to None for automatic sigma estimation.
+WAVELET_SIGMA = None
+
+# Anisotropy detection and correction knobs (3D only).
+# Peak sampling percentile for candidate spots used in anisotropy estimation.
+ANISO_DETECT_PERCENTILE = 99.2
+# Minimum accepted number of valid spot patches for a stable anisotropy estimate.
+ANISO_MIN_SPOTS = 12
+# Max number of brightest local maxima evaluated for anisotropy estimation.
+ANISO_MAX_SPOTS = 256
+# Half-size of local patch in z around each candidate spot.
+ANISO_PATCH_RADIUS_Z = 3
+# Half-size of local patch in y/x around each candidate spot.
+ANISO_PATCH_RADIUS_XY = 3
+# Ratio bounds around isotropy (sigma_z / sigma_xy) where no correction is applied.
+ANISO_RATIO_LOW = 0.8
+ANISO_RATIO_HIGH = 1.2
+# Maximum IQR of per-spot anisotropy ratios; larger IQR => estimate considered unreliable.
+ANISO_RATIO_IQR_MAX = 0.6
+# Clamp bounds for z resampling factor during isotropization.
+ANISO_Z_SCALE_MIN = 0.2
+ANISO_Z_SCALE_MAX = 2
 logger = logging.getLogger(__name__)
 
 
@@ -206,30 +251,358 @@ def _normalize_top_hat_unit(image: np.ndarray) -> np.ndarray:
 def _markers_from_local_maxima(
     enhanced: np.ndarray,
     threshold: float,
+    *,
+    reference_image: np.ndarray | None = None,
     use_laplace: bool = USE_LAPLACE_FOR_PEAKS,
 ) -> np.ndarray:
-    """Build marker labels from local maxima and thresholding."""
+    """Build marker labels from reference-image local maxima inside enhanced mask."""
     connectivity = max(1, min(2, enhanced.ndim))
-    response = (
-        laplace(enhanced.astype(np.float32, copy=False))
-        if use_laplace
-        else np.asarray(enhanced, dtype=np.float32)
+    enhanced_float = np.asarray(enhanced, dtype=np.float32)
+    reference_float = (
+        np.asarray(reference_image, dtype=np.float32)
+        if reference_image is not None
+        else enhanced_float
     )
-    mask = local_maxima(response, connectivity=connectivity)
-    mask = mask & (response > threshold)
+    if reference_float.shape != enhanced_float.shape:
+        raise ValueError("Reference image shape must match enhanced image shape.")
+    response = (
+        laplace(reference_float)
+        if use_laplace
+        else reference_float
+    )
+    foreground = enhanced_float > threshold
+    if not np.any(foreground):
+        return np.zeros(enhanced_float.shape, dtype=np.int32)
 
-    markers = np.zeros(enhanced.shape, dtype=np.int32)
+    structure = ndi.generate_binary_structure(enhanced_float.ndim, 1)
+    component_labels, num_components = ndi.label(foreground, structure=structure)
+    if num_components == 0:
+        return np.zeros(enhanced_float.shape, dtype=np.int32)
+
+    distance_to_boundary = ndi.distance_transform_edt(foreground)
+    label_ids = np.arange(num_components + 1, dtype=np.int32)
+    max_distance_by_label = np.asarray(
+        ndi.maximum(
+            distance_to_boundary,
+            labels=component_labels,
+            index=label_ids,
+        ),
+        dtype=np.float32,
+    )
+
+    component_scale = max_distance_by_label[component_labels]
+
+    normalized_component_distance = np.zeros_like(response, dtype=np.float32)
+    valid_component_mask = foreground & np.isfinite(reference_float)
+    normalized_component_distance[valid_component_mask] = (
+        distance_to_boundary[valid_component_mask]
+        / np.maximum(component_scale[valid_component_mask], EPS)
+    )
+
+    weighted_response = response * (
+        1.0 + (PEAK_COMPONENT_DISTANCE_WEIGHT * normalized_component_distance)
+    )
+    mask = local_maxima(weighted_response, connectivity=connectivity)
+    mask = mask & foreground
+    mask = mask & (
+        normalized_component_distance >= PEAK_MIN_COMPONENT_DISTANCE_RATIO
+    )
+    if not np.any(mask):
+        return np.zeros(enhanced_float.shape, dtype=np.int32)
+
+    valid = reference_float[valid_component_mask]
+    if valid.size == 0:
+        return np.zeros(enhanced_float.shape, dtype=np.int32)
+
+    intensity_scale = float(np.nanpercentile(valid, 99.5))
+    if (not np.isfinite(intensity_scale)) or intensity_scale <= EPS:
+        intensity_scale = float(np.nanmax(valid))
+        if (not np.isfinite(intensity_scale)) or intensity_scale <= EPS:
+            return np.zeros(enhanced_float.shape, dtype=np.int32)
+
+    relative_intensity = np.zeros_like(reference_float, dtype=np.float32)
+    relative_intensity[valid_component_mask] = (
+        reference_float[valid_component_mask] / max(intensity_scale, EPS)
+    )
+
+    prominence_floor = ndi.minimum_filter(reference_float, size=3, mode="nearest")
+    relative_prominence = (reference_float - prominence_floor) / np.maximum(
+        reference_float,
+        EPS,
+    )
+    relative_prominence = np.clip(relative_prominence, 0.0, None)
+
+    mask = mask & valid_component_mask
+    mask = mask & (relative_intensity >= PEAK_RELATIVE_INTENSITY_MIN)
+    mask = mask & (relative_prominence >= PEAK_RELATIVE_PROMINENCE_MIN)
+    if not np.any(mask):
+        return np.zeros(enhanced_float.shape, dtype=np.int32)
+
+    markers = np.zeros(enhanced_float.shape, dtype=np.int32)
     coords = np.argwhere(mask)
     if coords.size == 0:
         return markers
 
-    max_indices = np.asarray(enhanced.shape) - 1
+    max_indices = np.asarray(enhanced_float.shape) - 1
     coords = np.clip(coords, 0, max_indices)
     markers[tuple(coords.T)] = 1
 
-    structure = ndi.generate_binary_structure(enhanced.ndim, 1)
     marker_labels, _num = ndi.label(markers > 0, structure=structure)
     return marker_labels.astype(np.int32, copy=False)
+
+
+def _fit_to_shape(array: np.ndarray, target_shape: tuple[int, ...]) -> np.ndarray:
+    """Crop/pad array to exactly match target shape."""
+    if array.shape == target_shape:
+        return array
+    src_slices = tuple(slice(0, min(src, tgt)) for src, tgt in zip(array.shape, target_shape))
+    cropped = array[src_slices]
+    if cropped.shape == target_shape:
+        return cropped
+    fitted = np.zeros(target_shape, dtype=array.dtype)
+    dst_slices = tuple(slice(0, dim) for dim in cropped.shape)
+    fitted[dst_slices] = cropped
+    return fitted
+
+
+def _zoom_to_shape(
+    array: np.ndarray,
+    target_shape: tuple[int, ...],
+    *,
+    order: int,
+) -> np.ndarray:
+    """Zoom an ndarray and force exact target shape via crop/pad."""
+    if array.shape == target_shape:
+        return array
+    zoom_factors = tuple(
+        (float(t) / float(s)) if s > 0 else 1.0
+        for t, s in zip(target_shape, array.shape)
+    )
+    out = ndi.zoom(
+        array,
+        zoom=zoom_factors,
+        order=order,
+        mode="nearest",
+        prefilter=order > 1,
+    )
+    return _fit_to_shape(out, target_shape)
+
+
+def _estimate_apparent_z_anisotropy_ratio(
+    reference_image: np.ndarray,
+    valid_mask: np.ndarray | None = None,
+) -> float | None:
+    """Estimate apparent z-vs-xy spot width ratio from bright local peaks."""
+    data = np.asarray(reference_image, dtype=np.float32)
+    if data.ndim != 3:
+        return None
+    if min(data.shape[1:]) < 2 * ANISO_PATCH_RADIUS_XY + 1:
+        return None
+    if data.shape[0] < 2 * ANISO_PATCH_RADIUS_Z + 1:
+        return None
+
+    finite = np.isfinite(data)
+    if valid_mask is None:
+        sampling_mask = finite
+    else:
+        sampling_mask = finite & np.asarray(valid_mask, dtype=bool)
+        if sampling_mask.shape != data.shape:
+            raise ValueError("Anisotropy valid mask shape must match reference image shape.")
+    if not np.any(sampling_mask):
+        return None
+
+    valid = data[sampling_mask]
+    threshold = float(np.nanpercentile(valid, ANISO_DETECT_PERCENTILE))
+    peak_candidates = sampling_mask & (data >= threshold)
+    if not np.any(peak_candidates):
+        return None
+
+    local_max = data >= ndi.maximum_filter(data, size=(3, 3, 3), mode="nearest")
+    maxima_mask = peak_candidates & local_max
+    coords = np.argwhere(maxima_mask)
+    if coords.size == 0:
+        return None
+
+    strengths = data[tuple(coords.T)]
+    order = np.argsort(strengths)[::-1]
+    coords = coords[order[:ANISO_MAX_SPOTS]]
+
+    rz = ANISO_PATCH_RADIUS_Z
+    ry = ANISO_PATCH_RADIUS_XY
+    rx = ANISO_PATCH_RADIUS_XY
+    zz, yy, xx = np.indices((2 * rz + 1, 2 * ry + 1, 2 * rx + 1), dtype=np.float32)
+    zz -= rz
+    yy -= ry
+    xx -= rx
+
+    ratios: list[float] = []
+    for z, y, x in coords:
+        if (
+            z < rz
+            or y < ry
+            or x < rx
+            or z >= data.shape[0] - rz
+            or y >= data.shape[1] - ry
+            or x >= data.shape[2] - rx
+        ):
+            continue
+
+        patch = data[
+            z - rz : z + rz + 1,
+            y - ry : y + ry + 1,
+            x - rx : x + rx + 1,
+        ]
+        patch_sampling_mask = sampling_mask[
+            z - rz : z + rz + 1,
+            y - ry : y + ry + 1,
+            x - rx : x + rx + 1,
+        ]
+        if patch.shape != patch_sampling_mask.shape:
+            continue
+        patch_valid = np.isfinite(patch) & patch_sampling_mask
+        if not np.any(patch_valid):
+            continue
+
+        weights = patch - float(np.median(patch[patch_valid]))
+        weights = np.clip(weights, 0.0, None)
+        weights = np.where(patch_valid, weights, 0.0)
+        total = float(weights.sum())
+        if total <= EPS:
+            continue
+
+        mz = float((weights * zz).sum() / total)
+        my = float((weights * yy).sum() / total)
+        mx = float((weights * xx).sum() / total)
+        vz = float((weights * (zz - mz) ** 2).sum() / total)
+        vy = float((weights * (yy - my) ** 2).sum() / total)
+        vx = float((weights * (xx - mx) ** 2).sum() / total)
+
+        sigma_z = float(np.sqrt(max(vz, EPS)))
+        sigma_xy = float(np.sqrt(max(0.5 * (vy + vx), EPS)))
+        if sigma_xy <= EPS:
+            continue
+
+        ratio = sigma_z / sigma_xy
+        if np.isfinite(ratio) and 0.25 <= ratio <= 8.0:
+            ratios.append(float(ratio))
+
+    if len(ratios) < ANISO_MIN_SPOTS:
+        return None
+
+    ratios_arr = np.asarray(ratios, dtype=np.float32)
+    q25, q75 = np.percentile(ratios_arr, [25, 75])
+    iqr = float(q75 - q25)
+    if iqr > ANISO_RATIO_IQR_MAX:
+        return None
+    return float(np.median(ratios_arr))
+
+
+def _spot_call_with_anisotropy_correction(
+    top_hat_normalized: np.ndarray,
+    threshold: float,
+    *,
+    reference_image: np.ndarray | None = None,
+) -> np.ndarray:
+    """Optionally isotropize in z before spot calling, then restore original shape."""
+    reference = (
+        np.asarray(reference_image, dtype=np.float32)
+        if reference_image is not None
+        else np.asarray(top_hat_normalized, dtype=np.float32)
+    )
+    if reference.shape != top_hat_normalized.shape:
+        raise ValueError("Reference image shape must match enhanced image shape.")
+
+    if top_hat_normalized.ndim != 3:
+        logger.warning(
+            "RMP anisotropy: not applied (non-3D input, ndim=%d).",
+            int(top_hat_normalized.ndim),
+        )
+        markers = _markers_from_local_maxima(
+            top_hat_normalized,
+            threshold,
+            reference_image=reference,
+            use_laplace=USE_LAPLACE_FOR_PEAKS,
+        )
+        return _segment_from_markers(top_hat_normalized, markers, threshold)
+
+    foreground = np.asarray(top_hat_normalized, dtype=np.float32) > threshold
+    ratio = _estimate_apparent_z_anisotropy_ratio(reference, valid_mask=foreground)
+    if ratio is None:
+        logger.warning("RMP anisotropy: ratio unavailable; correction not applied.")
+        markers = _markers_from_local_maxima(
+            top_hat_normalized,
+            threshold,
+            reference_image=reference,
+            use_laplace=USE_LAPLACE_FOR_PEAKS,
+        )
+        return _segment_from_markers(top_hat_normalized, markers, threshold)
+
+    logger.warning(
+        "RMP anisotropy: estimated ratio sigma_z/sigma_xy=%.3f.",
+        float(ratio),
+    )
+    if not (ratio > ANISO_RATIO_HIGH or ratio < ANISO_RATIO_LOW):
+        logger.warning(
+            "RMP anisotropy: not applied (ratio %.3f within [%.3f, %.3f]).",
+            float(ratio),
+            float(ANISO_RATIO_LOW),
+            float(ANISO_RATIO_HIGH),
+        )
+        markers = _markers_from_local_maxima(
+            top_hat_normalized,
+            threshold,
+            reference_image=reference,
+            use_laplace=USE_LAPLACE_FOR_PEAKS,
+        )
+        return _segment_from_markers(top_hat_normalized, markers, threshold)
+
+    z_scale = float(np.clip(1.0 / ratio, ANISO_Z_SCALE_MIN, ANISO_Z_SCALE_MAX))
+    if abs(z_scale - 1.0) < 1e-3:
+        logger.warning(
+            "RMP anisotropy: not applied (computed z_scale=%.3f ~ 1.0 after clamping).",
+            z_scale,
+        )
+        markers = _markers_from_local_maxima(
+            top_hat_normalized,
+            threshold,
+            reference_image=reference,
+            use_laplace=USE_LAPLACE_FOR_PEAKS,
+        )
+        return _segment_from_markers(top_hat_normalized, markers, threshold)
+
+    logger.warning(
+        "RMP anisotropy: applied (ratio=%.3f, z_scale=%.3f, shape=%s -> z-resampled).",
+        float(ratio),
+        z_scale,
+        tuple(int(v) for v in top_hat_normalized.shape),
+    )
+    iso_image = ndi.zoom(
+        np.asarray(top_hat_normalized, dtype=np.float32),
+        zoom=(z_scale, 1.0, 1.0),
+        order=1,
+        mode="nearest",
+        prefilter=False,
+    )
+    iso_reference = ndi.zoom(
+        reference,
+        zoom=(z_scale, 1.0, 1.0),
+        order=1,
+        mode="nearest",
+        prefilter=False,
+    )
+    markers_iso = _markers_from_local_maxima(
+        iso_image,
+        threshold,
+        reference_image=iso_reference,
+        use_laplace=USE_LAPLACE_FOR_PEAKS,
+    )
+    labels_iso = _segment_from_markers(iso_image, markers_iso, threshold)
+    labels = _zoom_to_shape(
+        labels_iso.astype(np.int32, copy=False),
+        top_hat_normalized.shape,
+        order=0,
+    )
+    return labels.astype(np.int32, copy=False)
 
 
 def _segment_from_markers(
@@ -432,23 +805,27 @@ def _compute_top_hat_nd(
 def _postprocess_top_hat(
     top_hat: np.ndarray,
     config: "RMPSettings",
+    *,
+    reference_image: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Apply normalization, thresholding, marker extraction, and watershed."""
     top_hat_normalized = _normalize_top_hat_unit(top_hat)
+    reference = (
+        np.asarray(reference_image, dtype=np.float32)
+        if reference_image is not None
+        else top_hat_normalized
+    )
+    if reference.shape != top_hat_normalized.shape:
+        raise ValueError("Reference image shape must match top-hat shape.")
     threshold = (
         _clamp_threshold(float(threshold_otsu(top_hat_normalized)))
         if config.auto_threshold
         else config.manual_threshold
     )
-    markers = _markers_from_local_maxima(
+    labels = _spot_call_with_anisotropy_correction(
         top_hat_normalized,
         threshold,
-        use_laplace=USE_LAPLACE_FOR_PEAKS,
-    )
-    labels = _segment_from_markers(
-        top_hat_normalized,
-        markers,
-        threshold,
+        reference_image=reference,
     )
     return labels, top_hat_normalized
 
@@ -456,7 +833,7 @@ def _postprocess_top_hat(
 def _rmp_top_hat_tiled(
     image: np.ndarray,
     config: "RMPSettings",
-    chunk_size: tuple[int, int] = (1024, 1024),
+    chunk_size: tuple[int, int] = (512, 512),
     overlap: int | None = None,
     distributed: bool = False,
     client: "Client | None" = None,
@@ -491,9 +868,9 @@ class RMPSettings:
     """Configuration for the RMP detector."""
 
     extraction_se_length: int = 10
-    angle_spacing: int = 5
+    angle_spacing: int = 10
     auto_threshold: bool = True
-    manual_threshold: float = 0.05
+    manual_threshold: float = 0.50
     enable_denoising: bool = True
 
 
@@ -550,6 +927,7 @@ class RMPDetector(SenoQuantSpotDetector):
         denoised = wavelet_denoise_input(
             normalized,
             enabled=config.enable_denoising,
+            sigma=WAVELET_SIGMA,
         )
 
         use_distributed = _distributed_available()
@@ -577,8 +955,13 @@ class RMPDetector(SenoQuantSpotDetector):
         denoised_top_hat = wavelet_denoise_input(
             top_hat,
             enabled=config.enable_denoising,
+            sigma=WAVELET_SIGMA,
         )
-        labels, _top_hat_normalized = _postprocess_top_hat(denoised_top_hat, config)
+        labels, _top_hat_normalized = _postprocess_top_hat(
+            denoised_top_hat,
+            config,
+            reference_image=denoised,
+        )
         return {
             "mask": labels,
             # "debug_images": {

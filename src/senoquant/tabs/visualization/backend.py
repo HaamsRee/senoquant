@@ -59,8 +59,8 @@ class VisualizationBackend:
 
     Notes
     -----
-    Feature export routines live with their feature implementations. The
-    backend iterates through configured feature contexts, asks each feature
+    Plot export routines live with their plot implementations. The
+    backend iterates through configured plot contexts, asks each plot
     handler to export into a temporary directory, and then routes those
     outputs into a final output structure.
     """
