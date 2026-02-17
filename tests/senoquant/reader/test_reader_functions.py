@@ -206,6 +206,23 @@ def test_network_download_source_converts_unc_and_rejects_invalid_unc() -> None:
         core._network_download_source(r"\\server")
 
 
+def test_resolve_reader_path_prefers_network_staging_for_unc(monkeypatch, tmp_path) -> None:
+    """Stage UNC paths before any local Path.is_file probing."""
+    staged = str(tmp_path / "staged.czi")
+    is_file_calls: list[str] = []
+
+    def _unexpected_is_file(_self):
+        is_file_calls.append("called")
+        return True
+
+    monkeypatch.setattr(core.Path, "is_file", _unexpected_is_file)
+    monkeypatch.setattr(core, "_stage_network_path", lambda _path: staged)
+
+    resolved = core._resolve_reader_path(r"\\server\share\image.czi")
+    assert resolved == staged
+    assert is_file_calls == []
+
+
 def test_stage_network_path_cleans_partial_file_on_copy_failure(
     monkeypatch, tmp_path
 ) -> None:
@@ -234,3 +251,89 @@ def test_stage_network_path_cleans_partial_file_on_copy_failure(
         core._stage_network_path("smb://server/share/image.czi")
 
     assert not list(tmp_path.glob("*.part"))
+
+
+def test_ensure_java_truststore_sets_env_on_windows(monkeypatch) -> None:
+    """Set Java/Maven truststore flags on Windows when missing."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Windows")
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS", raising=False)
+    monkeypatch.delenv("MAVEN_OPTS", raising=False)
+
+    core._ensure_java_truststore()
+
+    java_opts = core.os.environ["JAVA_TOOL_OPTIONS"]
+    maven_opts = core.os.environ["MAVEN_OPTS"]
+    assert core._WINDOWS_TRUSTSTORE_TYPE_FLAG in java_opts
+    assert core._WINDOWS_TRUSTSTORE_PROVIDER_FLAG in java_opts
+    assert core._WINDOWS_TRUSTSTORE_TYPE_FLAG in maven_opts
+    assert core._WINDOWS_TRUSTSTORE_PROVIDER_FLAG in maven_opts
+
+
+def test_ensure_java_truststore_preserves_existing_options_on_windows(
+    monkeypatch,
+) -> None:
+    """Preserve existing options and avoid duplicate truststore flags."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Windows")
+    monkeypatch.setenv("JAVA_TOOL_OPTIONS", "-Xmx1g")
+    monkeypatch.setenv(
+        "MAVEN_OPTS",
+        f"-Dfoo=bar {core._WINDOWS_TRUSTSTORE_TYPE_FLAG}",
+    )
+
+    core._ensure_java_truststore()
+    core._ensure_java_truststore()
+
+    java_opts = core.os.environ["JAVA_TOOL_OPTIONS"]
+    maven_opts = core.os.environ["MAVEN_OPTS"]
+    assert "-Xmx1g" in java_opts
+    assert java_opts.count("javax.net.ssl.trustStoreType") == 1
+    assert java_opts.count("javax.net.ssl.trustStoreProvider") == 1
+    assert "-Dfoo=bar" in maven_opts
+    assert maven_opts.count("javax.net.ssl.trustStoreType") == 1
+    assert maven_opts.count("javax.net.ssl.trustStoreProvider") == 1
+
+
+def test_ensure_java_truststore_sets_macos_keychain_flags(monkeypatch) -> None:
+    """Set macOS Java truststore flags when missing."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Darwin")
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS", raising=False)
+    monkeypatch.delenv("MAVEN_OPTS", raising=False)
+
+    core._ensure_java_truststore()
+
+    assert core._MACOS_TRUSTSTORE_TYPE_FLAG in core.os.environ["JAVA_TOOL_OPTIONS"]
+    assert core._MACOS_TRUSTSTORE_TYPE_FLAG in core.os.environ["MAVEN_OPTS"]
+
+
+def test_ensure_java_truststore_sets_linux_cacerts_flags(monkeypatch) -> None:
+    """Set Linux Java truststore flags when a system cacerts file is available."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        core,
+        "_linux_java_truststore_path",
+        lambda: "/etc/ssl/certs/java/cacerts",
+    )
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS", raising=False)
+    monkeypatch.delenv("MAVEN_OPTS", raising=False)
+
+    core._ensure_java_truststore()
+
+    expected_store = "-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
+    expected_password = "-Djavax.net.ssl.trustStorePassword=changeit"
+    assert expected_store in core.os.environ["JAVA_TOOL_OPTIONS"]
+    assert expected_password in core.os.environ["JAVA_TOOL_OPTIONS"]
+    assert expected_store in core.os.environ["MAVEN_OPTS"]
+    assert expected_password in core.os.environ["MAVEN_OPTS"]
+
+
+def test_ensure_java_truststore_noop_when_disabled(monkeypatch) -> None:
+    """Allow disabling automatic truststore setup through environment."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Windows")
+    monkeypatch.setenv("SENOQUANT_JAVA_TRUSTSTORE_SETUP", "off")
+    monkeypatch.setenv("JAVA_TOOL_OPTIONS", "-Xmx2g")
+    monkeypatch.setenv("MAVEN_OPTS", "-Dfoo=bar")
+
+    core._ensure_java_truststore()
+
+    assert core.os.environ["JAVA_TOOL_OPTIONS"] == "-Xmx2g"
+    assert core.os.environ["MAVEN_OPTS"] == "-Dfoo=bar"

@@ -6,6 +6,8 @@ import atexit
 import hashlib
 import itertools
 import logging
+import os
+import platform
 from pathlib import Path
 import shutil
 import tempfile
@@ -21,6 +23,13 @@ except Exception:  # pragma: no cover - optional dependency
 _LOGGER = logging.getLogger(__name__)
 _NETWORK_STAGE_ROOT = Path(tempfile.mkdtemp(prefix="senoquant-reader-"))
 _STAGED_NETWORK_PATHS: dict[str, str] = {}
+_WINDOWS_TRUSTSTORE_TYPE_FLAG = "-Djavax.net.ssl.trustStoreType=Windows-ROOT"
+_WINDOWS_TRUSTSTORE_PROVIDER_FLAG = "-Djavax.net.ssl.trustStoreProvider=SunMSCAPI"
+_MACOS_TRUSTSTORE_TYPE_FLAG = "-Djavax.net.ssl.trustStoreType=KeychainStore"
+_LINUX_JAVA_CACERTS_PATHS = (
+    "/etc/ssl/certs/java/cacerts",
+    "/etc/pki/java/cacerts",
+)
 
 
 def _cleanup_network_staging() -> None:
@@ -108,11 +117,71 @@ def _stage_network_path(path: str) -> str:
 
 def _resolve_reader_path(path: str) -> str:
     """Resolve input to a local path consumable by BioFormats."""
-    if Path(path).is_file():
-        return path
     if _is_network_path(path):
         return _stage_network_path(path)
+    if Path(path).is_file():
+        return path
     raise FileNotFoundError(path)
+
+
+def _linux_java_truststore_path() -> str | None:
+    """Return the first available Linux Java truststore path."""
+    for candidate in _LINUX_JAVA_CACERTS_PATHS:
+        if Path(candidate).is_file():
+            return candidate
+    return None
+
+
+def _java_truststore_flags_for_platform() -> list[tuple[str, str]]:
+    """Return platform-specific JVM truststore flags (token, flag)."""
+    system = platform.system()
+    if system == "Windows":
+        return [
+            ("javax.net.ssl.trustStoreType", _WINDOWS_TRUSTSTORE_TYPE_FLAG),
+            ("javax.net.ssl.trustStoreProvider", _WINDOWS_TRUSTSTORE_PROVIDER_FLAG),
+        ]
+    if system == "Darwin":
+        return [
+            ("javax.net.ssl.trustStoreType", _MACOS_TRUSTSTORE_TYPE_FLAG),
+        ]
+    if system == "Linux":
+        truststore_path = _linux_java_truststore_path()
+        if truststore_path is None:
+            return []
+        return [
+            (
+                "javax.net.ssl.trustStore",
+                f"-Djavax.net.ssl.trustStore={truststore_path}",
+            ),
+            (
+                "javax.net.ssl.trustStorePassword",
+                "-Djavax.net.ssl.trustStorePassword=changeit",
+            ),
+        ]
+    return []
+
+
+def _ensure_java_truststore() -> None:
+    """Configure Java/Maven truststore settings for current platform."""
+    setup_mode = os.environ.get("SENOQUANT_JAVA_TRUSTSTORE_SETUP", "auto").strip().lower()
+    if setup_mode in {"0", "false", "off", "no"}:
+        return
+
+    flags = _java_truststore_flags_for_platform()
+    if not flags:
+        return
+
+    for env_name in ("JAVA_TOOL_OPTIONS", "MAVEN_OPTS"):
+        current = os.environ.get(env_name, "").strip()
+        additions: list[str] = []
+        for token, flag in flags:
+            if token not in current:
+                additions.append(flag)
+        if not additions:
+            continue
+        updated = f"{current} {' '.join(additions)}".strip()
+        os.environ[env_name] = updated
+        _LOGGER.info("Configured %s JVM truststore options for %s.", env_name, platform.system())
 
 
 def get_reader(path: str | list[str]) -> Callable | None:
@@ -459,6 +528,7 @@ def _open_bioimage(path: str):
     bioio.BioImage
         BioIO image instance for the requested file.
     """
+    _ensure_java_truststore()
     import bioio
 
     try:
