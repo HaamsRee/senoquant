@@ -4,7 +4,7 @@ try:
     from importlib.metadata import version
     __version__ = version("senoquant")
 except Exception:
-    __version__ = "1.0.0b6.post3"  # Fallback for development
+    __version__ = "1.0.0b6.post4"  # Fallback for development
 
 from ._widget import SenoQuantWidget
 __all__ = ["SenoQuantWidget"]

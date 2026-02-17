@@ -202,6 +202,10 @@ def test_network_download_source_converts_unc_and_rejects_invalid_unc() -> None:
         core._network_download_source(r"\\server\share\folder\image.czi")
         == "smb://server/share/folder/image.czi"
     )
+    assert (
+        core._network_download_source(r"\\server\share\images examples\spots 2d\76 cxcl1.lif")
+        == "smb://server/share/images examples/spots 2d/76 cxcl1.lif"
+    )
     with pytest.raises(ValueError, match="Unsupported UNC path format"):
         core._network_download_source(r"\\server")
 

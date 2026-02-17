@@ -12,7 +12,7 @@ from pathlib import Path
 import shutil
 import tempfile
 from typing import Callable, Iterable
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import unquote, urlparse
 
 try:
     from bioio_base.exceptions import UnsupportedFileFormatError
@@ -77,7 +77,9 @@ def _network_download_source(path: str) -> str:
             raise ValueError(f"Unsupported UNC path format: {path}")
         server = parts[0]
         share_and_file = "/".join(parts[1:])
-        return f"smb://{server}/{quote(share_and_file, safe='/')}"
+        # Keep spaces and other path characters unescaped: smbclient/fsspec
+        # expects a normal SMB path string, not URL-encoded segments.
+        return f"smb://{server}/{share_and_file}"
     return path
 
 
