@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "senoquant"
-version = "1.0.0b5"
+version = "1.0.0b6"
 description = "napari plugin for spatial quantification of senescence markers in tissue imaging"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -117,6 +117,5 @@ namespaces = false
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.pyc", "__pycache__/*", ".DS_Store"]
-
 
 
