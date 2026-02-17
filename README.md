@@ -16,7 +16,7 @@ across diverse tissue contexts.
 - Detect punctate spots with built-in detectors.
 - Run prediction models for senescence-associated feature maps in a dedicated Prediction tab (includes `demo_model` placeholder).
 - Quantify marker intensity, morphology, spot counts, and spot colocalization.
-- Generate visualization outputs from quantification tables (Spatial Plot, UMAP, and Double Expression).
+- Generate visualization outputs from quantification tables (Spatial Plot, UMAP, Double Expression, and Neighborhood Enrichment).
 - Run batch workflows across folders with multi-scene support.
 - Save/load reusable Segmentation, Spots, and Batch settings for reproducibility.
 

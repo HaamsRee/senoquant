@@ -37,7 +37,7 @@ This page summarizes the current repository layout and where core behavior is im
 - `quantification/`: quantification tab UI/backend.
 - `quantification/features/`: feature system (`Markers`, `Spots`) with per-feature config/UI/export modules.
 - `visualization/`: visualization tab UI/backend.
-- `visualization/plots/`: plot handler system (`Spatial Plot`, `UMAP`, `Double Expression`).
+- `visualization/plots/`: plot handler system (`Spatial Plot`, `UMAP`, `Double Expression`, `Neighborhood Enrichment`).
 - `batch/`: batch UI/backend/config/io/layer shims.
 - `settings/`: Settings tab save/load orchestration.
 
