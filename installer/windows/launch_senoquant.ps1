@@ -83,6 +83,10 @@ if (!(Test-Path $pythonExe)) {
     }
 }
 
+# Set JAVA_HOME for BioFormats (Windows uses Library subfolder)
+$javaHomeDir = Split-Path $envDir -Parent
+$env:JAVA_HOME = "$javaHomeDir\Library"
+
 try {
     & $pythonExe -c "import napari" | Out-Null
 } catch {

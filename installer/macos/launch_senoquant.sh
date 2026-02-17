@@ -122,6 +122,9 @@ fi
 log "Environment ready. Launching napari..."
 log "=============================================="
 
+# Set JAVA_HOME for BioFormats
+export JAVA_HOME="${ENV_DIR}"
+
 # Launch napari with SenoQuant plugin
 "${PYTHON_EXE}" -m napari --with senoquant 2>&1 | tee -a "${LOG_FILE}"
 NAPARI_STATUS=${PIPESTATUS[0]}
