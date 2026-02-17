@@ -115,10 +115,6 @@ class VisualizationTab(QWidget):
         self._enable_thresholds = enable_thresholds
         self._plot_configs: list[PlotUIContext] = []
         self._plot_registry = get_plot_registry()
-        
-        # Register Neighborhood Enrichment plot
-        self._plot_registry["Neighborhood Enrichment"] = NeighborhoodEnrichmentPlot
-
         self._plots_watch_timer: QTimer | None = None
         self._plots_last_size: tuple[int, int] | None = None
 
