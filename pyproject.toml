@@ -57,6 +57,8 @@ dependencies = [
   "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
+  "fsspec>=2024.4",
+  "smbprotocol>=1.13",
   "matplotlib>=3.8",
   "umap-learn>=0.5",
   "jsonschema>=3.2",
@@ -92,6 +94,8 @@ all = [
   "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
+  "fsspec>=2024.4",
+  "smbprotocol>=1.13",
   "matplotlib>=3.8",
   "umap-learn>=0.5",
   "jsonschema>=3.2",
@@ -117,4 +121,3 @@ namespaces = false
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.pyc", "__pycache__/*", ".DS_Store"]
-

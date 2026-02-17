@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import types
+
+import pytest
 
 from senoquant.reader import core as reader_core
 
@@ -46,13 +49,9 @@ class _DummyImage:
     def __init__(self, scenes: list[str]) -> None:
         self.scenes = scenes
         self.scene_calls: list[str] = []
-        self.closed = False
 
     def set_scene(self, scene_id: str) -> None:
         self.scene_calls.append(scene_id)
-
-    def close(self) -> None:
-        self.closed = True
 
 
 def _install_dummy_bioio(monkeypatch) -> None:
@@ -156,9 +155,10 @@ def test_checked_scene_indices_returns_checked(monkeypatch) -> None:
 
 
 def test_read_senoquant_reads_only_selected_scenes(monkeypatch) -> None:
-    """Load layers only for selected scenes and close image handle."""
+    """Load layers only for selected scenes."""
     _install_dummy_bioio(monkeypatch)
     image = _DummyImage(["s0", "s1", "s2"])
+    monkeypatch.setattr(reader_core, "_resolve_reader_path", lambda path: path)
     monkeypatch.setattr(reader_core, "_open_bioimage", lambda _path: image)
     monkeypatch.setattr(reader_core, "_select_scene_indices", lambda *_args: [1])
 
@@ -173,15 +173,15 @@ def test_read_senoquant_reads_only_selected_scenes(monkeypatch) -> None:
     layers = reader_core._read_senoquant("C:/tmp/sample.tif")
     assert [layer[0] for layer in layers] == ["layer-1"]
     assert image.scene_calls == ["s1"]
-    assert image.closed is True
     assert calls[0]["base_name"] == "sample.tif"
     assert calls[0]["total_scenes"] == 3
 
 
 def test_read_senoquant_returns_empty_when_no_scene_selected(monkeypatch) -> None:
-    """Return no layers when user selects no scenes and still close image."""
+    """Return no layers when user selects no scenes."""
     _install_dummy_bioio(monkeypatch)
     image = _DummyImage(["s0", "s1"])
+    monkeypatch.setattr(reader_core, "_resolve_reader_path", lambda path: path)
     monkeypatch.setattr(reader_core, "_open_bioimage", lambda _path: image)
     monkeypatch.setattr(reader_core, "_select_scene_indices", lambda *_args: [])
 
@@ -190,7 +190,59 @@ def test_read_senoquant_returns_empty_when_no_scene_selected(monkeypatch) -> Non
 
     monkeypatch.setattr(reader_core, "_iter_channel_layers", _unexpected)
     assert reader_core._read_senoquant("C:/tmp/sample.tif") == []
-    assert image.closed is True
+
+
+def test_read_senoquant_logs_errors_and_reraises(monkeypatch, caplog) -> None:
+    """Log reader failures and re-raise the originating exception."""
+    _install_dummy_bioio(monkeypatch)
+    image = _DummyImage(["s0"])
+    monkeypatch.setattr(reader_core, "_resolve_reader_path", lambda path: path)
+    monkeypatch.setattr(reader_core, "_open_bioimage", lambda _path: image)
+    monkeypatch.setattr(reader_core, "_select_scene_indices", lambda *_args: [0])
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("layer extraction failed")
+
+    monkeypatch.setattr(reader_core, "_iter_channel_layers", _boom)
+    caplog.set_level(logging.ERROR, logger=reader_core.__name__)
+
+    with pytest.raises(RuntimeError, match="layer extraction failed"):
+        reader_core._read_senoquant("C:/tmp/sample.tif")
+
+    assert "Failed while reading image layers" in caplog.text
+
+
+def test_read_senoquant_uses_staged_path_but_preserves_original_path(
+    monkeypatch,
+) -> None:
+    """Open the staged local file while keeping original path metadata."""
+    _install_dummy_bioio(monkeypatch)
+    image = _DummyImage(["s0"])
+    staged_path = "/tmp/staged/sample.tif"
+    opened_paths: list[str] = []
+    kwargs_seen: dict = {}
+
+    monkeypatch.setattr(reader_core, "_resolve_reader_path", lambda _path: staged_path)
+
+    def _fake_open(path: str):
+        opened_paths.append(path)
+        return image
+
+    monkeypatch.setattr(reader_core, "_open_bioimage", _fake_open)
+    monkeypatch.setattr(reader_core, "_select_scene_indices", lambda *_args: [0])
+
+    def _fake_iter(_image, **kwargs):
+        kwargs_seen.update(kwargs)
+        return [("layer-0", {"name": "x"}, "image")]
+
+    monkeypatch.setattr(reader_core, "_iter_channel_layers", _fake_iter)
+
+    original_path = "smb://server/share/sample.tif"
+    layers = reader_core._read_senoquant(original_path)
+    assert [layer[0] for layer in layers] == ["layer-0"]
+    assert opened_paths == [staged_path]
+    assert kwargs_seen["path"] == original_path
+    assert kwargs_seen["base_name"] == "sample.tif"
 
 
 def test_napari_dialog_parent_prefers_viewer_qt_window(monkeypatch) -> None:

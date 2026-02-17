@@ -2,14 +2,117 @@
 
 from __future__ import annotations
 
+import atexit
+import hashlib
 import itertools
+import logging
 from pathlib import Path
+import shutil
+import tempfile
 from typing import Callable, Iterable
+from urllib.parse import quote, unquote, urlparse
 
 try:
     from bioio_base.exceptions import UnsupportedFileFormatError
 except Exception:  # pragma: no cover - optional dependency
     UnsupportedFileFormatError = Exception
+
+
+_LOGGER = logging.getLogger(__name__)
+_NETWORK_STAGE_ROOT = Path(tempfile.mkdtemp(prefix="senoquant-reader-"))
+_STAGED_NETWORK_PATHS: dict[str, str] = {}
+
+
+def _cleanup_network_staging() -> None:
+    """Remove staged network files created during this process."""
+    shutil.rmtree(_NETWORK_STAGE_ROOT, ignore_errors=True)
+
+
+atexit.register(_cleanup_network_staging)
+
+
+def _is_windows_drive_path(path: str) -> bool:
+    """Return True when the path looks like a Windows drive path."""
+    return len(path) >= 2 and path[1] == ":" and path[0].isalpha()
+
+
+def _is_network_path(path: str) -> bool:
+    """Return True for UNC paths and URI-based network paths."""
+    if path.startswith("\\\\"):
+        return True
+    if _is_windows_drive_path(path):
+        return False
+    if "://" not in path:
+        return False
+    scheme = urlparse(path).scheme.lower()
+    return scheme not in {"", "file"}
+
+
+def _path_display_name(path: str) -> str:
+    """Return a filename-like display name for local and network paths."""
+    if path.startswith("\\\\"):
+        parts = [part for part in path.strip("\\").split("\\") if part]
+        return parts[-1] if parts else path
+    if "://" in path and not _is_windows_drive_path(path):
+        parsed = urlparse(path)
+        name = Path(unquote(parsed.path)).name
+        return name or path
+    return Path(path).name
+
+
+def _network_download_source(path: str) -> str:
+    """Normalize network paths for fsspec download."""
+    if path.startswith("\\\\"):
+        parts = [part for part in path.strip("\\").split("\\") if part]
+        if len(parts) < 2:
+            raise ValueError(f"Unsupported UNC path format: {path}")
+        server = parts[0]
+        share_and_file = "/".join(parts[1:])
+        return f"smb://{server}/{quote(share_and_file, safe='/')}"
+    return path
+
+
+def _stage_network_path(path: str) -> str:
+    """Download a network path to a local temp file for BioFormats."""
+    cached = _STAGED_NETWORK_PATHS.get(path)
+    if cached is not None and Path(cached).is_file():
+        return cached
+
+    source = _network_download_source(path)
+    digest = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
+    suffix = Path(_path_display_name(path)).suffix
+    staged_path = _NETWORK_STAGE_ROOT / f"{digest}{suffix}"
+    temp_path = staged_path.with_suffix(staged_path.suffix + ".part")
+    _NETWORK_STAGE_ROOT.mkdir(parents=True, exist_ok=True)
+
+    try:
+        import fsspec
+    except Exception as exc:  # pragma: no cover - optional dependency
+        raise ImportError(
+            "fsspec is required to stage network image paths."
+        ) from exc
+
+    try:
+        with fsspec.open(source, "rb") as src, temp_path.open("wb") as dst:
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+        temp_path.replace(staged_path)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+    staged = str(staged_path)
+    _STAGED_NETWORK_PATHS[path] = staged
+    _LOGGER.info("Staged network image %s to %s", path, staged)
+    return staged
+
+
+def _resolve_reader_path(path: str) -> str:
+    """Resolve input to a local path consumable by BioFormats."""
+    if Path(path).is_file():
+        return path
+    if _is_network_path(path):
+        return _stage_network_path(path)
+    raise FileNotFoundError(path)
 
 
 def get_reader(path: str | list[str]) -> Callable | None:
@@ -34,20 +137,39 @@ def get_reader(path: str | list[str]) -> Callable | None:
     """
     if isinstance(path, (list, tuple)):
         if not path:
+            _LOGGER.debug("get_reader returning None: empty path list provided.")
             return None
         path = path[0]
     if not isinstance(path, str) or not path:
+        _LOGGER.debug("get_reader returning None: invalid path input %r.", path)
         return None
-    if not Path(path).is_file():
+    try:
+        reader_path = _resolve_reader_path(path)
+    except FileNotFoundError:
+        _LOGGER.debug(
+            "get_reader returning None: path is neither a local file nor a supported network path: %s",
+            path,
+        )
+        return None
+    except Exception as exc:
+        _LOGGER.warning(
+            "get_reader failed to resolve input path %s",
+            path,
+            exc_info=exc,
+        )
         return None
     try:
         import bioio
     except ImportError:
+        _LOGGER.debug("get_reader returning None: bioio is not installed.")
         return None
     if not hasattr(bioio.BioImage, "determine_plugin"):
+        _LOGGER.debug(
+            "get_reader returning None: bioio.BioImage.determine_plugin is unavailable."
+        )
         return None
     try:
-        plugin = bioio.BioImage.determine_plugin(path)
+        plugin = bioio.BioImage.determine_plugin(reader_path)
     except (
         AttributeError,
         ImportError,
@@ -57,9 +179,20 @@ def get_reader(path: str | list[str]) -> Callable | None:
         OSError,
         UnsupportedFileFormatError,
         Exception,
-    ):
+    ) as exc:
+        _LOGGER.warning(
+            "get_reader failed to determine a BioIO plugin for %s (resolved to %s)",
+            path,
+            reader_path,
+            exc_info=exc,
+        )
         return None
     if plugin is None:
+        _LOGGER.debug(
+            "get_reader returning None: no BioIO plugin matched %s (resolved to %s)",
+            path,
+            reader_path,
+        )
         return None
     return _read_senoquant
 
@@ -85,12 +218,27 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
     try:
         from bioio import BioImage
     except Exception as exc:  # pragma: no cover - dependency dependent
+        _LOGGER.error("BioIO import failed while reading %s", path, exc_info=exc)
         raise ImportError(
             "BioIO is required for the SenoQuant reader."
         ) from exc
 
-    base_name = Path(path).name
-    image = _open_bioimage(path)
+    base_name = _path_display_name(path)
+    try:
+        reader_path = _resolve_reader_path(path)
+    except Exception as exc:
+        _LOGGER.error("Failed to resolve reader path for %s", path, exc_info=exc)
+        raise
+    try:
+        image = _open_bioimage(reader_path)
+    except Exception as exc:
+        _LOGGER.error(
+            "Failed to open BioImage for %s (resolved to %s)",
+            path,
+            reader_path,
+            exc_info=exc,
+        )
+        raise
     try:
         layers: list[tuple] = []
         colormap_cycle = _colormap_cycle()
@@ -121,12 +269,9 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
             )
 
         return layers
-    finally:
-        if hasattr(image, "close"):
-            try:
-                image.close()
-            except Exception:
-                pass
+    except Exception as exc:
+        _LOGGER.error("Failed while reading image layers for %s", path, exc_info=exc)
+        raise
 
 
 def _select_scene_indices(path: str, scenes: list[str]) -> list[int]:
@@ -178,7 +323,7 @@ def _prompt_scene_selection(path: str, scenes: list[str]) -> list[int] | None:
     _apply_napari_dialog_theme(dialog, app)
 
     layout = QVBoxLayout(dialog)
-    layout.addWidget(QLabel(f"File: {Path(path).name}"))
+    layout.addWidget(QLabel(f"File: {_path_display_name(path)}"))
     layout.addWidget(QLabel(f"Select scenes to load ({len(scenes)} total):"))
 
     scene_list = QListWidget(dialog)
