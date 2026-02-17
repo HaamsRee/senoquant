@@ -111,7 +111,8 @@ The app bundle at `~/Applications/SenoQuant.app` remains read-only after install
 
 Install location:
 
-- `$HOME` (expands to `~/Applications/`).
+- Component payload path: `/Applications`.
+- Product install domain: `CurrentUserHomeDirectory` (so app installs to `~/Applications`).
 
 Component plist settings:
 
