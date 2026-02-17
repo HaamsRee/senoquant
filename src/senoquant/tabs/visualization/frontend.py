@@ -29,6 +29,7 @@ from qtpy.QtWidgets import (
 from .backend import VisualizationBackend
 from .plots import PlotConfig, build_plot_data, get_plot_registry
 from .plots.base import RefreshingComboBox
+from .plots.neighborhood import NeighborhoodEnrichmentPlot
 
 
 @dataclass
@@ -359,6 +360,49 @@ class VisualizationTab(QWidget):
                         pass # Ignore invalid numbers
                         
         return selected_markers, thresholds
+
+    def _selected_markers_with_invalid_thresholds(self) -> list[str]:
+        """Return selected markers whose threshold is missing or non-numeric."""
+        invalid: list[str] = []
+        for row in range(self._marker_table.rowCount()):
+            chk_item = self._marker_table.item(row, 0)
+            if not chk_item or chk_item.checkState() != Qt.Checked:
+                continue
+
+            marker_item = self._marker_table.item(row, 1)
+            marker_name = marker_item.text() if marker_item else f"Row {row + 1}"
+
+            thresh_widget = self._marker_table.cellWidget(row, 2)
+            text = thresh_widget.text().strip() if isinstance(thresh_widget, QLineEdit) else ""
+            if not text:
+                invalid.append(marker_name)
+                continue
+            try:
+                float(text)
+            except ValueError:
+                invalid.append(marker_name)
+        return invalid
+
+    def _validate_thresholds_for_processing(self) -> bool:
+        """Validate selected marker thresholds and show a blocking popup on failure."""
+        invalid_markers = self._selected_markers_with_invalid_thresholds()
+        if not invalid_markers:
+            return True
+
+        preview = ", ".join(invalid_markers[:8])
+        suffix = "" if len(invalid_markers) <= 8 else f", ... (+{len(invalid_markers) - 8} more)"
+        title = "Thresholds Required"
+        message = (
+            "Please fill threshold values with valid numbers for all selected markers before processing.\n\n"
+            f"Missing/invalid: {preview}{suffix}"
+        )
+        try:
+            from qtpy.QtWidgets import QMessageBox
+
+            QMessageBox.warning(self, title, message)
+        except Exception:
+            print(f"[Frontend] {title}: {message}")
+        return False
 
     def _make_output_section(self) -> QGroupBox:
         """Build the output configuration section.
@@ -762,6 +806,9 @@ class VisualizationTab(QWidget):
 
     def _process_plots(self) -> None:
         """Trigger visualization processing for configured plots."""
+        if not self._validate_thresholds_for_processing():
+            return
+
         # Clear previous plots
         while self._plot_display_layout.count():
             child = self._plot_display_layout.takeAt(0)
@@ -859,6 +906,8 @@ class VisualizationTab(QWidget):
                 print(f" - {f}")
         else:
             # No files present: re-run process to force saving 
+            if not self._validate_thresholds_for_processing():
+                return
             markers, thresholds = self._get_marker_settings()
             process = getattr(self._backend, "process", None)
             if callable(process):

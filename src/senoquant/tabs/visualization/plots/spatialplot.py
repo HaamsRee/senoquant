@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
+import numpy as np
+
 from .base import PlotData, SenoQuantPlot
 
 
@@ -19,6 +21,30 @@ class SpatialPlot(SenoQuantPlot):
 
     plot_type = "Spatial Plot"
     order = 0
+
+    @staticmethod
+    def _threshold_for_marker(
+        thresholds: dict[str, float] | None,
+        marker: str,
+    ) -> float:
+        """Resolve threshold with tolerant key matching."""
+        if not thresholds:
+            return 0.0
+        candidates = (
+            marker,
+            marker.lower(),
+            marker.upper(),
+            f"{marker}_mean_intensity",
+            f"{marker.lower()}_mean_intensity",
+            f"{marker.upper()}_mean_intensity",
+        )
+        for key in candidates:
+            if key in thresholds:
+                try:
+                    return float(thresholds[key])
+                except Exception:
+                    return 0.0
+        return 0.0
 
     def build(self) -> None:
         """Build the UI for spatial plot configuration."""
@@ -86,25 +112,6 @@ class SpatialPlot(SenoQuantPlot):
                 print(f"[SpatialPlot] DataFrame is empty")
                 return []
             
-            print(df.head())
-
-            # Apply thresholds if provided
-            if thresholds:
-                for marker, thresh in thresholds.items():
-                    col_name = f"{marker}_mean_intensity"
-                    if col_name in df.columns:
-                        # Clip values below threshold to 0
-                        df.loc[df[col_name] < thresh, col_name] = 0
-
-            # Filter columns based on selected markers (optional, but good for cleanup)
-            if markers is not None:
-                # We want to ensure we don't pick a deselected marker as the intensity column
-                valid_marker_cols = [f"{m}_mean_intensity" for m in markers]
-                # Keep non-marker columns (like coords) + valid marker columns
-                cols_to_keep = [c for c in df.columns if "_mean_intensity" not in c or c in valid_marker_cols]
-                df = df[cols_to_keep]
-                print(f"[SpatialPlot] Filtered columns using {len(valid_marker_cols)} selected markers")
-
             # Look for X, Y coordinate columns
             x_col = "centroid_x_pixels" if "centroid_x_pixels" in df.columns else None
             y_col = "centroid_y_pixels" if "centroid_y_pixels" in df.columns else None
@@ -136,26 +143,69 @@ class SpatialPlot(SenoQuantPlot):
             x = df[x_col].values
             y = df[y_col].values
 
-            # Get first numeric column (intensity) for coloring
-            numeric_cols = df.select_dtypes(include=["number"]).columns
-            intensity_col = None
-            for col in numeric_cols:
-                if col not in [x_col, y_col]:
-                    intensity_col = col
-                    break
-
-            # Create plot
+            # Create plot as categorical marker assignment (not intensity-based).
             fig, ax = plt.subplots(figsize=(8, 6))
-            if intensity_col is not None:
-                c = df[intensity_col].values
-                scatter = ax.scatter(x, y, c=c, cmap="viridis", alpha=0.6, s=20)
-                plt.colorbar(scatter, ax=ax, label=intensity_col)
+
+            # Fallback mode: if no markers selected, draw all points with one color.
+            if not markers:
+                ax.scatter(x, y, alpha=0.7, s=20, color="tab:blue", label="Cells")
             else:
-                ax.scatter(x, y, alpha=0.6, s=20)
+                # Resolve selected marker columns in order, preserving the UI order.
+                marker_names: list[str] = []
+                marker_cols: list[str] = []
+                for marker in markers:
+                    candidate = f"{marker}_mean_intensity"
+                    if candidate in df.columns:
+                        marker_names.append(marker)
+                        marker_cols.append(candidate)
+                    elif marker in df.columns:
+                        marker_names.append(marker)
+                        marker_cols.append(marker)
+                    else:
+                        print(f"[SpatialPlot] Missing marker column for '{marker}', skipping.")
+
+                if not marker_cols:
+                    print("[SpatialPlot] No valid selected marker columns found.")
+                    return []
+
+                values = df[marker_cols].apply(pd.to_numeric, errors="coerce").to_numpy()
+                labels = ["Other"] * len(df)
+                assigned = np.zeros(len(df), dtype=bool)
+                # First-match precedence: top marker in list wins overlaps.
+                for idx, marker in enumerate(marker_names):
+                    threshold = self._threshold_for_marker(thresholds, marker)
+                    is_pos = values[:, idx] > threshold
+                    take = is_pos & (~assigned)
+                    if np.any(take):
+                        labels_arr = np.asarray(labels, dtype=object)
+                        labels_arr[take] = marker
+                        labels = labels_arr.tolist()
+                        assigned[take] = True
+
+                label_series = pd.Series(labels, index=df.index, dtype="object")
+                category_order = marker_names + ["Other"]
+                colors = plt.cm.get_cmap("tab20", len(category_order))
+
+                for color_idx, category in enumerate(category_order):
+                    mask = label_series == category
+                    if not mask.any():
+                        continue
+                    ax.scatter(
+                        x[mask.to_numpy()],
+                        y[mask.to_numpy()],
+                        alpha=0.75,
+                        s=20,
+                        color=colors(color_idx),
+                        label=category,
+                    )
+                ax.legend(loc="best", frameon=False, title="Assigned marker")
 
             ax.set_xlabel(x_col)
             ax.set_ylabel(y_col)
-            ax.set_title("Spatial Distribution")
+            ax.set_title("Spatial Distribution by Marker")
+            ax.set_aspect("equal", adjustable="box")
+            # Use image-style coordinates: y=0 at top, increasing downward.
+            ax.invert_yaxis()
 
             # Save plot
             output_file = temp_dir / f"spatial_plot.{export_format}"

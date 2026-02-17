@@ -11,6 +11,7 @@ import pandas as pd
 
 from senoquant.tabs.visualization.plots import PlotConfig
 from senoquant.tabs.visualization.plots.double_expression import DoubleExpressionPlot
+from senoquant.tabs.visualization.plots.neighborhood import NeighborhoodEnrichmentPlot
 from senoquant.tabs.visualization.plots.spatialplot import SpatialPlot
 from senoquant.tabs.visualization.plots.umap import UMAPPlot
 
@@ -261,4 +262,59 @@ def test_double_expression_exception_path(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(pd, "read_csv", _boom)
     assert list(plot.plot(temp_dir, input_dir, "png", markers=["CD3", "CD8"])) == []
     assert any("Error in Double Expression Plot" in msg for msg in errors)
+
+
+def test_neighborhood_plot_success(tmp_path: Path) -> None:
+    """Generate neighborhood enrichment plot without squidpy/anndata."""
+    plot = NeighborhoodEnrichmentPlot(
+        types.SimpleNamespace(),
+        _context("Neighborhood Enrichment"),
+    )
+    input_dir = tmp_path / "input"
+    temp_dir = tmp_path / "temp"
+    input_dir.mkdir()
+    temp_dir.mkdir()
+
+    _write_csv(
+        input_dir / "cells.csv",
+        {
+            "centroid_x_pixels": [0, 0, 1, 1, 5, 5, 6, 6],
+            "centroid_y_pixels": [0, 1, 0, 1, 5, 6, 5, 6],
+            "A_mean_intensity": [1, 1, 1, 1, 0, 0, 0, 0],
+            "B_mean_intensity": [0, 0, 0, 0, 1, 1, 1, 1],
+        },
+    )
+    outputs = list(
+        plot.plot(
+            temp_dir,
+            input_dir,
+            "png",
+            markers=["A", "B"],
+            thresholds={"A": 0.5, "B": 0.5},
+        )
+    )
+    assert len(outputs) == 1
+    assert outputs[0].exists()
+
+
+def test_neighborhood_plot_validation_paths(tmp_path: Path) -> None:
+    """Return empty outputs for missing markers and invalid coordinates."""
+    plot = NeighborhoodEnrichmentPlot(
+        types.SimpleNamespace(),
+        _context("Neighborhood Enrichment"),
+    )
+    input_dir = tmp_path / "input"
+    temp_dir = tmp_path / "temp"
+    input_dir.mkdir()
+    temp_dir.mkdir()
+
+    _write_csv(
+        input_dir / "cells.csv",
+        {
+            "x_only": [0, 1, 2],
+            "A_mean_intensity": [1, 0, 1],
+        },
+    )
+    assert list(plot.plot(temp_dir, input_dir, "png", markers=["A"])) == []
+    assert list(plot.plot(temp_dir, input_dir, "png", markers=[])) == []
 
