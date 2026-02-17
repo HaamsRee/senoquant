@@ -240,6 +240,10 @@ def get_reader(path: str | list[str]) -> Callable | None:
         )
         return None
     try:
+        _ensure_java_truststore()
+    except Exception as exc:
+        _LOGGER.debug("Failed to preconfigure Java truststore options.", exc_info=exc)
+    try:
         plugin = bioio.BioImage.determine_plugin(reader_path)
     except (
         AttributeError,
