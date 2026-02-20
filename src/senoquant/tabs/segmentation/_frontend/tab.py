@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from qtpy.QtCore import QObject, QThread
 from qtpy.QtWidgets import QVBoxLayout, QWidget
 
@@ -78,4 +80,10 @@ class SegmentationTab(
                     severity=NotificationSeverity.INFO,
                 )
             )
+            # Some launch contexts buffer stdout until process exit.
+            # Flush explicitly so notifications appear immediately.
+            try:
+                sys.stdout.flush()
+            except Exception:  # pragma: no cover - best-effort flush
+                pass
         self._backend.preload_models()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 from qtpy.QtCore import QObject, QThread
 from qtpy.QtWidgets import QPushButton
@@ -200,6 +202,12 @@ class SegmentationRunMixin:
             show_console_notification(
                 Notification(message, severity=NotificationSeverity.WARNING)
             )
+            # Some launch contexts buffer stdout until process exit.
+            # Flush explicitly so notifications appear immediately.
+            try:
+                sys.stdout.flush()
+            except Exception:  # pragma: no cover - best-effort flush
+                pass
 
     def _add_labels_layer(
         self,

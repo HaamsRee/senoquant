@@ -8,6 +8,7 @@ batch backend in a background thread.
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtWidgets import (
@@ -1288,6 +1289,12 @@ class BatchTab(QWidget):
             show_console_notification(
                 Notification(message, severity=NotificationSeverity.WARNING)
             )
+            # Some launch contexts buffer stdout until process exit.
+            # Flush explicitly so notifications appear immediately.
+            try:
+                sys.stdout.flush()
+            except Exception:  # pragma: no cover - best-effort flush
+                pass
         self._status_label.setText(message)
 
 

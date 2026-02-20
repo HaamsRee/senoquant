@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtWidgets import (
     QComboBox,
@@ -221,6 +223,12 @@ class PredictionTab(QWidget):
             show_console_notification(
                 Notification(message, severity=NotificationSeverity.WARNING)
             )
+            # Some launch contexts buffer stdout until process exit.
+            # Flush explicitly so notifications appear immediately.
+            try:
+                sys.stdout.flush()
+            except Exception:  # pragma: no cover - best-effort flush
+                pass
 
     @staticmethod
     def _clear_layout(layout: QVBoxLayout) -> None:

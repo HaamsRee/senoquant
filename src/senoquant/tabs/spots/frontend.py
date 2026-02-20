@@ -1,4 +1,5 @@
 """Frontend widget for the Spots tab."""
+import sys
 import numpy as np
 from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtGui import QPalette
@@ -952,6 +953,12 @@ class SpotsTab(QWidget):
             show_console_notification(
                 Notification(message, severity=NotificationSeverity.WARNING)
             )
+            # Some launch contexts buffer stdout until process exit.
+            # Flush explicitly so notifications appear immediately.
+            try:
+                sys.stdout.flush()
+            except Exception:  # pragma: no cover - best-effort flush
+                pass
 
     def _get_layer_by_name(self, name: str):
         """Return a viewer layer with the given name, if it exists."""
