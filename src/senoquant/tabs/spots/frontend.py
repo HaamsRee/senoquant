@@ -660,7 +660,8 @@ class SpotsTab(QWidget):
             name=name,
             face_color="yellow",
             symbol="ring",
-            size=6,
+            size=20,
+            out_of_slice_display=True,
         )
 
     def _start_background_run(
