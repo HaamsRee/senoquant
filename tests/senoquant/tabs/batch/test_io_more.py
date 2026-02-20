@@ -5,6 +5,7 @@ from __future__ import annotations
 import types
 
 import numpy as np
+import pytest
 
 from senoquant.tabs.batch import io as batch_io
 from senoquant.tabs.batch.config import BatchChannelConfig
@@ -176,3 +177,19 @@ def test_write_array_creates_file(tmp_path) -> None:
     
     assert result.exists()
     assert "test_array" in str(result)
+
+
+def test_write_array_supports_memory_filesystem() -> None:
+    """Write arrays to a remote memory:// destination."""
+    fsspec = pytest.importorskip("fsspec")
+    fs = fsspec.filesystem("memory")
+    output_dir = "memory://batch-io-tests/out"
+    data = np.ones((3, 3), dtype=np.uint16)
+
+    result = batch_io.write_array(output_dir, "remote_array", data)
+
+    assert isinstance(result, str)
+    assert result.endswith("remote_array.npy")
+    assert fs.exists("batch-io-tests/out/remote_array.npy") or fs.exists(
+        "/batch-io-tests/out/remote_array.npy"
+    )

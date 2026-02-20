@@ -8,6 +8,7 @@ from typing import Any
 
 from qtpy.QtCore import QObject
 
+from senoquant.utils.path_io import is_remote, normalize_uri, write_json
 from senoquant.utils.settings_bundle import build_settings_bundle, parse_settings_bundle
 
 
@@ -65,14 +66,21 @@ class SettingsBackend(QObject):
 
     def load_bundle(self, path: str | Path) -> dict[str, Any]:
         """Load and normalize a settings bundle from disk."""
-        bundle_path = Path(path).expanduser()
-        with bundle_path.open("r", encoding="utf-8") as handle:
+        bundle_path = normalize_uri(path)
+        if is_remote(bundle_path):
+            try:
+                import fsspec
+            except Exception as exc:  # pragma: no cover - optional dependency
+                raise ImportError("fsspec is required for remote settings paths.") from exc
+            with fsspec.open(bundle_path, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+            return self.parse_bundle(payload)
+        local_path = Path(bundle_path).expanduser()
+        with local_path.open("r", encoding="utf-8") as handle:
             payload = json.load(handle)
         return self.parse_bundle(payload)
 
-    def save_bundle(self, path: str | Path, payload: dict[str, Any]) -> Path:
+    def save_bundle(self, path: str | Path, payload: dict[str, Any]) -> str:
         """Write a settings bundle payload to disk."""
-        bundle_path = Path(path).expanduser()
-        with bundle_path.open("w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2)
-        return bundle_path
+        bundle_path = normalize_uri(path)
+        return write_json(bundle_path, payload)

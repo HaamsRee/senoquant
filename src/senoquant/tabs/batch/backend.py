@@ -25,13 +25,13 @@ This backend is intentionally UI-agnostic. UI widgets build a
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 
 from senoquant.utils import append_run_metadata
+from senoquant.utils.path_io import exists, join, mkdirs, normalize_uri, write_json
 from senoquant.utils.settings_bundle import build_settings_bundle
 from senoquant.tabs.quantification.backend import QuantificationBackend
 from senoquant.tabs.segmentation.backend import SegmentationBackend
@@ -62,7 +62,7 @@ class BatchItemResult:
         Input file path.
     scene_id : str or None
         Scene identifier for multi-scene files.
-    outputs : dict of str to Path
+    outputs : dict of str to Path or str
         Mapping of output labels to written files.
     errors : list of str
         Collected error messages for this item.
@@ -70,7 +70,7 @@ class BatchItemResult:
 
     path: Path
     scene_id: str | None
-    outputs: dict[str, Path] = field(default_factory=dict)
+    outputs: dict[str, Path | str] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
 
@@ -82,7 +82,7 @@ class BatchSummary:
     ----------
     input_root : Path
         Root input directory.
-    output_root : Path
+    output_root : Path or str
         Root output directory.
     processed : int
         Number of successfully processed items.
@@ -95,7 +95,7 @@ class BatchSummary:
     """
 
     input_root: Path
-    output_root: Path
+    output_root: Path | str
     processed: int
     skipped: int
     failed: int
@@ -252,8 +252,8 @@ class BatchBackend:
             Summary of the batch run.
         """
         input_root = Path(input_path).expanduser()
-        output_root = Path(output_path).expanduser()
-        output_root.mkdir(parents=True, exist_ok=True)
+        output_root = normalize_uri(output_path)
+        mkdirs(output_root)
 
         normalized_exts = normalize_extensions(extensions)
         files = list(iter_input_files(input_root, normalized_exts, include_subfolders))
@@ -344,9 +344,7 @@ class BatchBackend:
                     )
                 
                 try:
-                    output_dir = _resolve_output_dir(
-                        output_root, path, scene_id, overwrite
-                    )
+                    output_dir = _resolve_output_dir(output_root, path, scene_id, overwrite)
                     if output_dir is None:
                         skipped += 1
                         results.append(item_result)
@@ -629,16 +627,16 @@ def _resolve_channel_name(
 
 
 def _resolve_output_dir(
-    output_root: Path,
+    output_root: str | Path,
     path: Path,
     scene_id: str | None,
     overwrite: bool,
-) -> Path | None:
+) -> str | None:
     """Resolve (and optionally create) the output directory for a run.
 
     Parameters
     ----------
-    output_root : Path
+    output_root : str or Path
         Root output folder.
     path : Path
         Input file path.
@@ -649,16 +647,16 @@ def _resolve_output_dir(
 
     Returns
     -------
-    Path or None
+    str or None
         Output directory path, or None when skipped.
     """
     base_name = basename_for_path(path)
-    output_dir = output_root / base_name
+    output_dir = join(output_root, base_name)
     if scene_id:
-        output_dir = output_dir / safe_scene_dir(scene_id)
-    if output_dir.exists() and not overwrite:
+        output_dir = join(output_dir, safe_scene_dir(scene_id))
+    if exists(output_dir) and not overwrite:
         return None
-    output_dir.mkdir(parents=True, exist_ok=True)
+    mkdirs(output_dir)
     return output_dir
 
 
@@ -819,10 +817,9 @@ def _derive_batch_job_payload(
     }
 
 
-def _write_batch_settings_bundle(output_root: Path, batch_payload: dict) -> Path:
+def _write_batch_settings_bundle(output_root: str | Path, batch_payload: dict) -> str:
     """Persist batch settings bundle in the batch output root."""
-    settings_path = output_root / "senoquant_settings.json"
+    settings_path = join(output_root, "senoquant_settings.json")
     bundle = build_settings_bundle(batch_job=batch_payload)
-    with settings_path.open("w", encoding="utf-8") as handle:
-        json.dump(bundle, handle, indent=2)
+    write_json(settings_path, bundle)
     return settings_path

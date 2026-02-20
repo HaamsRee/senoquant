@@ -79,7 +79,8 @@ def test_process_routes_outputs(tmp_path: Path) -> None:
         cleanup=False,
     )
 
-    feature_dirs = [path for path in result.output_root.iterdir() if path.is_dir()]
+    output_root = Path(result.output_root)
+    feature_dirs = [path for path in output_root.iterdir() if path.is_dir()]
     assert len(feature_dirs) == 2
     assert any((d / "a.csv").exists() for d in feature_dirs)
     assert any((d / "b.csv").exists() for d in feature_dirs)
