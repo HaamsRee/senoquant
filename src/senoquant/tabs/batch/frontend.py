@@ -207,6 +207,7 @@ class BatchTab(QWidget):
 
         self._include_subfolders = QCheckBox("Include subfolders")
         self._process_scenes = QCheckBox("Process all scenes")
+        self._process_scenes.setChecked(True)
 
         form_layout.addRow("Input folder", input_widget)
         form_layout.addRow("Extensions", self._extensions)

@@ -14,6 +14,7 @@ def test_batch_frontend_exposes_programmatic_job_config_api() -> None:
 
     assert not hasattr(tab, "_save_profile")
     assert not hasattr(tab, "_load_profile")
+    assert tab._process_scenes.isChecked() is True
 
     job = tab.export_job_config()
     assert isinstance(job, BatchJobConfig)
