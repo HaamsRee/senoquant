@@ -47,7 +47,7 @@ EPS = 1e-6
 # Larger NOISE_FLOOR_SIGMA suppresses more low-level background.
 NOISE_FLOOR_SIGMA = 1.5
 # Lower bound on dynamic-range scaling relative to estimated noise.
-MIN_SCALE_SIGMA = 5.0
+MIN_SCALE_SIGMA = 4.5
 # High percentile used to set bright-signal scale for [0, 1] normalization.
 SIGNAL_SCALE_QUANTILE = 99.9
 
@@ -56,15 +56,15 @@ USE_LAPLACE_FOR_PEAKS = False
 
 # Peak quality gates before watershed seeding.
 # Relative to robust high-intensity scale; higher => fewer weak peaks.
-PEAK_RELATIVE_INTENSITY_MIN = 0.45
+PEAK_RELATIVE_INTENSITY_MIN = 0.1
 # Relative local prominence (vs 3x3 local minimum); higher => fewer plateau peaks.
-PEAK_RELATIVE_PROMINENCE_MIN = 0.35
+PEAK_RELATIVE_PROMINENCE_MIN = 0.1
 # Center-bias multiplier in distance-weighted response.
 # Higher => prefer component-center peaks over boundary peaks.
 PEAK_COMPONENT_DISTANCE_WEIGHT = 1.0
 # Hard center-distance gate (0..1 in each component).
 # Higher => keep only deeper interior peaks.
-PEAK_MIN_COMPONENT_DISTANCE_RATIO = 0.55
+PEAK_MIN_COMPONENT_DISTANCE_RATIO = 0.4
 
 # Fixed sigma passed to BayesShrink wavelet denoising.
 # Set to None for automatic sigma estimation.
