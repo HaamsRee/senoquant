@@ -56,7 +56,7 @@ def test_markers_from_local_maxima_filters_low_relative_intensity() -> None:
     """Reject weak peaks when their intensity is too low relative to the image."""
     enhanced = np.zeros((9, 9), dtype=np.float32)
     enhanced[2, 2] = 1.0
-    enhanced[6, 6] = 0.1
+    enhanced[6, 6] = 0.06
 
     markers = rmp._markers_from_local_maxima(enhanced, threshold=0.05)
 
