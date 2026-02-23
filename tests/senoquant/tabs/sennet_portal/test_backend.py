@@ -241,6 +241,51 @@ def test_login_globus_requires_cli(monkeypatch: pytest.MonkeyPatch) -> None:
         backend.login_globus()
 
 
+def test_logout_globus_runs_logout_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run globus logout command when CLI is installed."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    backend.logout_globus()
+    assert calls == [["globus", "logout", "--yes"]]
+
+
+def test_globus_login_status_reports_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Return logged-in status and identity from globus whoami output."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        assert args[:2] == ["globus", "whoami"]
+        return subprocess.CompletedProcess(args, 0, stdout="user@example.org\n", stderr="")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    logged_in, detail = backend.globus_login_status()
+    assert logged_in is True
+    assert detail == "user@example.org"
+
+
+def test_globus_login_status_reports_not_logged_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Return not-logged-in status when globus whoami fails."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        assert args[:2] == ["globus", "whoami"]
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="not logged in")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    logged_in, detail = backend.globus_login_status()
+    assert logged_in is False
+    assert detail == "Not logged in"
+
+
 def test_download_datasets_requires_clt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Raise a helpful error when sennet-clt is unavailable."""
     backend = SenNetPortalBackend()

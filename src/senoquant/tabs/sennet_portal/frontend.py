@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-from qtpy.QtCore import QObject, QThread, Qt, Signal
+from qtpy.QtCore import QObject, QThread, Qt
 from qtpy.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -23,21 +22,19 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from senoquant.tabs.sennet_portal._frontend_background import (
+    SenNetPortalBackgroundMixin,
+    _RunWorker,
+)
+from senoquant.tabs.sennet_portal._frontend_connection import SenNetPortalConnectionMixin
 from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBackend
 
-try:
-    from napari.utils.notifications import (
-        Notification,
-        NotificationSeverity,
-        show_console_notification,
-    )
-except Exception:  # pragma: no cover - optional import for runtime
-    show_console_notification = None
-    Notification = None
-    NotificationSeverity = None
 
-
-class SenNetPortalTab(QWidget):
+class SenNetPortalTab(
+    QWidget,
+    SenNetPortalConnectionMixin,
+    SenNetPortalBackgroundMixin,
+):
     """UI for discovering and downloading SenNet datasets.
 
     Parameters
@@ -83,28 +80,7 @@ class SenNetPortalTab(QWidget):
         layout.addWidget(self._status_label)
         layout.addStretch(1)
         self.setLayout(layout)
-
-    def _make_connection_section(self) -> QGroupBox:
-        """Create connection controls used for optional API authentication.
-
-        Returns
-        -------
-        QGroupBox
-            Group box containing bearer-token input.
-        """
-        section = QGroupBox("Connection")
-        section_layout = QVBoxLayout()
-        form_layout = QFormLayout()
-        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-
-        self._token_input = QLineEdit()
-        self._token_input.setPlaceholderText(
-            "Optional API bearer token (leave blank for public datasets)"
-        )
-        form_layout.addRow("API token", self._token_input)
-        section_layout.addLayout(form_layout)
-        section.setLayout(section_layout)
-        return section
+        self._refresh_globus_auth_status()
 
     def _make_filter_section(self) -> QGroupBox:
         """Create dataset search filters and discovery trigger button.
@@ -258,61 +234,6 @@ class SenNetPortalTab(QWidget):
             on_error_prefix="Dataset search failed",
         )
 
-    def _ensure_globus_login_for_search(self) -> bool:
-        """Ensure Globus login is present before starting dataset search.
-
-        Returns
-        -------
-        bool
-            ``True`` when search can proceed, otherwise ``False``.
-        """
-        try:
-            self._backend._require_globus_login_for_search()
-            return True
-        except RuntimeError as exc:
-            message = str(exc).strip()
-            lowered = message.lower()
-            if "globus login is required" not in lowered:
-                self._notify(f"Dataset search failed: {message}")
-                return False
-
-        if not self._prompt_globus_login():
-            self._notify("Dataset search cancelled. Globus login is required.")
-            return False
-
-        self._notify("Starting Globus login...")
-        try:
-            self._backend.login_globus()
-            self._backend._require_globus_login_for_search()
-        except RuntimeError as exc:
-            self._notify(f"Dataset search failed: {exc}")
-            return False
-        return True
-
-    def _prompt_globus_login(self) -> bool:
-        """Show login prompt when Globus authentication is missing.
-
-        Returns
-        -------
-        bool
-            ``True`` when user selected **Login**, otherwise ``False``.
-        """
-        try:
-            from qtpy.QtWidgets import QMessageBox
-        except Exception:
-            return False
-
-        dialog = QMessageBox(self)
-        dialog.setIcon(QMessageBox.Warning)
-        dialog.setWindowTitle("Globus Login Required")
-        dialog.setText("You must log in to Globus before searching datasets.")
-        dialog.setInformativeText("Click Login to run `globus login`, or Cancel to stop.")
-        login_button = dialog.addButton("Login", QMessageBox.AcceptRole)
-        dialog.addButton(QMessageBox.Cancel)
-        dialog.setDefaultButton(login_button)
-        dialog.exec()
-        return dialog.clickedButton() is login_button
-
     def _on_search_complete(self, datasets: list[SenNetDataset]) -> None:
         """Handle successful search response and refresh UI.
 
@@ -432,190 +353,6 @@ class SenNetPortalTab(QWidget):
         self._notify(
             f"Downloaded {dataset_count} dataset(s), {file_count} file(s) to {destination}."
         )
-
-    def _run_background(
-        self,
-        *,
-        button: QPushButton,
-        busy_text: str,
-        run_callable,
-        on_success,
-        on_error_prefix: str,
-    ) -> None:
-        """Run an arbitrary callable on a worker thread and manage UI state.
-
-        Parameters
-        ----------
-        button : QPushButton
-            Button that initiated the background task.
-        busy_text : str
-            Temporary button label shown while work is running.
-        run_callable : callable
-            Function executed on the worker thread.
-        on_success : callable
-            Callback invoked with worker result payload.
-        on_error_prefix : str
-            Prefix used when reporting worker failures.
-
-        Returns
-        -------
-        None
-            Thread and worker lifecycle are managed internally.
-        """
-        button.setEnabled(False)
-        original_text = button.text()
-        button.setText(busy_text)
-
-        thread = QThread(self)
-        worker = _RunWorker(run_callable)
-        worker.moveToThread(thread)
-
-        def handle_success(payload) -> None:
-            """Handle worker success payload on the GUI thread.
-
-            Parameters
-            ----------
-            payload : object
-                Result emitted by the worker.
-
-            Returns
-            -------
-            None
-                Delegates to caller callback and restores button state.
-            """
-            on_success(payload)
-            self._finish_background(thread, worker, button, original_text)
-
-        def handle_error(message: str) -> None:
-            """Handle worker error signal on the GUI thread.
-
-            Parameters
-            ----------
-            message : str
-                Error message emitted by worker.
-
-            Returns
-            -------
-            None
-                Reports error and restores button state.
-            """
-            self._notify(f"{on_error_prefix}: {message}")
-            self._finish_background(thread, worker, button, original_text)
-
-        thread.started.connect(worker.run)
-        worker.finished.connect(handle_success)
-        worker.error.connect(handle_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(worker.deleteLater)
-
-        self._active_workers.append((thread, worker))
-        thread.start()
-
-    def _finish_background(
-        self,
-        thread: QThread,
-        worker: QObject,
-        button: QPushButton,
-        original_text: str,
-    ) -> None:
-        """Restore UI state after a background thread exits.
-
-        Parameters
-        ----------
-        thread : QThread
-            Worker thread that completed.
-        worker : QObject
-            Worker object associated with ``thread``.
-        button : QPushButton
-            Trigger button to re-enable.
-        original_text : str
-            Button label to restore.
-
-        Returns
-        -------
-        None
-            UI state and active-worker registry are updated.
-        """
-        button.setEnabled(True)
-        button.setText(original_text)
-        self._download_button.setEnabled(bool(self._datasets))
-        try:
-            self._active_workers.remove((thread, worker))
-        except ValueError:
-            pass
-
-    def _notify(self, message: str) -> None:
-        """Update status text and emit napari warning notification when available.
-
-        Parameters
-        ----------
-        message : str
-            Message text to display and emit.
-
-        Returns
-        -------
-        None
-            Status label and optional napari console notifications are updated.
-        """
-        self._status_label.setText(message)
-        if (
-            show_console_notification is not None
-            and Notification is not None
-            and NotificationSeverity is not None
-        ):
-            show_console_notification(
-                Notification(message, severity=NotificationSeverity.WARNING)
-            )
-            try:
-                sys.stdout.flush()
-            except Exception:  # pragma: no cover - best-effort flush
-                pass
-
-
-class _RunWorker(QObject):
-    """Worker that executes a callable in a background thread.
-
-    Parameters
-    ----------
-    run_callable : callable
-        Callable to execute inside the worker thread.
-    """
-
-    finished = Signal(object)
-    error = Signal(str)
-
-    def __init__(self, run_callable) -> None:
-        """Store callable used during worker execution.
-
-        Parameters
-        ----------
-        run_callable : callable
-            Callable returning result payload or raising an exception.
-
-        Returns
-        -------
-        None
-            Callable is stored for later execution.
-        """
-        super().__init__()
-        self._run_callable = run_callable
-
-    def run(self) -> None:
-        """Execute worker callable and emit finished or error signal.
-
-        Returns
-        -------
-        None
-            Emits ``finished`` on success or ``error`` on failure.
-        """
-        try:
-            result = self._run_callable()
-        except Exception as exc:
-            self.error.emit(str(exc))
-            return
-        self.finished.emit(result)
 
 
 __all__ = ["SenNetPortalTab", "_RunWorker"]

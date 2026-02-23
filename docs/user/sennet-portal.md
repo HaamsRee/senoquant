@@ -24,19 +24,22 @@ sennet-clt login
 ## Workflow
 
 1. Open **SenNet Portal**.
-2. Choose dataset filters:
+2. Check **Globus status** in the Connection section.
+   - If not logged in, click **Login**.
+   - If already logged in, you can click **Logout** to switch accounts.
+3. Choose dataset filters:
    - **Dataset type** (or keep `Any antibody-based imaging`).
    - **Status** (default `Published`).
    - **Max results**.
-3. Click **Find datasets**.
+4. Click **Find datasets**.
    - If Globus login is missing, a prompt appears with **Login** and **Cancel**.
    - Click **Login** to launch `globus login` and continue.
-4. Review compatible datasets in the table:
+5. Review compatible datasets in the table:
    - Only antibody-imaging datasets are included.
    - Only datasets with at least one supported file extension are shown.
-5. Select rows to download.
-6. Set a **Destination** folder.
-7. Click **Download selected**.
+6. Select rows to download.
+7. Set a **Destination** folder.
+8. Click **Download selected**.
 
 ## Supported extensions
 
