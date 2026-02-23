@@ -34,6 +34,7 @@ This page summarizes the current repository layout and where core behavior is im
 - `spots/models/`: built-in detectors (`rmp`, `ufish`) plus shared detector base classes.
 - `prediction/`: prediction tab UI/backend and prediction model orchestration.
 - `prediction/models/`: built-in placeholder model (`demo_model`) and shared prediction model base class.
+- `sennet_portal/`: SenNet dataset discovery/download UI/backend.
 - `quantification/`: quantification tab UI/backend.
 - `quantification/features/`: feature system (`Markers`, `Spots`) with per-feature config/UI/export modules.
 - `visualization/`: visualization tab UI/backend.
@@ -55,6 +56,7 @@ This page summarizes the current repository layout and where core behavior is im
 - `tabs/segmentation/`: frontend/backend/model tests for segmentation.
 - `tabs/spots/`: frontend/backend/detector/filter tests for spots.
 - `tabs/prediction/`: frontend/backend/model tests for prediction.
+- `tabs/sennet_portal/`: SenNet portal backend tests.
 - `tabs/quantification/`: backend + feature export and UI tests.
 - `tabs/visualization/`: backend/plot registry/handler tests.
 - `tabs/batch/`: config/backend/io/frontend integration tests.

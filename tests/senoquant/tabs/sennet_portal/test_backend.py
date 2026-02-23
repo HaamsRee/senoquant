@@ -1,0 +1,216 @@
+"""Tests for SenNet Portal backend discovery and download flow."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
+
+from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBackend
+
+
+def test_search_datasets_filters_antibody_and_supported_paths() -> None:
+    """Return only antibody datasets with compatible file extensions."""
+    backend = SenNetPortalBackend()
+
+    def fake_post(url: str, *, payload, token=None):
+        assert url == backend.SEARCH_API_URL
+        assert payload["query"]["bool"]["must"][0]["term"]["entity_type.keyword"] == "Dataset"
+        return {
+            "hits": {
+                "hits": [
+                    {
+                        "_source": {
+                            "sennet_id": "SNT1",
+                            "dataset_type": "PhenoCycler",
+                            "status": "Published",
+                            "data_access_level": "consortium",
+                            "dataset_type_hierarchy": {
+                                "first_level": ["Antibody-based imaging"]
+                            },
+                            "files": [
+                                {"rel_path": "/raw/image_a.ome.tif"},
+                                {"rel_path": "/notes/readme.txt"},
+                            ],
+                        }
+                    },
+                    {
+                        "_source": {
+                            "sennet_id": "SNT3",
+                            "dataset_type": "CODEX",
+                            "status": "Published",
+                            "data_access_level": "public",
+                            "dataset_type_hierarchy": {
+                                "first_level": ["Antibody-based imaging"]
+                            },
+                            "files": [
+                                {"rel_path": "/tables/summary.csv"},
+                            ],
+                        }
+                    },
+                ]
+            }
+        }
+
+    backend._post_json = fake_post  # type: ignore[method-assign]
+
+    datasets = backend.search_datasets(
+        dataset_types=["PhenoCycler"],
+        max_results=10,
+        status="Published",
+    )
+
+    assert len(datasets) == 1
+    assert datasets[0].sennet_id == "SNT1"
+    assert datasets[0].compatible_paths == ["/raw/image_a.ome.tif"]
+    assert datasets[0].compatible_extensions == [".ome.tif"]
+
+
+def test_download_datasets_builds_manifest_and_runs_clt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Create manifest lines and call sennet-clt transfer manifest."""
+    backend = SenNetPortalBackend()
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/sennet-clt")
+    monkeypatch.setattr(backend, "_home_dir", lambda: home)
+
+    manifest_text: dict[str, str] = {"value": ""}
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        if args[:3] == ["sennet-clt", "auth", "whoami"]:
+            return subprocess.CompletedProcess(args, 0, stdout="tester", stderr="")
+        if args[:3] == ["sennet-clt", "transfer", "manifest"]:
+            manifest_path = Path(args[3])
+            manifest_text["value"] = manifest_path.read_text(encoding="utf-8")
+            destination = args[args.index("--destination") + 1]
+            transfer_root = home / destination
+            transfer_root.mkdir(parents=True, exist_ok=True)
+            (transfer_root / "SNT1").mkdir(exist_ok=True)
+            (transfer_root / "SNT1" / "image_a.ome.tif").write_text(
+                "fake-data", encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="unexpected")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+
+    destination = home / "downloads"
+    result = backend.download_datasets(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="consortium",
+                title="Dataset 1",
+                compatible_paths=["/raw/image_a.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+            )
+        ],
+        destination,
+    )
+
+    assert len(calls) == 2
+    assert calls[1][:3] == ["sennet-clt", "transfer", "manifest"]
+    assert "SNT1 /raw/image_a.ome.tif" in manifest_text["value"]
+    assert result["dataset_count"] == 1
+    assert result["file_count"] == 1
+
+
+def test_search_datasets_uses_globus_fallback_when_indexed_files_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Include datasets when Globus listing reveals supported files."""
+    backend = SenNetPortalBackend()
+
+    def fake_post(url: str, *, payload, token=None):
+        if url == backend.SEARCH_API_URL:
+            return {
+                "hits": {
+                    "hits": [
+                        {
+                            "_source": {
+                                "sennet_id": "SNT1",
+                                "dataset_type": "PhenoCycler",
+                                "status": "Published",
+                                "data_access_level": "public",
+                                "dataset_type_hierarchy": {
+                                    "first_level": ["Antibody-based imaging"]
+                                },
+                            }
+                        }
+                    ]
+                }
+            }
+        if url == f"{backend.INGEST_API_URL}/entities/file-system-rel-path":
+            assert payload == ["SNT1"]
+            return [
+                {
+                    "id": "SNT1",
+                    "globus_endpoint_uuid": "endpoint-123",
+                    "rel_path": "/dataset-root",
+                }
+            ]
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(backend, "_post_json", fake_post)
+    monkeypatch.setattr(backend, "_can_list_globus_paths", lambda: True)
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        assert args[0] == "globus"
+        payload = {
+            "DATA": [
+                {"type": "file", "name": "panel/image.qptiff"},
+                {"type": "file", "name": "panel/readme.txt"},
+            ]
+        }
+        return subprocess.CompletedProcess(
+            args,
+            0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+
+    datasets = backend.search_datasets(
+        dataset_types=["PhenoCycler"],
+        max_results=10,
+        status="Published",
+    )
+
+    assert len(datasets) == 1
+    assert datasets[0].sennet_id == "SNT1"
+    assert datasets[0].compatible_paths == ["/dataset-root/panel/image.qptiff"]
+    assert datasets[0].compatible_extensions == [".qptiff"]
+
+
+def test_download_datasets_requires_clt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raise a helpful error when sennet-clt is unavailable."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    with pytest.raises(RuntimeError, match="sennet-clt"):
+        backend.download_datasets(
+            [
+                SenNetDataset(
+                    sennet_id="SNT1",
+                    dataset_type="PhenoCycler",
+                    status="Published",
+                    access_level="consortium",
+                    title="Dataset 1",
+                    compatible_paths=["/raw/image_a.ome.tif"],
+                    compatible_extensions=[".ome.tif"],
+                )
+            ],
+            tmp_path / "downloads",
+        )

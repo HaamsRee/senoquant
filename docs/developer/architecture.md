@@ -12,11 +12,12 @@ tab modules.
 
 ## UI structure
 
-The main widget (`SenoQuantWidget`) composes seven tabs:
+The main widget (`SenoQuantWidget`) composes eight tabs:
 
 - Segmentation (`src/senoquant/tabs/segmentation`).
 - Spots (`src/senoquant/tabs/spots`).
 - Prediction (`src/senoquant/tabs/prediction`).
+- SenNet Portal (`src/senoquant/tabs/sennet_portal`).
 - Quantification (`src/senoquant/tabs/quantification`).
 - Visualization (`src/senoquant/tabs/visualization`).
 - Batch (`src/senoquant/tabs/batch`).

@@ -42,11 +42,12 @@ SenoQuant should launch automatically in Step 1. If not:
 
 `Plugins` → `SenoQuant`
 
-The plugin window opens as a docked widget with 7 tabs:
+The plugin window opens as a docked widget with 8 tabs:
 
 - **Segmentation**
 - **Spots**
 - **Prediction**
+- **SenNet Portal**
 - **Quantification**
 - **Visualization**
 - **Batch**
@@ -239,6 +240,7 @@ If the JSON contains batch configuration, the Batch tab is populated too.
 - [Segmentation](segmentation.md) - Detailed model settings and parameters
 - [Spots](spots.md) - Advanced spot detection configuration
 - [Prediction](prediction.md) - Prediction model workflow and placeholder example
+- [SenNet Portal](sennet-portal.md) - Browse and download compatible SenNet datasets
 - [Quantification](quantification.md) - Feature export details and column definitions
 - [Visualization](visualization.md) - Plot generation from quantification tables
 - [Batch](batch.md) - Batch processing and automation

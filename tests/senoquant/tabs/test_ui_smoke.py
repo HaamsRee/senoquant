@@ -15,6 +15,7 @@ from tests.conftest import DummyLayer, DummyViewer
 from senoquant._widget import SenoQuantWidget
 from senoquant.tabs.batch.frontend import BatchTab
 from senoquant.tabs.quantification.frontend import QuantificationTab
+from senoquant.tabs.sennet_portal.frontend import SenNetPortalTab
 from senoquant.tabs.segmentation.frontend import SegmentationTab
 from senoquant.tabs.settings.frontend import SettingsTab
 from senoquant.tabs.spots.frontend import SpotsTab
@@ -359,6 +360,13 @@ def test_batch_tab_instantiates() -> None:
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
     tab = BatchTab(napari_viewer=viewer)
     assert hasattr(tab, "_backend")
+
+
+def test_sennet_portal_tab_instantiates() -> None:
+    """Instantiate the SenNet portal tab UI."""
+    tab = SenNetPortalTab()
+    assert hasattr(tab, "_dataset_table")
+    assert hasattr(tab, "_download_button")
 
 
 def test_main_widget_instantiates(monkeypatch) -> None:
