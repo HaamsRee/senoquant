@@ -236,6 +236,9 @@ class SenNetPortalTab(QWidget):
         None
             Search starts asynchronously and UI state updates on completion.
         """
+        if not self._ensure_globus_login_for_search():
+            return
+
         type_text = self._dataset_type_combo.currentText().strip()
         if type_text == "Any antibody-based imaging":
             dataset_types = list(self._backend.ANTIBODY_DATASET_TYPES)
@@ -254,6 +257,61 @@ class SenNetPortalTab(QWidget):
             on_success=self._on_search_complete,
             on_error_prefix="Dataset search failed",
         )
+
+    def _ensure_globus_login_for_search(self) -> bool:
+        """Ensure Globus login is present before starting dataset search.
+
+        Returns
+        -------
+        bool
+            ``True`` when search can proceed, otherwise ``False``.
+        """
+        try:
+            self._backend._require_globus_login_for_search()
+            return True
+        except RuntimeError as exc:
+            message = str(exc).strip()
+            lowered = message.lower()
+            if "globus login is required" not in lowered:
+                self._notify(f"Dataset search failed: {message}")
+                return False
+
+        if not self._prompt_globus_login():
+            self._notify("Dataset search cancelled. Globus login is required.")
+            return False
+
+        self._notify("Starting Globus login...")
+        try:
+            self._backend.login_globus()
+            self._backend._require_globus_login_for_search()
+        except RuntimeError as exc:
+            self._notify(f"Dataset search failed: {exc}")
+            return False
+        return True
+
+    def _prompt_globus_login(self) -> bool:
+        """Show login prompt when Globus authentication is missing.
+
+        Returns
+        -------
+        bool
+            ``True`` when user selected **Login**, otherwise ``False``.
+        """
+        try:
+            from qtpy.QtWidgets import QMessageBox
+        except Exception:
+            return False
+
+        dialog = QMessageBox(self)
+        dialog.setIcon(QMessageBox.Warning)
+        dialog.setWindowTitle("Globus Login Required")
+        dialog.setText("You must log in to Globus before searching datasets.")
+        dialog.setInformativeText("Click Login to run `globus login`, or Cancel to stop.")
+        login_button = dialog.addButton("Login", QMessageBox.AcceptRole)
+        dialog.addButton(QMessageBox.Cancel)
+        dialog.setDefaultButton(login_button)
+        dialog.exec()
+        return dialog.clickedButton() is login_button
 
     def _on_search_complete(self, datasets: list[SenNetDataset]) -> None:
         """Handle successful search response and refresh UI.

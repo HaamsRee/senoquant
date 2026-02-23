@@ -15,6 +15,7 @@ from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBack
 def test_search_datasets_filters_antibody_and_supported_paths() -> None:
     """Return only antibody datasets with compatible file extensions."""
     backend = SenNetPortalBackend()
+    backend._require_globus_login_for_search = lambda: None  # type: ignore[method-assign]
 
     def fake_post(url: str, *, payload, token=None):
         assert url == backend.SEARCH_API_URL
@@ -86,7 +87,7 @@ def test_download_datasets_builds_manifest_and_runs_clt(
 
     def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
         calls.append(args)
-        if args[:3] == ["sennet-clt", "auth", "whoami"]:
+        if args[:2] == ["sennet-clt", "whoami"]:
             return subprocess.CompletedProcess(args, 0, stdout="tester", stderr="")
         if args[:3] == ["sennet-clt", "transfer", "manifest"]:
             manifest_path = Path(args[3])
@@ -131,6 +132,7 @@ def test_search_datasets_uses_globus_fallback_when_indexed_files_missing(
 ) -> None:
     """Include datasets when Globus listing reveals supported files."""
     backend = SenNetPortalBackend()
+    monkeypatch.setattr(backend, "_require_globus_login_for_search", lambda: None)
 
     def fake_post(url: str, *, payload, token=None):
         if url == backend.SEARCH_API_URL:
@@ -192,6 +194,51 @@ def test_search_datasets_uses_globus_fallback_when_indexed_files_missing(
     assert datasets[0].sennet_id == "SNT1"
     assert datasets[0].compatible_paths == ["/dataset-root/panel/image.qptiff"]
     assert datasets[0].compatible_extensions == [".qptiff"]
+
+
+def test_search_datasets_prompts_for_globus_login(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Raise a clear error when Globus login is missing for search."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        assert args[:2] == ["globus", "whoami"]
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="not logged in")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+
+    with pytest.raises(RuntimeError, match="globus login"):
+        backend.search_datasets(
+            dataset_types=["PhenoCycler"],
+            max_results=5,
+            status="Published",
+        )
+
+
+def test_login_globus_runs_login_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run globus login command when CLI is installed."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    backend.login_globus()
+    assert calls == [["globus", "login"]]
+
+
+def test_login_globus_requires_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raise a helpful error when globus CLI is unavailable."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    with pytest.raises(RuntimeError, match="Globus CLI"):
+        backend.login_globus()
 
 
 def test_download_datasets_requires_clt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

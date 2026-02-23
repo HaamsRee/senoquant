@@ -7,10 +7,16 @@ It is designed for antibody-based imaging datasets and only allows downloads for
 ## Prerequisites
 
 - Install the SenNet CLI (`sennet-clt`) from the SenNet docs.
+- Install the Globus CLI (`globus-cli`) and authenticate:
+
+```bash
+globus login
+```
+
 - Authenticate once from a terminal:
 
 ```bash
-sennet-clt auth login
+sennet-clt login
 ```
 
 - (Optional) If you need non-public datasets, provide a bearer token in the tab.
@@ -23,6 +29,8 @@ sennet-clt auth login
    - **Status** (default `Published`).
    - **Max results**.
 3. Click **Find datasets**.
+   - If Globus login is missing, a prompt appears with **Login** and **Cancel**.
+   - Click **Login** to launch `globus login` and continue.
 4. Review compatible datasets in the table:
    - Only antibody-imaging datasets are included.
    - Only datasets with at least one supported file extension are shown.

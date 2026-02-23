@@ -162,6 +162,7 @@ class SenNetPortalBackend:
             return []
         limit = max(1, int(max_results))
         self._globus_ls_ready_cache = None
+        self._require_globus_login_for_search()
 
         seen_ids: set[str] = set()
         datasets: list[SenNetDataset] = []
@@ -232,6 +233,60 @@ class SenNetPortalBackend:
 
         return datasets
 
+    def _require_globus_login_for_search(self) -> None:
+        """Validate Globus CLI availability and login state for dataset search.
+
+        Returns
+        -------
+        None
+            The method returns only when Globus CLI exists and the current
+            environment is authenticated.
+
+        Raises
+        ------
+        RuntimeError
+            If Globus CLI is unavailable or the user is not logged in.
+        """
+        if shutil.which("globus") is None:
+            raise RuntimeError(
+                "Globus CLI was not found in PATH. Install `globus-cli`, run `globus login`, "
+                "and retry the search."
+            )
+        auth_probe = self._run_command(["globus", "whoami"])
+        if auth_probe.returncode != 0:
+            raise RuntimeError(
+                "Globus login is required for file discovery. Run `globus login` and retry."
+            )
+        self._globus_ls_ready_cache = True
+
+    def login_globus(self) -> None:
+        """Run interactive Globus CLI login flow.
+
+        Returns
+        -------
+        None
+            The method returns when login command exits successfully.
+
+        Raises
+        ------
+        RuntimeError
+            If Globus CLI is unavailable or login command fails.
+        """
+        if shutil.which("globus") is None:
+            raise RuntimeError(
+                "Globus CLI was not found in PATH. Install `globus-cli` and retry."
+            )
+
+        login = self._run_command(["globus", "login"])
+        if login.returncode != 0:
+            stderr = (login.stderr or "").strip()
+            stdout = (login.stdout or "").strip()
+            detail = stderr or stdout or "Unknown Globus login error."
+            raise RuntimeError(f"Globus login failed: {detail}")
+
+        # Force re-validation after login.
+        self._globus_ls_ready_cache = None
+
     def _dataset_search_body(self, *, dataset_type: str, status: str, size: int) -> dict[str, Any]:
         """Build Elasticsearch request body for dataset search.
 
@@ -301,7 +356,7 @@ class SenNetPortalBackend:
 
         if shutil.which("sennet-clt") is None:
             raise RuntimeError(
-                "sennet-clt was not found in PATH. Install it and run `sennet-clt auth login`."
+                "sennet-clt was not found in PATH. Install it and run `sennet-clt login`."
             )
 
         manifest_lines = self._build_manifest_lines(dataset_list)
@@ -314,10 +369,10 @@ class SenNetPortalBackend:
         destination_path.mkdir(parents=True, exist_ok=True)
         clt_destination, staging_dir = self._resolve_clt_destination(destination_path)
 
-        auth_check = self._run_command(["sennet-clt", "auth", "whoami"])
+        auth_check = self._run_command(["sennet-clt", "whoami"])
         if auth_check.returncode != 0:
             raise RuntimeError(
-                "SenNet authentication not available. Run `sennet-clt auth login` first."
+                "SenNet authentication not available. Run `sennet-clt login` first."
             )
 
         manifest_root = Path(tempfile.mkdtemp(prefix="senoquant-sennet-manifest-"))
