@@ -404,7 +404,7 @@ def test_sennet_portal_tab_instantiates() -> None:
 
 
 def test_sennet_portal_select_all_and_clear_all() -> None:
-    """Toggle include checkboxes using Select all and Clear all actions."""
+    """Toggle include checkboxes and reset filters via Select/Clear actions."""
     tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
     tab._on_search_complete(
         [
@@ -433,11 +433,19 @@ def test_sennet_portal_select_all_and_clear_all() -> None:
         ]
     )
 
+    assert 0 not in tab._column_filter_combos
+    tab._column_filter_combos[3].setCurrentText("Human")
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
     tab._clear_all_datasets()
+    assert tab._column_filter_combos[3].currentText() == "All"
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
 
+    tab._column_filter_combos[4].setCurrentText("Pancreas")
     tab._select_all_datasets()
+    assert tab._column_filter_combos[4].currentText() == "All"
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
 

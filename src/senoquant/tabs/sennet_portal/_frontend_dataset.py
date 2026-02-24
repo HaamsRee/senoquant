@@ -88,20 +88,10 @@ class SenNetPortalDatasetMixin:
 
     def _init_filter_row(self) -> None:
         """Create filter widgets embedded in the first table row."""
-        options_by_column = {
-            0: ["All", "Checked", "Unchecked"],
-            1: ["All"],
-            2: ["All"],
-            3: ["All"],
-            4: ["All"],
-            5: ["All"],
-            6: ["All"],
-            7: ["All"],
-            8: ["All"],
-        }
-        for column in range(self._TABLE_COLUMN_COUNT):
+        self._dataset_table.setItem(self._FILTER_ROW_INDEX, 0, self._readonly_item(""))
+        for column in range(1, self._TABLE_COLUMN_COUNT):
             combo = QComboBox()
-            combo.addItems(options_by_column.get(column, ["All"]))
+            combo.addItem("All")
             combo.currentTextChanged.connect(self._on_column_filter_changed)
             self._dataset_table.setCellWidget(self._FILTER_ROW_INDEX, column, combo)
             self._column_filter_combos[column] = combo
@@ -109,11 +99,9 @@ class SenNetPortalDatasetMixin:
 
     def _populate_column_filter_combos(self) -> None:
         """Populate per-column filter options from current dataset rows."""
-        for column in range(self._TABLE_COLUMN_COUNT):
+        for column in range(1, self._TABLE_COLUMN_COUNT):
             combo = self._column_filter_combos.get(column)
             if combo is None:
-                continue
-            if column == 0:
                 continue
             values: set[str] = set()
             for row in range(1, self._dataset_table.rowCount()):
@@ -168,15 +156,6 @@ class SenNetPortalDatasetMixin:
         for column, active in self._column_filter_values.items():
             if not active or active == "All":
                 continue
-            if column == 0:
-                include_item = self._dataset_table.item(row, 0)
-                if include_item is None:
-                    return False
-                if active == "Checked" and include_item.checkState() != Qt.Checked:
-                    return False
-                if active == "Unchecked" and include_item.checkState() != Qt.Unchecked:
-                    return False
-                continue
 
             item = self._dataset_table.item(row, column)
             text = item.text().strip() if item is not None else ""
@@ -186,11 +165,25 @@ class SenNetPortalDatasetMixin:
 
     def _select_all_datasets(self) -> None:
         """Mark all dataset rows as selected."""
+        self._reset_column_filters()
         self._set_all_dataset_check_state(Qt.Checked)
 
     def _clear_all_datasets(self) -> None:
         """Clear dataset selection for all rows."""
+        self._reset_column_filters()
         self._set_all_dataset_check_state(Qt.Unchecked)
+
+    def _reset_column_filters(self) -> None:
+        """Reset all active column filters back to ``All``."""
+        combos = getattr(self, "_column_filter_combos", {})
+        if not isinstance(combos, dict):
+            return
+        for column, combo in combos.items():
+            combo.blockSignals(True)
+            combo.setCurrentText("All")
+            combo.blockSignals(False)
+            self._column_filter_values[column] = "All"
+        self._apply_column_filters_to_selection()
 
     def _set_all_dataset_check_state(self, state: int) -> None:
         """Apply one checkbox state to every dataset include row.
