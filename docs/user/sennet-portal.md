@@ -38,7 +38,7 @@ See the official Globus instructions:
    - Only antibody-imaging datasets are included.
    - Only datasets with at least one supported file extension are shown.
 5. Optionally use the filter row under the table headers:
-   - Filters are available for all metadata columns (SenNet ID, Type, Source type, Organ, Status, Access, Files, Extensions).
+   - Filters are available for all metadata columns (SenNet ID, Type, Source type, Organ, Status, Access, Files).
    - Filters drive row selection through the **Include** checkbox column.
 6. Select rows to download (or use **Select all** / **Clear all** to reset filters and update selection).
 7. Set a **Destination** folder.

@@ -138,7 +138,7 @@ class SenNetPortalTab(
         layout = QVBoxLayout()
 
         self._dataset_table = QTableWidget()
-        self._dataset_table.setColumnCount(9)
+        self._dataset_table.setColumnCount(8)
         self._dataset_table.setHorizontalHeaderLabels(
             [
                 "Include",
@@ -149,7 +149,6 @@ class SenNetPortalTab(
                 "Status",
                 "Access",
                 "Files",
-                "Extensions",
             ]
         )
 
@@ -162,7 +161,6 @@ class SenNetPortalTab(
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(7, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(8, QHeaderView.Stretch)
         self._dataset_table.verticalHeader().setVisible(False)
 
         button_row = QHBoxLayout()

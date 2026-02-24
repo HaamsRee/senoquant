@@ -12,7 +12,7 @@ class SenNetPortalDatasetMixin:
     """Mixin containing dataset table, selection, and filter helpers."""
 
     _FILTER_ROW_INDEX = 0
-    _TABLE_COLUMN_COUNT = 9
+    _TABLE_COLUMN_COUNT = 8
 
     def _refresh_dataset_types(self) -> None:
         """Fetch and repopulate available antibody dataset-type options."""
@@ -76,11 +76,6 @@ class SenNetPortalDatasetMixin:
                 row,
                 7,
                 self._readonly_item(str(len(dataset.compatible_paths))),
-            )
-            self._dataset_table.setItem(
-                row,
-                8,
-                self._readonly_item(", ".join(dataset.compatible_extensions)),
             )
 
         self._populate_column_filter_combos()
