@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -15,7 +14,6 @@ from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBack
 def test_search_datasets_filters_antibody_and_supported_paths() -> None:
     """Return only antibody datasets with compatible file extensions."""
     backend = SenNetPortalBackend()
-    backend._require_globus_login_for_search = lambda: None  # type: ignore[method-assign]
 
     def fake_post(url: str, *, payload, token=None):
         assert url == backend.SEARCH_API_URL
@@ -56,7 +54,16 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
             }
         }
 
+    def fake_fetch_json(url: str, *, params=None, token=None):
+        assert url == backend.PARAM_SEARCH_FILES_URL
+        assert params == {"dataset_sennet_id": "SNT1"}
+        return [
+            {"rel_path": "/raw/image_a.ome.tif"},
+            {"rel_path": "/notes/readme.txt"},
+        ]
+
     backend._post_json = fake_post  # type: ignore[method-assign]
+    backend._fetch_json = fake_fetch_json  # type: ignore[method-assign]
 
     datasets = backend.search_datasets(
         dataset_types=["PhenoCycler"],
@@ -127,62 +134,42 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     assert result["file_count"] == 1
 
 
-def test_search_datasets_uses_globus_fallback_when_indexed_files_missing(
+def test_search_datasets_uses_param_search_files_when_indexed_files_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Include datasets when Globus listing reveals supported files."""
+    """Include datasets when param-search/files reveals supported files."""
     backend = SenNetPortalBackend()
-    monkeypatch.setattr(backend, "_require_globus_login_for_search", lambda: None)
 
     def fake_post(url: str, *, payload, token=None):
-        if url == backend.SEARCH_API_URL:
-            return {
-                "hits": {
-                    "hits": [
-                        {
-                            "_source": {
-                                "sennet_id": "SNT1",
-                                "dataset_type": "PhenoCycler",
-                                "status": "Published",
-                                "data_access_level": "public",
-                                "dataset_type_hierarchy": {
-                                    "first_level": ["Antibody-based imaging"]
-                                },
-                            }
+        assert url == backend.SEARCH_API_URL
+        return {
+            "hits": {
+                "hits": [
+                    {
+                        "_source": {
+                            "sennet_id": "SNT1",
+                            "dataset_type": "PhenoCycler",
+                            "status": "Published",
+                            "data_access_level": "public",
+                            "dataset_type_hierarchy": {
+                                "first_level": ["Antibody-based imaging"]
+                            },
                         }
-                    ]
-                }
+                    }
+                ]
             }
-        if url == f"{backend.INGEST_API_URL}/entities/file-system-rel-path":
-            assert payload == ["SNT1"]
-            return [
-                {
-                    "id": "SNT1",
-                    "globus_endpoint_uuid": "endpoint-123",
-                    "rel_path": "/dataset-root",
-                }
-            ]
-        raise AssertionError(f"Unexpected URL: {url}")
+        }
+
+    def fake_fetch_json(url: str, *, params=None, token=None):
+        assert url == backend.PARAM_SEARCH_FILES_URL
+        assert params == {"dataset_sennet_id": "SNT1"}
+        return [
+            {"rel_path": "panel/image.qptiff", "file_extension": ".qptiff"},
+            {"rel_path": "panel/readme.txt", "file_extension": ".txt"},
+        ]
 
     monkeypatch.setattr(backend, "_post_json", fake_post)
-    monkeypatch.setattr(backend, "_can_list_globus_paths", lambda: True)
-
-    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
-        assert args[0] == "globus"
-        payload = {
-            "DATA": [
-                {"type": "file", "name": "panel/image.qptiff"},
-                {"type": "file", "name": "panel/readme.txt"},
-            ]
-        }
-        return subprocess.CompletedProcess(
-            args,
-            0,
-            stdout=json.dumps(payload),
-            stderr="",
-        )
-
-    monkeypatch.setattr(backend, "_run_command", fake_run)
+    monkeypatch.setattr(backend, "_fetch_json", fake_fetch_json)
 
     datasets = backend.search_datasets(
         dataset_types=["PhenoCycler"],
@@ -192,29 +179,32 @@ def test_search_datasets_uses_globus_fallback_when_indexed_files_missing(
 
     assert len(datasets) == 1
     assert datasets[0].sennet_id == "SNT1"
-    assert datasets[0].compatible_paths == ["/dataset-root/panel/image.qptiff"]
+    assert datasets[0].compatible_paths == ["/panel/image.qptiff"]
     assert datasets[0].compatible_extensions == [".qptiff"]
 
 
-def test_search_datasets_prompts_for_globus_login(
+def test_search_datasets_does_not_require_globus_login(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Raise a clear error when Globus login is missing for search."""
+    """Run search without requiring local Globus login state."""
     backend = SenNetPortalBackend()
-    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
 
-    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
-        assert args[:2] == ["globus", "whoami"]
-        return subprocess.CompletedProcess(args, 1, stdout="", stderr="not logged in")
+    def fake_post(url: str, *, payload, token=None):
+        assert url == backend.SEARCH_API_URL
+        return {"hits": {"hits": []}}
 
-    monkeypatch.setattr(backend, "_run_command", fake_run)
+    def fake_fetch_json(url: str, *, params=None, token=None):
+        raise AssertionError("No file lookup expected when no dataset hits are returned")
 
-    with pytest.raises(RuntimeError, match="globus login"):
-        backend.search_datasets(
-            dataset_types=["PhenoCycler"],
-            max_results=5,
-            status="Published",
-        )
+    monkeypatch.setattr(backend, "_post_json", fake_post)
+    monkeypatch.setattr(backend, "_fetch_json", fake_fetch_json)
+    datasets = backend.search_datasets(
+        dataset_types=["PhenoCycler"],
+        max_results=5,
+        status="Published",
+    )
+    assert datasets == []
 
 
 def test_login_globus_runs_login_command(monkeypatch: pytest.MonkeyPatch) -> None:

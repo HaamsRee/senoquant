@@ -212,9 +212,6 @@ class SenNetPortalTab(
         None
             Search starts asynchronously and UI state updates on completion.
         """
-        if not self._ensure_globus_login_for_search():
-            return
-
         type_text = self._dataset_type_combo.currentText().strip()
         if type_text == "Any antibody-based imaging":
             dataset_types = list(self._backend.ANTIBODY_DATASET_TYPES)

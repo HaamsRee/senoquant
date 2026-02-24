@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from ._backend_globus import SenNetPortalGlobusMixin
 from ._backend_models import SenNetDataset
 
 
-class SenNetPortalSearchMixin:
+class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
     """Mixin containing dataset-search orchestration logic."""
 
     def search_datasets(
@@ -42,15 +43,13 @@ class SenNetPortalSearchMixin:
         A dataset is considered compatible when it passes all checks:
 
         - Matches antibody-focused dataset criteria.
-        - Has at least one file path with a supported extension (from indexed
-          Search API metadata or a Globus listing fallback).
+        - Has at least one file path with a supported extension from
+          ``/param-search/files`` records.
         """
         requested_types = list(dataset_types or self.ANTIBODY_DATASET_TYPES)
         if not requested_types:
             return []
         limit = max(1, int(max_results))
-        self._globus_ls_ready_cache = None
-        self._require_globus_login_for_search()
 
         seen_ids: set[str] = set()
         datasets: list[SenNetDataset] = []
@@ -78,12 +77,10 @@ class SenNetPortalSearchMixin:
                 if not self._matches_requested_dataset_type(record, requested_types):
                     continue
 
-                compatible_paths = self._extract_supported_paths(record)
-                if not compatible_paths:
-                    compatible_paths = self._extract_supported_paths_from_globus(
-                        dataset_id,
-                        token=token,
-                    )
+                compatible_paths = self._extract_supported_paths_from_param_search_files(
+                    dataset_id,
+                    token=token,
+                )
                 if not compatible_paths:
                     continue
 

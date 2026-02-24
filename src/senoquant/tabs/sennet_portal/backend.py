@@ -2,40 +2,32 @@
 
 from __future__ import annotations
 
-from ._backend_api import SenNetPortalApiMixin
-from ._backend_globus import SenNetPortalGlobusMixin
-from ._backend_metadata import SenNetPortalMetadataMixin
 from ._backend_models import SenNetDataset
-from ._backend_paths import SenNetPortalPathMixin
 from ._backend_search import SenNetPortalSearchMixin
 from ._backend_transfer import SenNetPortalTransferMixin
 
 
 class SenNetPortalBackend(
     SenNetPortalSearchMixin,
-    SenNetPortalGlobusMixin,
     SenNetPortalTransferMixin,
-    SenNetPortalPathMixin,
-    SenNetPortalMetadataMixin,
-    SenNetPortalApiMixin,
 ):
     """Discover and download SenNet datasets that SenoQuant can ingest.
 
     Notes
     -----
-    Discovery combines the SenNet Search API and Globus-backed file listing:
+    Discovery combines the SenNet Search API and parameterized file search:
 
     1. Search returns candidate dataset records.
     2. Records are filtered for antibody-based imaging.
-    3. File compatibility is resolved from indexed metadata or Globus.
+    3. File compatibility is resolved from ``/param-search/files`` records.
 
     Downloads are executed through ``sennet-clt`` manifest transfers.
     """
 
     SEARCH_DATASETS_URL = "https://search.api.sennetconsortium.org/param-search/datasets"
     SEARCH_API_URL = "https://search.api.sennetconsortium.org/search"
+    PARAM_SEARCH_FILES_URL = "https://search.api.sennetconsortium.org/param-search/files"
     ENTITY_API_URL = "https://entity.api.sennetconsortium.org"
-    INGEST_API_URL = "https://ingest.api.sennetconsortium.org"
 
     # Matches SenoQuant batch input defaults and reader expectations.
     SUPPORTED_IMAGE_EXTENSIONS = (

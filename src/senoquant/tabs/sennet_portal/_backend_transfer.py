@@ -5,14 +5,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
 from typing import Sequence
 
+from ._backend_command import SenNetPortalCommandMixin
 from ._backend_models import SenNetDataset
+from ._backend_paths import SenNetPortalPathMixin
 
 
-class SenNetPortalTransferMixin:
+class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin):
     """Mixin containing SenNet CLT transfer and filesystem merge logic."""
 
     def download_datasets(
@@ -137,26 +138,6 @@ class SenNetPortalTransferMixin:
             Expanded and resolved home directory path.
         """
         return Path.home().expanduser().resolve()
-
-    def _run_command(self, args: list[str]) -> subprocess.CompletedProcess[str]:
-        """Execute a subprocess command and capture text output.
-
-        Parameters
-        ----------
-        args : list of str
-            Argument vector for subprocess execution.
-
-        Returns
-        -------
-        subprocess.CompletedProcess of str
-            Completed process with captured ``stdout`` and ``stderr``.
-        """
-        return subprocess.run(
-            args,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
 
     def _merge_directory(self, source: Path, destination: Path) -> None:
         """Recursively move contents from ``source`` into ``destination``.
