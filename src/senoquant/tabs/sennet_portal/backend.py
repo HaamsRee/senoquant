@@ -75,6 +75,7 @@ class SenNetPortalBackend(
         )
         self._globus_ls_ready_cache: bool | None = None
         self._organ_term_lookup_cache: dict[str, str] = {}
+        self._pending_downloads: dict[tuple[str, ...], dict[str, object]] = {}
 
 
 __all__ = ["SenNetDataset", "SenNetPortalBackend"]

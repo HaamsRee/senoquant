@@ -66,6 +66,28 @@ class _RunWorker(QObject):
 class SenNetPortalBackgroundMixin:
     """Mixin containing reusable worker-thread orchestration helpers."""
 
+    @staticmethod
+    def _format_bps(bytes_per_second: int) -> str:
+        """Format transfer speed in human-readable units.
+
+        Parameters
+        ----------
+        bytes_per_second : int
+            Transfer rate in bytes per second.
+
+        Returns
+        -------
+        str
+            Human-readable transfer rate string.
+        """
+        value = float(max(0, int(bytes_per_second)))
+        units = ("B/s", "KB/s", "MB/s", "GB/s", "TB/s")
+        index = 0
+        while value >= 1024.0 and index < len(units) - 1:
+            value /= 1024.0
+            index += 1
+        return f"{value:.1f} {units[index]}"
+
     def _run_background(
         self,
         *,

@@ -10,6 +10,7 @@ import subprocess
 import pytest
 
 from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBackend
+from senoquant.tabs.sennet_portal._backend.transfer_status import extract_task_ids
 
 
 @pytest.fixture(autouse=True)
@@ -131,10 +132,10 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     monkeypatch.setattr(backend, "_home_dir", lambda: home)
 
     manifest_text: dict[str, str] = {"value": ""}
-    calls: list[list[str]] = []
+    transfer_calls: list[list[str]] = []
 
     def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
-        calls.append(args)
+        transfer_calls.append(args)
         if args[:2] == ["sennet-clt", "whoami"]:
             return subprocess.CompletedProcess(args, 0, stdout="tester", stderr="")
         if args[:2] == ["sennet-clt", "transfer"]:
@@ -182,23 +183,51 @@ def test_download_datasets_builds_manifest_and_runs_clt(
         destination,
     )
 
-    assert len(calls) == 2
-    assert calls[1][:2] == ["sennet-clt", "transfer"]
+    assert len(transfer_calls) == 2
+    assert transfer_calls[1][:2] == ["sennet-clt", "transfer"]
     assert "SNT1 /raw/image_a.ome.tif" in manifest_text["value"]
     metadata_path = destination / "SNT1" / "sennet_dataset_metadata.json"
-    assert metadata_path.is_file()
-    metadata_payload = metadata_path.read_text(encoding="utf-8")
-    assert '"sennet_entity_payload"' in metadata_payload
-    assert '"cedar_mapped_metadata"' in metadata_payload
+    assert metadata_path.exists() is False
     assert result["dataset_count"] == 1
     assert result["file_count"] == 1
     assert result["task_ids"] == ["5724a523-11aa-11f1-a049-0e5b09a3151b"]
 
+    task_payload = {
+        "task_id": "5724a523-11aa-11f1-a049-0e5b09a3151b",
+        "status": "SUCCEEDED",
+        "files": 1,
+        "subtasks_total": 1,
+        "subtasks_pending": 0,
+        "subtasks_retrying": 0,
+        "subtasks_succeeded": 1,
+        "subtasks_failed": 0,
+        "effective_bytes_per_second": 0,
+        "bytes_transferred": 100,
+    }
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda name: "/usr/bin/globus" if name == "globus" else "/usr/bin/sennet-clt",
+    )
+
+    def fake_status_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["globus", "task", "show"]:
+            return subprocess.CompletedProcess(args, 0, stdout=json.dumps(task_payload), stderr="")
+        return fake_run(args)
+
+    monkeypatch.setattr(backend, "_run_command", fake_status_run)
+    status = backend.download_tasks_status(result["task_ids"])
+    assert status["all_complete"] is True
+    assert status["all_succeeded"] is True
+    assert metadata_path.is_file()
+    metadata_payload = metadata_path.read_text(encoding="utf-8")
+    assert '"sennet_entity_payload"' in metadata_payload
+    assert '"cedar_mapped_metadata"' in metadata_payload
+
 
 def test_extract_task_ids_parses_globus_stdout() -> None:
     """Extract task IDs from globus transfer output text."""
-    backend = SenNetPortalBackend()
-    task_ids = backend._extract_task_ids(
+    task_ids = extract_task_ids(
         "Task ID: 11111111-2222-3333-4444-555555555555\n"
         "Task ID: 11111111-2222-3333-4444-555555555555\n"
         "Task ID: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n",
@@ -208,6 +237,114 @@ def test_extract_task_ids_parses_globus_stdout() -> None:
         "11111111-2222-3333-4444-555555555555",
         "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     ]
+
+
+def test_download_remote_destination_stages_then_routes_to_remote(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stage remote downloads locally and copy to remote only after completion."""
+    backend = SenNetPortalBackend()
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda name: "/usr/bin/globus" if name == "globus" else "/usr/bin/sennet-clt",
+    )
+    monkeypatch.setattr(backend, "_home_dir", lambda: home)
+
+    task_id = "5724a523-11aa-11f1-a049-0e5b09a3151b"
+    task_payload = {
+        "task_id": task_id,
+        "status": "SUCCEEDED",
+        "files": 1,
+        "subtasks_total": 1,
+        "subtasks_pending": 0,
+        "subtasks_retrying": 0,
+        "subtasks_succeeded": 1,
+        "subtasks_failed": 0,
+        "effective_bytes_per_second": 0,
+        "bytes_transferred": 100,
+    }
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        if args[:2] == ["sennet-clt", "whoami"]:
+            return subprocess.CompletedProcess(args, 0, stdout="tester", stderr="")
+        if args[:2] == ["sennet-clt", "transfer"]:
+            destination = args[args.index("--destination") + 1]
+            transfer_root = home / destination
+            transfer_root.mkdir(parents=True, exist_ok=True)
+            (transfer_root / "SNT1").mkdir(exist_ok=True)
+            (transfer_root / "SNT1" / "image_a.ome.tif").write_text(
+                "fake-data", encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=f"Task ID: {task_id}\n",
+                stderr="",
+            )
+        if args[:3] == ["globus", "task", "show"]:
+            return subprocess.CompletedProcess(args, 0, stdout=json.dumps(task_payload), stderr="")
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="unexpected")
+
+    copied_targets: list[str] = []
+    metadata_targets: list[str] = []
+
+    def fake_copy_local_to_target(_local_path: str | Path, target_path: str | Path) -> str:
+        copied_targets.append(str(target_path))
+        return str(target_path)
+
+    def fake_write_json(path: str | Path, payload: dict[str, object]) -> str:
+        assert "sennet_entity_payload" in payload
+        metadata_targets.append(str(path))
+        return str(path)
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    monkeypatch.setattr(
+        "senoquant.tabs.sennet_portal._backend.transfer_finalize.copy_local_to_target",
+        fake_copy_local_to_target,
+    )
+    monkeypatch.setattr(
+        "senoquant.tabs.sennet_portal._backend.transfer_finalize.write_json",
+        fake_write_json,
+    )
+    monkeypatch.setattr(
+        "senoquant.tabs.sennet_portal._backend.transfer_finalize.mkdirs",
+        lambda _path: "",
+    )
+
+    result = backend.download_datasets(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="consortium",
+                title="Dataset 1",
+                compatible_paths=["/raw/image_a.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                entity_payload={"sennet_id": "SNT1", "entity_type": "Dataset"},
+                dataset_uuid="abcd1234",
+            )
+        ],
+        "smb://server/share/output",
+    )
+    assert copied_targets == []
+    assert result["destination"] == "smb://server/share/output"
+
+    status = backend.download_tasks_status([task_id])
+    assert status["all_complete"] is True
+    assert status["all_succeeded"] is True
+    assert any(
+        target.endswith("/SNT1/image_a.ome.tif") for target in copied_targets
+    )
+    assert any(
+        target.endswith("/SNT1-abcd1234/sennet_dataset_metadata.json")
+        for target in metadata_targets
+    )
 
 
 def test_download_tasks_status_aggregates_progress(

@@ -5,17 +5,19 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-import re
 import shutil
 import tempfile
 from typing import Sequence
 
+from senoquant.utils.path_io import is_remote, normalize_uri
+
 from .command import SenNetPortalCommandMixin
 from .models import SenNetDataset
-from .paths import SenNetPortalPathMixin
+from .transfer_finalize import SenNetPortalTransferFinalizeMixin
+from .transfer_status import aggregate_task_status, extract_task_ids
 
 
-class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin):
+class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFinalizeMixin):
     """Mixin containing SenNet CLT transfer and filesystem merge logic."""
 
     def download_datasets(
@@ -60,10 +62,25 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
             raise RuntimeError(
                 "No compatible file paths were available for the selected datasets."
             )
-
-        destination_path = Path(destination).expanduser().resolve()
-        destination_path.mkdir(parents=True, exist_ok=True)
-        clt_destination, staging_dir = self._resolve_clt_destination(destination_path)
+        destination_uri = normalize_uri(destination)
+        destination_is_remote = is_remote(destination_uri)
+        destination_path = (
+            None
+            if destination_is_remote
+            else Path(destination_uri).expanduser().resolve()
+        )
+        if destination_path is not None:
+            destination_path.mkdir(parents=True, exist_ok=True)
+        clt_destination, transfer_root = self._resolve_transfer_target(
+            destination_uri=destination_uri,
+            destination_is_remote=destination_is_remote,
+            local_destination=destination_path,
+        )
+        temporary_transfer_root = self._is_temporary_transfer_root(
+            destination_is_remote=destination_is_remote,
+            transfer_root=transfer_root,
+            local_destination=destination_path,
+        )
 
         auth_check = self._run_command(["sennet-clt", "whoami"])
         if auth_check.returncode != 0:
@@ -89,20 +106,28 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
                 stdout = (transfer.stdout or "").strip()
                 detail = stderr or stdout or "Unknown transfer error."
                 raise RuntimeError(f"sennet-clt transfer failed: {detail}")
-            task_ids = self._extract_task_ids(transfer.stdout, transfer.stderr)
-
-            if staging_dir is not None:
-                self._merge_directory(staging_dir, destination_path)
-            self._write_dataset_metadata_files(destination_path, dataset_list)
+            task_ids = extract_task_ids(transfer.stdout, transfer.stderr)
+        except Exception:
+            if temporary_transfer_root:
+                shutil.rmtree(transfer_root, ignore_errors=True)
+            raise
         finally:
             shutil.rmtree(manifest_root, ignore_errors=True)
-            if staging_dir is not None:
-                shutil.rmtree(staging_dir, ignore_errors=True)
+
+        if task_ids:
+            self._register_pending_download(
+                task_ids=task_ids,
+                transfer_root=transfer_root,
+                destination_uri=destination_uri,
+                datasets=dataset_list,
+            )
+        else:
+            self._finalize_transfer_output(transfer_root, destination_uri, dataset_list)
 
         return {
             "dataset_count": len(dataset_list),
             "file_count": len(manifest_lines),
-            "destination": str(destination_path),
+            "destination": destination_uri,
             "task_ids": task_ids,
         }
 
@@ -150,7 +175,13 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
                 raise RuntimeError(f"Task {task_id} returned unexpected output shape.")
             payloads.append(payload)
 
-        return self._aggregate_task_status(payloads)
+        status = aggregate_task_status(payloads)
+        if bool(status.get("all_complete", False)):
+            self._finalize_pending_download(
+                task_ids=cleaned_ids,
+                all_succeeded=bool(status.get("all_succeeded", False)),
+            )
+        return status
 
     def cancel_download_tasks(self, task_ids: Sequence[str]) -> None:
         """Cancel active Globus tasks associated with current download session.
@@ -168,123 +199,161 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
         cleaned_ids = [str(task_id).strip() for task_id in task_ids if str(task_id).strip()]
         if not cleaned_ids:
             return
+        self._pending_downloads.pop(self._task_key(cleaned_ids), None)
         if shutil.which("globus") is None:
             return
         for task_id in cleaned_ids:
             self._run_command(["globus", "task", "cancel", task_id])
 
-    @staticmethod
-    def _extract_task_ids(stdout: str | None, stderr: str | None) -> list[str]:
-        """Extract Globus transfer task IDs from ``sennet-clt`` output text.
+    def _resolve_transfer_target(
+        self,
+        *,
+        destination_uri: str,
+        destination_is_remote: bool,
+        local_destination: Path | None,
+    ) -> tuple[str, Path]:
+        """Resolve CLT destination argument and local transfer root directory.
 
         Parameters
         ----------
-        stdout : str or None
-            Standard output emitted by ``sennet-clt transfer``.
-        stderr : str or None
-            Standard error emitted by ``sennet-clt transfer``.
+        destination_uri : str
+            Normalized user-selected destination path/URI.
+        destination_is_remote : bool
+            Whether the destination targets a remote filesystem.
+        local_destination : pathlib.Path or None
+            Resolved local destination path when destination is local.
 
         Returns
         -------
-        list of str
-            Unique task identifiers in appearance order.
+        tuple of (str, pathlib.Path)
+            CLT destination argument and local transfer-root directory.
         """
-        text = "\n".join(part for part in ((stdout or ""), (stderr or "")) if part).strip()
-        if not text:
-            return []
-        matches = re.findall(
-            r"Task ID:\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
-            text,
-            flags=re.IGNORECASE,
-        )
-        unique: list[str] = []
-        seen: set[str] = set()
-        for task_id in matches:
-            normalized = task_id.lower()
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            unique.append(normalized)
-        return unique
+        if destination_is_remote:
+            staging_root = self._new_staging_dir()
+            return str(staging_root.relative_to(self._home_dir())), staging_root
+
+        if local_destination is None:
+            raise RuntimeError(f"Could not resolve local destination: {destination_uri}")
+
+        clt_destination, staging_dir = self._resolve_clt_destination(local_destination)
+        return clt_destination, (staging_dir or local_destination)
 
     @staticmethod
-    def _aggregate_task_status(tasks: Sequence[dict[str, object]]) -> dict[str, object]:
-        """Aggregate per-task Globus payloads into one progress summary.
+    def _is_temporary_transfer_root(
+        *,
+        destination_is_remote: bool,
+        transfer_root: Path,
+        local_destination: Path | None,
+    ) -> bool:
+        """Return whether transfer root is temporary and safe to delete on error.
 
         Parameters
         ----------
-        tasks : sequence of dict of str to object
-            Raw JSON payloads from ``globus task show --format json``.
+        destination_is_remote : bool
+            Whether destination is remote.
+        transfer_root : pathlib.Path
+            Local directory used as CLT transfer target.
+        local_destination : pathlib.Path or None
+            Requested local destination when applicable.
 
         Returns
         -------
-        dict of str to object
-            Unified status payload for frontend polling.
+        bool
+            ``True`` when ``transfer_root`` is temporary staging storage.
         """
-        terminal_states = {"SUCCEEDED", "FAILED", "CANCELED", "EXPIRED"}
-        total_subtasks = 0
-        completed_subtasks = 0
-        files = 0
-        speed_bps = 0
-        bytes_transferred = 0
-        statuses: list[str] = []
-        task_rows: list[dict[str, object]] = []
+        if destination_is_remote:
+            return True
+        if local_destination is None:
+            return True
+        return transfer_root.resolve() != local_destination.resolve()
 
-        for payload in tasks:
-            status = str(payload.get("status", "")).upper().strip()
-            statuses.append(status)
-            subtasks_total = int(payload.get("subtasks_total", 0) or 0)
-            subtasks_pending = int(payload.get("subtasks_pending", 0) or 0)
-            subtasks_retrying = int(payload.get("subtasks_retrying", 0) or 0)
-            total_subtasks += subtasks_total
-            completed_subtasks += max(0, subtasks_total - subtasks_pending - subtasks_retrying)
-            files += int(payload.get("files", 0) or 0)
-            speed_bps += int(payload.get("effective_bytes_per_second", 0) or 0)
-            bytes_transferred += int(payload.get("bytes_transferred", 0) or 0)
-            task_rows.append(
-                {
-                    "task_id": str(payload.get("task_id", "")).strip(),
-                    "status": status,
-                    "files": int(payload.get("files", 0) or 0),
-                    "subtasks_total": subtasks_total,
-                    "subtasks_pending": subtasks_pending,
-                    "subtasks_succeeded": int(payload.get("subtasks_succeeded", 0) or 0),
-                    "subtasks_failed": int(payload.get("subtasks_failed", 0) or 0),
-                    "speed_bps": int(payload.get("effective_bytes_per_second", 0) or 0),
-                    "bytes_transferred": int(payload.get("bytes_transferred", 0) or 0),
-                }
-            )
+    def _register_pending_download(
+        self,
+        *,
+        task_ids: Sequence[str],
+        transfer_root: Path,
+        destination_uri: str,
+        datasets: Sequence[SenNetDataset],
+    ) -> None:
+        """Persist pending download context for post-transfer finalization.
 
-        progress_percent = (
-            int(round((completed_subtasks / total_subtasks) * 100))
-            if total_subtasks > 0
-            else 0
-        )
-        all_complete = all(status in terminal_states for status in statuses)
-        any_failed = any(status in {"FAILED", "CANCELED", "EXPIRED"} for status in statuses)
-        if all(status == "SUCCEEDED" for status in statuses):
-            overall = "SUCCEEDED"
-        elif all_complete and any_failed:
-            overall = "FAILED"
-        elif any(status == "ACTIVE" for status in statuses):
-            overall = "ACTIVE"
-        else:
-            overall = statuses[0] if statuses else "UNKNOWN"
+        Parameters
+        ----------
+        task_ids : sequence of str
+            Globus task IDs submitted by ``sennet-clt``.
+        transfer_root : pathlib.Path
+            Local transfer root written by CLT.
+        destination_uri : str
+            User-selected final destination.
+        datasets : sequence of SenNetDataset
+            Dataset rows included in the transfer request.
 
-        return {
-            "task_count": len(tasks),
-            "overall_status": overall,
-            "all_complete": all_complete,
-            "all_succeeded": all_complete and not any_failed,
-            "any_failed": any_failed,
-            "progress_percent": max(0, min(100, progress_percent)),
-            "files": files,
-            "subtasks_total": total_subtasks,
-            "subtasks_completed": completed_subtasks,
-            "speed_bps": speed_bps,
-            "bytes_transferred": bytes_transferred,
-            "tasks": task_rows,
+        Returns
+        -------
+        None
+            Pending context is stored in-memory and keyed by task IDs.
+        """
+        key = self._task_key(task_ids)
+        self._pending_downloads[key] = {
+            "transfer_root": str(transfer_root),
+            "destination_uri": destination_uri,
+            "datasets": list(datasets),
         }
+
+    def _finalize_pending_download(
+        self,
+        *,
+        task_ids: Sequence[str],
+        all_succeeded: bool,
+    ) -> None:
+        """Finalize pending download output when tracked tasks are terminal.
+
+        Parameters
+        ----------
+        task_ids : sequence of str
+            Task IDs associated with one submitted transfer.
+        all_succeeded : bool
+            Whether all terminal task states indicate success.
+
+        Returns
+        -------
+        None
+            Pending context is removed after completion; successful transfers
+            are finalized to destination.
+        """
+        key = self._task_key(task_ids)
+        payload = self._pending_downloads.pop(key, None)
+        if not isinstance(payload, dict):
+            return
+        if not all_succeeded:
+            return
+
+        transfer_root = Path(str(payload.get("transfer_root", ""))).expanduser().resolve()
+        destination_uri = str(payload.get("destination_uri", "")).strip()
+        if not destination_uri:
+            return
+        datasets_payload = payload.get("datasets")
+        if not isinstance(datasets_payload, list):
+            return
+        datasets = [item for item in datasets_payload if isinstance(item, SenNetDataset)]
+        self._finalize_transfer_output(transfer_root, destination_uri, datasets)
+
+    @staticmethod
+    def _task_key(task_ids: Sequence[str]) -> tuple[str, ...]:
+        """Return canonical tuple key for task-ID collection.
+
+        Parameters
+        ----------
+        task_ids : sequence of str
+            Task identifiers to normalize.
+
+        Returns
+        -------
+        tuple of str
+            Deduplicated lowercase task IDs sorted for stable dictionary keys.
+        """
+        unique = {str(task_id).strip().lower() for task_id in task_ids if str(task_id).strip()}
+        return tuple(sorted(unique))
 
     def _resolve_clt_destination(self, destination: Path) -> tuple[str, Path | None]:
         """Resolve transfer destination argument accepted by ``sennet-clt``.
@@ -312,94 +381,18 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
         rel_text = str(relative)
         return (rel_text if rel_text else "."), None
 
-    def _write_dataset_metadata_files(
-        self,
-        destination: Path,
-        datasets: Sequence[SenNetDataset],
-    ) -> None:
-        """Write dataset metadata JSON files into dataset output folders.
-
-        Parameters
-        ----------
-        destination : pathlib.Path
-            Destination directory containing SenNet CLT output folders.
-        datasets : sequence of SenNetDataset
-            Dataset rows included in the transfer request.
+    def _new_staging_dir(self) -> Path:
+        """Create and return a local staging directory under the user home.
 
         Returns
         -------
-        None
-            Sidecar JSON files are created in matching dataset folders.
+        pathlib.Path
+            Freshly created local staging directory used for CLT output.
         """
-        generated_at = datetime.now(UTC).isoformat()
-        for dataset in datasets:
-            for folder in self._dataset_output_dirs(destination, dataset):
-                folder.mkdir(parents=True, exist_ok=True)
-                payload = {
-                    "generated_at_utc": generated_at,
-                    "generated_by": "SenoQuant SenNet Portal",
-                    "dataset": {
-                        "sennet_id": dataset.sennet_id,
-                        "dataset_uuid": dataset.dataset_uuid,
-                        "dataset_type": dataset.dataset_type,
-                        "source_type": dataset.source_type,
-                        "organ": dataset.organ,
-                        "sample_age": dataset.sample_age,
-                        "sample_age_value": dataset.sample_age_value,
-                        "sample_age_unit": dataset.sample_age_unit,
-                        "status": dataset.status,
-                        "access_level": dataset.access_level,
-                        "title": dataset.title,
-                    },
-                    "sennet_entity_payload": dataset.entity_payload,
-                    "compatible_paths": dataset.compatible_paths,
-                    "compatible_extensions": dataset.compatible_extensions,
-                }
-                metadata_path = folder / "sennet_dataset_metadata.json"
-                metadata_path.write_text(
-                    json.dumps(payload, indent=2, sort_keys=True),
-                    encoding="utf-8",
-                )
-
-    @staticmethod
-    def _dataset_output_dirs(destination: Path, dataset: SenNetDataset) -> list[Path]:
-        """Resolve output directories associated with a dataset transfer.
-
-        Parameters
-        ----------
-        destination : pathlib.Path
-            Root transfer destination directory.
-        dataset : SenNetDataset
-            Dataset metadata used to identify target subfolders.
-
-        Returns
-        -------
-        list of pathlib.Path
-            Candidate dataset directories where metadata JSON should be stored.
-        """
-        expected_dirs: list[Path] = []
-        prefix = f"{dataset.sennet_id}-"
-        if dataset.dataset_uuid.strip():
-            expected_dirs.append(destination / f"{dataset.sennet_id}-{dataset.dataset_uuid}")
-
-        if destination.exists():
-            for child in destination.iterdir():
-                if not child.is_dir():
-                    continue
-                if child.name == dataset.sennet_id or child.name.startswith(prefix):
-                    expected_dirs.append(child)
-
-        unique: list[Path] = []
-        seen: set[Path] = set()
-        for path in expected_dirs:
-            resolved = path.resolve()
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            unique.append(path)
-        if not unique:
-            unique.append(destination / dataset.sennet_id)
-        return unique
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        staging = self._home_dir() / "sennet-downloads" / f"senoquant-{timestamp}"
+        staging.mkdir(parents=True, exist_ok=True)
+        return staging
 
     @staticmethod
     def _home_dir() -> Path:
@@ -411,59 +404,5 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
             Expanded and resolved home directory path.
         """
         return Path.home().expanduser().resolve()
-
-    def _merge_directory(self, source: Path, destination: Path) -> None:
-        """Recursively move contents from ``source`` into ``destination``.
-
-        Parameters
-        ----------
-        source : pathlib.Path
-            Directory containing staged transfer output.
-        destination : pathlib.Path
-            Final destination directory for merged files.
-
-        Returns
-        -------
-        None
-            Files are moved in place; duplicate names are deduplicated.
-        """
-        if not source.exists():
-            return
-        destination.mkdir(parents=True, exist_ok=True)
-        for child in source.iterdir():
-            target = destination / child.name
-            if child.is_dir():
-                self._merge_directory(child, target)
-                child.rmdir()
-                continue
-            resolved_target = self._dedupe_path(target)
-            resolved_target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(child), str(resolved_target))
-
-    @staticmethod
-    def _dedupe_path(target: Path) -> Path:
-        """Return a non-conflicting output path by appending numeric suffixes.
-
-        Parameters
-        ----------
-        target : pathlib.Path
-            Desired output file path.
-
-        Returns
-        -------
-        pathlib.Path
-            Original path when unused, else first available suffixed variant.
-        """
-        if not target.exists():
-            return target
-        suffix = "".join(target.suffixes)
-        stem = target.name[: -len(suffix)] if suffix else target.name
-        counter = 1
-        while True:
-            candidate = target.with_name(f"{stem}_{counter}{suffix}")
-            if not candidate.exists():
-                return candidate
-            counter += 1
-
 
 __all__ = ["SenNetPortalTransferMixin"]

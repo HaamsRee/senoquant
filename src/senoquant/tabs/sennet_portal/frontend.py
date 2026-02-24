@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from qtpy.QtCore import QObject, QThread, QTimer
 from qtpy.QtWidgets import (
     QComboBox,
@@ -226,6 +224,9 @@ class SenNetPortalTab(
         self._download_button = QPushButton("Download selected")
         self._download_button.setEnabled(False)
         self._download_button.clicked.connect(self._download_selected)
+        self._cancel_download_button = QPushButton("Cancel download")
+        self._cancel_download_button.setEnabled(False)
+        self._cancel_download_button.clicked.connect(self.cancel_active_downloads)
         self._download_progress_bar = QProgressBar()
         self._download_progress_bar.setVisible(False)
         self._download_speed_label = QLabel("")
@@ -234,6 +235,7 @@ class SenNetPortalTab(
         form_layout.addRow("Destination", destination_widget)
         section_layout.addLayout(form_layout)
         section_layout.addWidget(self._download_button)
+        section_layout.addWidget(self._cancel_download_button)
         section_layout.addWidget(self._download_progress_bar)
         section_layout.addWidget(self._download_speed_label)
         section.setLayout(section_layout)
@@ -319,11 +321,10 @@ class SenNetPortalTab(
             return
 
         self._download_locked = False
-        destination = Path(destination_text)
         self._run_background(
             button=self._download_button,
             busy_text="Downloading...",
-            run_callable=lambda: self._backend.download_datasets(selected, destination),
+            run_callable=lambda: self._backend.download_datasets(selected, destination_text),
             on_success=self._on_download_complete,
             on_error_prefix="Download failed",
         )
@@ -353,6 +354,7 @@ class SenNetPortalTab(
             self._download_progress_bar.setVisible(False)
             self._download_speed_label.setVisible(False)
             self._download_button.setEnabled(bool(self._datasets))
+            self._cancel_download_button.setEnabled(False)
             return
 
         self._download_locked = True
@@ -367,10 +369,8 @@ class SenNetPortalTab(
         self._download_speed_label.setVisible(True)
         self._download_speed_label.setText("Transfer in progress: 0%")
         self._download_button.setEnabled(False)
-        self._notify(
-            f"Transfer initiated for {dataset_count} dataset(s), {file_count} file(s). "
-            "Monitoring progress..."
-        )
+        self._cancel_download_button.setEnabled(True)
+        self._notify(f"Transfer initiated for {dataset_count} dataset(s), {file_count} file(s). Monitoring progress...")
         self._start_download_monitoring()
 
     def _start_download_monitoring(self) -> None:
@@ -378,6 +378,7 @@ class SenNetPortalTab(
         if not self._download_task_ids:
             self._download_locked = False
             self._download_button.setEnabled(bool(self._datasets))
+            self._cancel_download_button.setEnabled(False)
             return
         self._download_monitor_in_flight = False
         self._download_poll_timer.start()
@@ -391,6 +392,7 @@ class SenNetPortalTab(
             self._download_poll_timer.stop()
         self._download_locked = False
         self._download_button.setEnabled(bool(self._datasets))
+        self._cancel_download_button.setEnabled(False)
 
     def _poll_download_tasks(self) -> None:
         """Poll backend for aggregate transfer progress in a worker thread."""
@@ -434,6 +436,8 @@ class SenNetPortalTab(
 
     def _on_download_progress(self, status: dict[str, object]) -> None:
         """Update progress widgets from aggregated transfer status payload."""
+        if not self._download_locked:
+            return
         percent = int(status.get("progress_percent", 0) or 0)
         speed_bps = int(status.get("speed_bps", 0) or 0)
         completed = int(status.get("subtasks_completed", 0) or 0)
@@ -454,30 +458,18 @@ class SenNetPortalTab(
         all_succeeded = bool(status.get("all_succeeded", False))
         self._stop_download_monitoring()
         if all_succeeded:
-            self._notify(
-                f"Transfer complete: {dataset_count} dataset(s), {file_count} file(s) "
-                f"to {destination}."
-            )
+            self._notify(f"Transfer complete: {dataset_count} dataset(s), {file_count} file(s) to {destination}.")
         else:
-            self._notify(
-                f"Transfer finished with failures: {dataset_count} dataset(s), "
-                f"{file_count} file(s). Check Globus activity."
-            )
-
-    @staticmethod
-    def _format_bps(bytes_per_second: int) -> str:
-        """Format transfer speed in human-readable units."""
-        value = float(max(0, int(bytes_per_second)))
-        units = ("B/s", "KB/s", "MB/s", "GB/s", "TB/s")
-        index = 0
-        while value >= 1024.0 and index < len(units) - 1:
-            value /= 1024.0
-            index += 1
-        return f"{value:.1f} {units[index]}"
+            self._notify(f"Transfer finished with failures: {dataset_count} dataset(s), {file_count} file(s). Check Globus activity.")
 
     def cancel_active_downloads(self) -> None:
         """Cancel active transfer tasks and stop monitoring state."""
         if not self._download_task_ids:
+            self._download_progress_bar.setValue(0)
+            self._download_speed_label.setText("")
+            self._download_progress_bar.setVisible(False)
+            self._download_speed_label.setVisible(False)
+            self._cancel_download_button.setEnabled(False)
             return
         task_ids = list(self._download_task_ids)
         try:
@@ -485,8 +477,12 @@ class SenNetPortalTab(
         except Exception:
             pass
         self._stop_download_monitoring()
+        self._download_summary = {}
+        self._download_progress_bar.setValue(0)
+        self._download_speed_label.setText("")
         self._download_progress_bar.setVisible(False)
         self._download_speed_label.setVisible(False)
+        self._notify("Download canceled.")
 
     def closeEvent(self, event) -> None:
         """Cancel in-progress transfer tasks when SenNet Portal closes."""

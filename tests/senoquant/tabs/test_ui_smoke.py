@@ -415,6 +415,7 @@ def test_sennet_portal_tab_instantiates() -> None:
     tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
     assert hasattr(tab, "_dataset_table")
     assert hasattr(tab, "_download_button")
+    assert hasattr(tab, "_cancel_download_button")
     assert hasattr(tab, "_select_all_button")
     assert hasattr(tab, "_clear_all_button")
     assert hasattr(tab, "_gcp_status_label")
@@ -422,6 +423,7 @@ def test_sennet_portal_tab_instantiates() -> None:
     assert hasattr(tab, "_gcp_check_again_button")
     assert hasattr(tab, "_clear_filters_button")
     assert tab._dataset_table.cellWidget(0, 1) is not None
+    assert tab._cancel_download_button.isEnabled() is False
 
 
 def test_sennet_portal_select_all_and_clear_all() -> None:
@@ -623,6 +625,7 @@ def test_sennet_portal_download_button_locked_until_task_completion() -> None:
         }
     )
     assert tab._download_button.isEnabled() is False
+    assert tab._cancel_download_button.isEnabled() is True
     assert tab._download_progress_bar._visible is True
     assert "Transfer" in tab._download_speed_label.text()
 
@@ -643,6 +646,62 @@ def test_sennet_portal_download_button_locked_until_task_completion() -> None:
         }
     )
     assert tab._download_button.isEnabled() is True
+    assert tab._cancel_download_button.isEnabled() is False
+
+
+def test_sennet_portal_cancel_download_resets_ui_status() -> None:
+    """Cancel active transfer and reset visible transfer status widgets."""
+    class _ActiveTaskBackend(_DummySenNetPortalBackend):
+        def download_tasks_status(self, _task_ids) -> dict[str, object]:
+            return {
+                "task_count": 1,
+                "overall_status": "ACTIVE",
+                "all_complete": False,
+                "all_succeeded": False,
+                "any_failed": False,
+                "progress_percent": 25,
+                "files": 4,
+                "subtasks_total": 8,
+                "subtasks_completed": 2,
+                "speed_bps": 1024,
+                "bytes_transferred": 2048,
+                "tasks": [],
+            }
+
+    tab = SenNetPortalTab(backend=_ActiveTaskBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            )
+        ]
+    )
+
+    tab._on_download_complete(
+        {
+            "dataset_count": 1,
+            "file_count": 4,
+            "destination": "/tmp/downloads",
+            "task_ids": ["5724a523-11aa-11f1-a049-0e5b09a3151b"],
+        }
+    )
+    tab.cancel_active_downloads()
+
+    assert tab._download_button.isEnabled() is True
+    assert tab._cancel_download_button.isEnabled() is False
+    assert tab._download_progress_bar._visible is False
+    assert tab._download_speed_label._visible is False
+    assert tab._download_progress_bar._value == 0
+    assert tab._download_speed_label.text() == ""
+    assert tab._status_label.text() == "Download canceled."
 
 
 def test_sennet_portal_header_sort_preserves_check_states() -> None:
