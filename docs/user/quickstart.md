@@ -44,14 +44,14 @@ SenoQuant should launch automatically in Step 1. If not:
 
 The plugin window opens as a docked widget with 8 tabs:
 
-- **Segmentation**
-- **Spots**
-- **Prediction**
-- **SenNet Portal**
-- **Quantification**
-- **Visualization**
-- **Batch**
-- **Settings**
+- [**SenNet Portal**](sennet-portal.md)
+- [**Segmentation**](segmentation.md)
+- [**Spots**](spots.md)
+- [**Prediction**](prediction.md)
+- [**Quantification**](quantification.md)
+- [**Visualization**](visualization.md)
+- [**Batch**](batch.md)
+- [**Settings**](settings.md)
 
 ### 3. Run nuclear segmentation
 
