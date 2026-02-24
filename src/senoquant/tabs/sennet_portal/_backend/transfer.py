@@ -120,6 +120,7 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
                 transfer_root=transfer_root,
                 destination_uri=destination_uri,
                 datasets=dataset_list,
+                cleanup_transfer_root=temporary_transfer_root,
             )
         else:
             self._finalize_transfer_output(transfer_root, destination_uri, dataset_list)
@@ -200,7 +201,8 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
         cleaned_ids = [str(task_id).strip() for task_id in task_ids if str(task_id).strip()]
         if not cleaned_ids:
             return
-        self._pending_downloads.pop(self._task_key(cleaned_ids), None)
+        payload = self._pending_downloads.pop(self._task_key(cleaned_ids), None)
+        self._cleanup_pending_transfer_root(payload)
         if shutil.which("globus") is None:
             return
         for task_id in cleaned_ids:
@@ -275,6 +277,7 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
         transfer_root: Path,
         destination_uri: str,
         datasets: Sequence[SenNetDataset],
+        cleanup_transfer_root: bool,
     ) -> None:
         """Persist pending download context for post-transfer finalization.
 
@@ -288,6 +291,9 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
             User-selected final destination.
         datasets : sequence of SenNetDataset
             Dataset rows included in the transfer request.
+        cleanup_transfer_root : bool
+            Whether ``transfer_root`` is temporary staging and should be
+            deleted when the transfer is canceled.
 
         Returns
         -------
@@ -299,6 +305,7 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
             "transfer_root": str(transfer_root),
             "destination_uri": destination_uri,
             "datasets": list(datasets),
+            "cleanup_transfer_root": bool(cleanup_transfer_root),
         }
 
     def _finalize_pending_download(
@@ -355,6 +362,30 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
         """
         unique = {str(task_id).strip().lower() for task_id in task_ids if str(task_id).strip()}
         return tuple(sorted(unique))
+
+    @staticmethod
+    def _cleanup_pending_transfer_root(payload: object) -> None:
+        """Delete temporary pending transfer roots when cancellation occurs.
+
+        Parameters
+        ----------
+        payload : object
+            Pending download payload popped from internal tracking map.
+
+        Returns
+        -------
+        None
+            Deletes the tracked transfer root when marked as temporary staging.
+        """
+        if not isinstance(payload, dict):
+            return
+        if not bool(payload.get("cleanup_transfer_root", False)):
+            return
+        transfer_root_text = str(payload.get("transfer_root", "")).strip()
+        if not transfer_root_text:
+            return
+        transfer_root = Path(transfer_root_text).expanduser().resolve()
+        shutil.rmtree(transfer_root, ignore_errors=True)
 
     def _resolve_clt_destination(self, destination: Path) -> tuple[str, Path | None]:
         """Resolve transfer destination argument accepted by ``sennet-clt``.

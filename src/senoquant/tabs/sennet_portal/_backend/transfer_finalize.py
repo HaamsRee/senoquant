@@ -219,29 +219,41 @@ class SenNetPortalTransferFinalizeMixin(SenNetPortalPathMixin):
         list of pathlib.Path
             Candidate dataset directories where metadata JSON should be stored.
         """
-        expected_dirs: list[Path] = []
-        prefix = f"{dataset.sennet_id}-"
+        dataset_id = dataset.sennet_id.strip()
+        if not dataset_id:
+            return [destination]
+        expected_name = (
+            f"{dataset_id}-{dataset.dataset_uuid.strip()}"
+            if dataset.dataset_uuid.strip()
+            else dataset_id
+        )
+        expected = destination / expected_name
+        if expected.exists():
+            return [expected]
         if dataset.dataset_uuid.strip():
-            expected_dirs.append(destination / f"{dataset.sennet_id}-{dataset.dataset_uuid}")
+            return [expected]
 
-        if destination.exists():
-            for child in destination.iterdir():
-                if not child.is_dir():
-                    continue
-                if child.name == dataset.sennet_id or child.name.startswith(prefix):
-                    expected_dirs.append(child)
+        direct = destination / dataset_id
+        if direct.exists():
+            return [direct]
+        if not destination.exists():
+            return [direct]
 
-        unique: list[Path] = []
-        seen: set[Path] = set()
-        for path in expected_dirs:
-            resolved = path.resolve()
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            unique.append(path)
-        if not unique:
-            unique.append(destination / dataset.sennet_id)
-        return unique
+        prefix = f"{dataset_id}-"
+        prefix_dirs = [
+            child
+            for child in destination.iterdir()
+            if child.is_dir() and child.name.startswith(prefix)
+        ]
+        if not prefix_dirs:
+            return [direct]
+        if len(prefix_dirs) == 1:
+            return prefix_dirs
+
+        # Multiple historic runs may share this prefix; pick the most recently
+        # updated directory instead of writing metadata into all of them.
+        latest = max(prefix_dirs, key=lambda path: path.stat().st_mtime_ns)
+        return [latest]
 
     def _merge_directory(self, source: Path, destination: Path) -> None:
         """Recursively move contents from ``source`` into ``destination``.

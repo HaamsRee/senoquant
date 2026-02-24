@@ -420,6 +420,76 @@ def test_cancel_download_tasks_runs_globus_cancel(
     ]
 
 
+def test_cancel_download_tasks_cleans_temporary_staging_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Delete pending temporary transfer roots when canceling tasks."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    transfer_root = tmp_path / "sennet-downloads" / "senoquant-20260224T000000Z"
+    transfer_root.mkdir(parents=True, exist_ok=True)
+    (transfer_root / "partial.bin").write_text("partial", encoding="utf-8")
+    backend._register_pending_download(
+        task_ids=["task-a"],
+        transfer_root=transfer_root,
+        destination_uri="smb://server/share/output",
+        datasets=[
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="consortium",
+                title="Dataset 1",
+                compatible_paths=["/raw/image_a.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+            )
+        ],
+        cleanup_transfer_root=True,
+    )
+
+    backend.cancel_download_tasks(["task-a"])
+    assert transfer_root.exists() is False
+
+
+def test_write_dataset_metadata_files_local_targets_current_dataset_folder_only(
+    tmp_path: Path,
+) -> None:
+    """Avoid rewriting metadata in unrelated historical SNTID-prefixed folders."""
+    backend = SenNetPortalBackend()
+    destination = tmp_path / "downloads"
+    destination.mkdir(parents=True, exist_ok=True)
+
+    old_folder = destination / "SNT1-olduuid"
+    old_folder.mkdir(parents=True, exist_ok=True)
+    old_metadata = old_folder / "sennet_dataset_metadata.json"
+    old_metadata.write_text("old-metadata", encoding="utf-8")
+
+    current_folder = destination / "SNT1-currentuuid"
+    current_folder.mkdir(parents=True, exist_ok=True)
+
+    backend._write_dataset_metadata_files_local(
+        destination,
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="consortium",
+                title="Dataset 1",
+                compatible_paths=["/raw/image_a.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                dataset_uuid="currentuuid",
+            )
+        ],
+    )
+
+    current_metadata = current_folder / "sennet_dataset_metadata.json"
+    assert current_metadata.is_file()
+    assert old_metadata.read_text(encoding="utf-8") == "old-metadata"
+
+
 def test_sample_age_normalization_uses_mouse_months_and_human_years() -> None:
     """Normalize mapped age to mouse months and human years."""
     backend = SenNetPortalBackend()

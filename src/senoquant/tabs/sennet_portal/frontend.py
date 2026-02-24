@@ -416,10 +416,9 @@ class SenNetPortalTab(
 
         def handle_error(message: str) -> None:
             self._download_monitor_in_flight = False
-            self._stop_download_monitoring()
             self._notify(
-                "Download progress monitoring failed. "
-                f"Check Globus task status manually. Detail: {message}"
+                "Download progress monitoring failed; will retry automatically. "
+                f"Detail: {message}"
             )
             self._finish_background(thread, worker, self._download_button, "Download selected")
 

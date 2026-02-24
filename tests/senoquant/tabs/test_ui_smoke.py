@@ -650,6 +650,71 @@ def test_sennet_portal_download_button_locked_until_task_completion() -> None:
     assert tab._cancel_download_button.isEnabled() is False
 
 
+def test_sennet_portal_progress_poll_error_keeps_pending_task_ids() -> None:
+    """Keep active task IDs after transient polling failures and allow retry."""
+
+    class _FlakyTaskBackend(_DummySenNetPortalBackend):
+        def __init__(self) -> None:
+            self.poll_calls = 0
+
+        def download_tasks_status(self, _task_ids) -> dict[str, object]:
+            self.poll_calls += 1
+            if self.poll_calls == 1:
+                raise RuntimeError("temporary monitoring error")
+            return {
+                "task_count": 1,
+                "overall_status": "SUCCEEDED",
+                "all_complete": True,
+                "all_succeeded": True,
+                "any_failed": False,
+                "progress_percent": 100,
+                "files": 4,
+                "subtasks_total": 8,
+                "subtasks_completed": 8,
+                "speed_bps": 0,
+                "bytes_transferred": 1234,
+                "tasks": [],
+            }
+
+    tab = SenNetPortalTab(backend=_FlakyTaskBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            )
+        ]
+    )
+
+    task_id = "5724a523-11aa-11f1-a049-0e5b09a3151b"
+    tab._on_download_complete(
+        {
+            "dataset_count": 1,
+            "file_count": 4,
+            "destination": "/tmp/downloads",
+            "task_ids": [task_id],
+        }
+    )
+
+    assert tab._download_locked is True
+    assert tab._download_task_ids == [task_id]
+    assert tab._cancel_download_button.isEnabled() is True
+    assert "retry automatically" in tab._status_label.text().lower()
+
+    # QTimer is stubbed in tests, so manually trigger one retry poll.
+    tab._poll_download_tasks()
+    assert tab._download_locked is False
+    assert tab._download_task_ids == []
+    assert tab._cancel_download_button.isEnabled() is False
+
+
 def test_sennet_portal_cancel_download_resets_ui_status() -> None:
     """Cancel active transfer and reset visible transfer status widgets."""
     class _ActiveTaskBackend(_DummySenNetPortalBackend):
