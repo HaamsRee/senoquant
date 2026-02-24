@@ -508,6 +508,56 @@ def test_sennet_portal_column_filter_hides_nonmatching_rows() -> None:
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
 
 
+def test_sennet_portal_age_range_filter_hides_rows_outside_bounds() -> None:
+    """Apply age min/max range filter using the Age header row widget."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+                sample_age="30 years",
+                sample_age_value=30.0,
+                sample_age_unit="years",
+            ),
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                source_type="Human",
+                organ="Pancreas",
+                sample_age="70 years",
+                sample_age_value=70.0,
+                sample_age_unit="years",
+            ),
+        ]
+    )
+
+    tab._age_filter_min_input.setText("40")
+    tab._age_filter_max_input.setText("80")
+    assert tab._dataset_table.isRowHidden(1) is True
+    assert tab._dataset_table.isRowHidden(2) is False
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
+
+    tab._clear_filters()
+    assert tab._age_filter_min_input.text() == ""
+    assert tab._age_filter_max_input.text() == ""
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is False
+
+
 def test_sennet_portal_header_sort_preserves_check_states() -> None:
     """Sort table by heading and preserve include checkboxes per dataset."""
     tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())

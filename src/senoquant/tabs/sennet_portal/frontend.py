@@ -139,7 +139,7 @@ class SenNetPortalTab(
         layout = QVBoxLayout()
 
         self._dataset_table = QTableWidget()
-        self._dataset_table.setColumnCount(8)
+        self._dataset_table.setColumnCount(9)
         self._dataset_table.setHorizontalHeaderLabels(
             [
                 "Include",
@@ -147,6 +147,7 @@ class SenNetPortalTab(
                 "Type",
                 "Source type",
                 "Organ",
+                "Age",
                 "Status",
                 "Access",
                 "Files",
@@ -156,12 +157,13 @@ class SenNetPortalTab(
         header = self._dataset_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(7, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(8, QHeaderView.ResizeToContents)
         if hasattr(header, "setSortIndicatorShown"):
             header.setSortIndicatorShown(True)
         if hasattr(header, "setSortIndicator"):

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Sequence
 
+from .age import SenNetPortalAgeMixin
 
-class SenNetPortalMetadataMixin:
+
+class SenNetPortalMetadataMixin(SenNetPortalAgeMixin):
     """Mixin containing payload normalization and metadata helpers."""
 
     def _iter_dataset_records(self, payload: object) -> Iterable[dict[str, Any]]:

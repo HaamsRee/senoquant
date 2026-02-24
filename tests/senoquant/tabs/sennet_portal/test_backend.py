@@ -184,6 +184,57 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     assert result["file_count"] == 1
 
 
+def test_sample_age_normalization_uses_mouse_months_and_human_years() -> None:
+    """Normalize mapped age to mouse months and human years."""
+    backend = SenNetPortalBackend()
+    source_payload = {
+        "sources": [
+            {
+                "mapped_metadata": {
+                    "age": {
+                        "unit": "years",
+                        "value": [2.5],
+                    }
+                }
+            }
+        ]
+    }
+
+    mouse_text, mouse_value, mouse_unit = backend._sample_age_from_payload(
+        summary_payload={},
+        entity_payload=source_payload,
+        source_type="Mouse",
+    )
+    human_text, human_value, human_unit = backend._sample_age_from_payload(
+        summary_payload={},
+        entity_payload=source_payload,
+        source_type="Human",
+    )
+
+    assert mouse_text == "30 months"
+    assert mouse_value == pytest.approx(30.0)
+    assert mouse_unit == "months"
+    assert human_text == "2.5 years"
+    assert human_value == pytest.approx(2.5)
+    assert human_unit == "years"
+
+
+def test_sample_age_normalization_uses_local_lifespan_data_fallback() -> None:
+    """Estimate age from local lifespan text when mapped age is missing."""
+    backend = SenNetPortalBackend()
+    entity_payload = {"sources": [{"metadata": {"local_lifespan_data": "25.5 month"}}]}
+
+    text, value, unit = backend._sample_age_from_payload(
+        summary_payload={},
+        entity_payload=entity_payload,
+        source_type="Human",
+    )
+
+    assert text == "2.1 years"
+    assert value == pytest.approx(2.125)
+    assert unit == "years"
+
+
 def test_available_antibody_dataset_types_uses_aggregation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

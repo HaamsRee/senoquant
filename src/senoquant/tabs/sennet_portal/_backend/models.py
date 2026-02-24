@@ -30,6 +30,12 @@ class SenNetDataset:
         Biological source label (for example, Human or Mouse).
     organ : str, optional
         Organ or tissue label associated with the dataset.
+    sample_age : str, optional
+        Best-effort normalized sample age label for table display.
+    sample_age_value : float or None, optional
+        Numeric sample age in ``sample_age_unit`` for sorting/filtering.
+    sample_age_unit : str, optional
+        Unit label for ``sample_age_value`` (``"years"`` or ``"months"``).
     dataset_uuid : str, optional
         Dataset UUID used by downstream transfer layout naming.
     entity_payload : dict of str to Any, optional
@@ -47,6 +53,9 @@ class SenNetDataset:
     compatible_extensions: list[str]
     source_type: str = "Unknown"
     organ: str = "Unknown"
+    sample_age: str = "Unknown"
+    sample_age_value: float | None = None
+    sample_age_unit: str = ""
     dataset_uuid: str = ""
     entity_payload: dict[str, Any] = field(default_factory=dict)
     query_metadata: dict[str, Any] = field(default_factory=dict)

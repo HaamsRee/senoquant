@@ -120,6 +120,14 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                 if not compatible_paths:
                     continue
                 entity_payload = self._dataset_entity_payload(dataset_id, token=token)
+                source_type = self._source_type_from_payload(record)
+                if source_type == "Unknown":
+                    source_type = self._source_type_from_payload(entity_payload)
+                sample_age, sample_age_value, sample_age_unit = self._sample_age_from_payload(
+                    summary_payload=record,
+                    entity_payload=entity_payload,
+                    source_type=source_type,
+                )
 
                 extensions = sorted(
                     {
@@ -148,8 +156,11 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                         title=self._dataset_title(record, record, dataset_id),
                         compatible_paths=compatible_paths,
                         compatible_extensions=extensions,
-                        source_type=self._source_type_from_payload(record),
+                        source_type=source_type,
                         organ=self._organ_from_payload(record, token=token),
+                        sample_age=sample_age,
+                        sample_age_value=sample_age_value,
+                        sample_age_unit=sample_age_unit,
                         dataset_uuid=self._dataset_uuid_from_payload(record),
                         entity_payload=entity_payload,
                         query_metadata={
