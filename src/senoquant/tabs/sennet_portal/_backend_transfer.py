@@ -77,7 +77,6 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
             command = [
                 "sennet-clt",
                 "transfer",
-                "manifest",
                 str(manifest_path),
                 "--destination",
                 clt_destination,

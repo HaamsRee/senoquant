@@ -81,7 +81,7 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Create manifest lines and call sennet-clt transfer manifest."""
+    """Create manifest lines and call ``sennet-clt transfer <manifest>``."""
     backend = SenNetPortalBackend()
     home = tmp_path / "home"
     home.mkdir(parents=True, exist_ok=True)
@@ -96,8 +96,8 @@ def test_download_datasets_builds_manifest_and_runs_clt(
         calls.append(args)
         if args[:2] == ["sennet-clt", "whoami"]:
             return subprocess.CompletedProcess(args, 0, stdout="tester", stderr="")
-        if args[:3] == ["sennet-clt", "transfer", "manifest"]:
-            manifest_path = Path(args[3])
+        if args[:2] == ["sennet-clt", "transfer"]:
+            manifest_path = Path(args[2])
             manifest_text["value"] = manifest_path.read_text(encoding="utf-8")
             destination = args[args.index("--destination") + 1]
             transfer_root = home / destination
@@ -128,7 +128,7 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     )
 
     assert len(calls) == 2
-    assert calls[1][:3] == ["sennet-clt", "transfer", "manifest"]
+    assert calls[1][:2] == ["sennet-clt", "transfer"]
     assert "SNT1 /raw/image_a.ome.tif" in manifest_text["value"]
     assert result["dataset_count"] == 1
     assert result["file_count"] == 1
