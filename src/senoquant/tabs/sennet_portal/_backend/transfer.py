@@ -196,6 +196,7 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
         None
             Cancellation is attempted best-effort for each task ID.
         """
+        self._cancel_running_commands()
         cleaned_ids = [str(task_id).strip() for task_id in task_ids if str(task_id).strip()]
         if not cleaned_ids:
             return

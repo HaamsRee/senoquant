@@ -401,13 +401,19 @@ def test_cancel_download_tasks_runs_globus_cancel(
     backend = SenNetPortalBackend()
     monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
     calls: list[list[str]] = []
+    command_cancel_called: list[bool] = []
 
     def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
         calls.append(args)
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
+    def fake_cancel_commands() -> None:
+        command_cancel_called.append(True)
+
     monkeypatch.setattr(backend, "_run_command", fake_run)
+    monkeypatch.setattr(backend, "_cancel_running_commands", fake_cancel_commands)
     backend.cancel_download_tasks(["task-a", "task-b"])
+    assert command_cancel_called == [True]
     assert calls == [
         ["globus", "task", "cancel", "task-a"],
         ["globus", "task", "cancel", "task-b"],

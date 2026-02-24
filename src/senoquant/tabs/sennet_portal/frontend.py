@@ -464,18 +464,18 @@ class SenNetPortalTab(
 
     def cancel_active_downloads(self) -> None:
         """Cancel active transfer tasks and stop monitoring state."""
-        if not self._download_task_ids:
+        task_ids = list(self._download_task_ids)
+        try:
+            self._backend.cancel_download_tasks(task_ids)
+        except Exception:
+            pass
+        if not task_ids:
             self._download_progress_bar.setValue(0)
             self._download_speed_label.setText("")
             self._download_progress_bar.setVisible(False)
             self._download_speed_label.setVisible(False)
             self._cancel_download_button.setEnabled(False)
             return
-        task_ids = list(self._download_task_ids)
-        try:
-            self._backend.cancel_download_tasks(task_ids)
-        except Exception:
-            pass
         self._stop_download_monitoring()
         self._download_summary = {}
         self._download_progress_bar.setValue(0)
@@ -490,6 +490,10 @@ class SenNetPortalTab(
         super_close = getattr(super(), "closeEvent", None)
         if callable(super_close):
             super_close(event)
+
+    def shutdown(self) -> None:
+        """Run tab shutdown cleanup for global SenoQuant shutdown manager."""
+        self.cancel_active_downloads()
 
 
 __all__ = ["SenNetPortalTab", "_RunWorker"]

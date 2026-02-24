@@ -11,6 +11,7 @@ from __future__ import annotations
 import dask.array as da
 import numpy as np
 from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QWidget
 
 from tests.conftest import DummyLayer, DummyViewer
 from senoquant._widget import SenoQuantWidget
@@ -800,3 +801,61 @@ def test_main_widget_puts_sennet_portal_first(monkeypatch) -> None:
     SenoQuantWidget(viewer)
     assert captured["labels"][0] == "SenNet Portal"
     assert captured["labels"][1] == "Segmentation"
+
+
+def test_main_widget_runs_shutdown_on_qt_application_quit(monkeypatch) -> None:
+    """Run global shutdown hooks from QApplication close/quit signals once."""
+
+    class _TrackingTab(QWidget):
+        def __init__(self, *_args, **_kwargs) -> None:
+            super().__init__()
+            self.shutdown_calls = 0
+
+        def shutdown(self) -> None:
+            self.shutdown_calls += 1
+
+    monkeypatch.setattr("senoquant._widget.SegmentationTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.SpotsTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.PredictionTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.QuantificationTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.VisualizationTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.BatchTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.SettingsTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.SenNetPortalTab", _TrackingTab)
+
+    class _Signal:
+        def __init__(self) -> None:
+            self._callbacks = []
+
+        def connect(self, callback) -> None:
+            self._callbacks.append(callback)
+
+        def emit(self) -> None:
+            for callback in list(self._callbacks):
+                callback()
+
+    class _QApplication:
+        _instance = None
+
+        @classmethod
+        def instance(cls):
+            return cls._instance
+
+    _QApplication._instance = type(
+        "_App",
+        (),
+        {"lastWindowClosed": _Signal(), "aboutToQuit": _Signal()},
+    )()
+    monkeypatch.setattr("senoquant._widget.QtWidgets.QApplication", _QApplication, raising=False)
+
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    widget = SenoQuantWidget(viewer)
+    portal = widget._sennet_portal_tab
+    assert isinstance(portal, _TrackingTab)
+
+    _QApplication._instance.lastWindowClosed.emit()
+    assert portal.shutdown_calls == 1
+
+    # Widget close is a second shutdown path; hooks should still run once.
+    widget.closeEvent(object())
+    assert portal.shutdown_calls == 1
