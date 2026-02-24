@@ -32,6 +32,8 @@ class SenNetDataset:
         Organ or tissue label associated with the dataset.
     dataset_uuid : str, optional
         Dataset UUID used by downstream transfer layout naming.
+    entity_payload : dict of str to Any, optional
+        Full Entity API payload associated with the dataset identifier.
     query_metadata : dict of str to Any, optional
         Metadata about the originating search query and filters.
     """
@@ -46,6 +48,7 @@ class SenNetDataset:
     source_type: str = "Unknown"
     organ: str = "Unknown"
     dataset_uuid: str = ""
+    entity_payload: dict[str, Any] = field(default_factory=dict)
     query_metadata: dict[str, Any] = field(default_factory=dict)
 
 

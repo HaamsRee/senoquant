@@ -55,4 +55,4 @@ The portal filters files dynamically using the extensions supported by the SenoQ
 - File compatibility is resolved from SenNet Search API `param-search/files`.
 - Transfers use SenNet CLI manifest mode internally.
 - If your selected destination is outside your home directory, SenoQuant stages the transfer and then moves files into your chosen folder.
-- A `senoquant_query_metadata.json` sidecar is written in each dataset output folder.
+- A `sennet_dataset_metadata.json` sidecar is written in each dataset output folder, including the full Entity API payload for that dataset.

@@ -119,6 +119,7 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                 )
                 if not compatible_paths:
                     continue
+                entity_payload = self._dataset_entity_payload(dataset_id, token=token)
 
                 extensions = sorted(
                     {
@@ -150,6 +151,7 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                         source_type=self._source_type_from_payload(record),
                         organ=self._organ_from_payload(record, token=token),
                         dataset_uuid=self._dataset_uuid_from_payload(record),
+                        entity_payload=entity_payload,
                         query_metadata={
                             "dataset_type": clean_dataset_type,
                             "status": clean_status,
@@ -162,6 +164,27 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                     return datasets
 
         return datasets
+
+    def _dataset_entity_payload(self, dataset_id: str, *, token: str | None) -> dict[str, Any]:
+        """Fetch Entity API payload for one dataset with safe fallback.
+
+        Parameters
+        ----------
+        dataset_id : str
+            SenNet dataset identifier.
+        token : str or None
+            Optional bearer token for authenticated requests.
+
+        Returns
+        -------
+        dict of str to Any
+            Full entity payload when available, otherwise an empty mapping.
+        """
+        try:
+            payload = self._fetch_dataset_entity(dataset_id, token=token)
+        except Exception:
+            return {}
+        return payload if isinstance(payload, dict) else {}
 
     @staticmethod
     def _dataset_type_terms_from_payload(payload: object) -> list[str]:

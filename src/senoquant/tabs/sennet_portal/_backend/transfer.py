@@ -91,7 +91,7 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
 
             if staging_dir is not None:
                 self._merge_directory(staging_dir, destination_path)
-            self._write_query_metadata_files(destination_path, dataset_list)
+            self._write_dataset_metadata_files(destination_path, dataset_list)
         finally:
             shutil.rmtree(manifest_root, ignore_errors=True)
             if staging_dir is not None:
@@ -129,12 +129,12 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
         rel_text = str(relative)
         return (rel_text if rel_text else "."), None
 
-    def _write_query_metadata_files(
+    def _write_dataset_metadata_files(
         self,
         destination: Path,
         datasets: Sequence[SenNetDataset],
     ) -> None:
-        """Write query metadata JSON files into dataset output folders.
+        """Write dataset metadata JSON files into dataset output folders.
 
         Parameters
         ----------
@@ -165,11 +165,11 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
                         "access_level": dataset.access_level,
                         "title": dataset.title,
                     },
-                    "query": dataset.query_metadata,
+                    "sennet_entity_payload": dataset.entity_payload,
                     "compatible_paths": dataset.compatible_paths,
                     "compatible_extensions": dataset.compatible_extensions,
                 }
-                metadata_path = folder / "senoquant_query_metadata.json"
+                metadata_path = folder / "sennet_dataset_metadata.json"
                 metadata_path.write_text(
                     json.dumps(payload, indent=2, sort_keys=True),
                     encoding="utf-8",

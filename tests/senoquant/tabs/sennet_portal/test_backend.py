@@ -27,6 +27,20 @@ def _stable_supported_extensions(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _stable_entity_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid network dependency for Entity API in backend tests."""
+    monkeypatch.setattr(
+        SenNetPortalBackend,
+        "_fetch_dataset_entity",
+        lambda self, dataset_id, token=None: {
+            "sennet_id": dataset_id,
+            "entity_type": "Dataset",
+            "uuid": f"entity-{dataset_id}",
+        },
+    )
+
+
 def test_search_datasets_filters_antibody_and_supported_paths() -> None:
     """Return only antibody datasets with compatible file extensions."""
     backend = SenNetPortalBackend()
@@ -100,6 +114,7 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
     assert datasets[0].organ == "Pancreas"
     assert datasets[0].compatible_paths == ["/raw/image_a.ome.tif"]
     assert datasets[0].compatible_extensions == [".ome.tif"]
+    assert datasets[0].entity_payload["sennet_id"] == "SNT1"
 
 
 def test_download_datasets_builds_manifest_and_runs_clt(
@@ -147,6 +162,11 @@ def test_download_datasets_builds_manifest_and_runs_clt(
                 title="Dataset 1",
                 compatible_paths=["/raw/image_a.ome.tif"],
                 compatible_extensions=[".ome.tif"],
+                entity_payload={
+                    "sennet_id": "SNT1",
+                    "entity_type": "Dataset",
+                    "cedar_mapped_metadata": {"Source Type": "Mouse"},
+                },
             )
         ],
         destination,
@@ -155,7 +175,11 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     assert len(calls) == 2
     assert calls[1][:2] == ["sennet-clt", "transfer"]
     assert "SNT1 /raw/image_a.ome.tif" in manifest_text["value"]
-    assert (destination / "SNT1" / "senoquant_query_metadata.json").is_file()
+    metadata_path = destination / "SNT1" / "sennet_dataset_metadata.json"
+    assert metadata_path.is_file()
+    metadata_payload = metadata_path.read_text(encoding="utf-8")
+    assert '"sennet_entity_payload"' in metadata_payload
+    assert '"cedar_mapped_metadata"' in metadata_payload
     assert result["dataset_count"] == 1
     assert result["file_count"] == 1
 
