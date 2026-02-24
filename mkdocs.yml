@@ -43,6 +43,7 @@ nav:
       - Segmentation: user/segmentation.md
       - Spots: user/spots.md
       - Prediction: user/prediction.md
+      - SenNet Portal: user/sennet-portal.md
       - Quantification: user/quantification.md
       - Visualization: user/visualization.md
       - Batch Processing: user/batch.md

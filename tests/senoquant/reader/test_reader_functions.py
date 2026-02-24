@@ -2,6 +2,7 @@
 
 import io
 import logging
+from collections import OrderedDict
 from pathlib import Path
 import sys
 import types
@@ -9,6 +10,7 @@ import types
 import pytest
 
 from senoquant.reader import core
+import senoquant.reader.supported_extensions as supported_extensions
 
 
 def test_colormap_cycle_returns_iterator():
@@ -136,6 +138,51 @@ def test_get_reader_logs_plugin_detection_failures(monkeypatch, tmp_path, caplog
     caplog.set_level(logging.WARNING, logger=core.__name__)
     assert core.get_reader(str(sample_path)) is None
     assert "failed to determine a BioIO plugin" in caplog.text
+
+
+def test_supported_image_extensions_discovers_bioio_plugin_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Collect and normalize extension keys from BioIO plugin registry."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".OME.TIF": [],
+                    "qptiff": [],
+                    ".eps ": [],
+                }
+            )
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+
+    extensions = supported_extensions.supported_image_extensions()
+    assert ".ome.tif" in extensions
+    assert ".qptiff" in extensions
+    assert ".eps" in extensions
+    # Fallback extensions are always merged.
+    assert ".jpeg" in extensions
+
+
+def test_supported_image_extensions_falls_back_when_plugin_probe_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Return fallback extensions when BioIO plugin introspection fails."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            raise RuntimeError("boom")
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+
+    extensions = supported_extensions.supported_image_extensions()
+    assert ".ome.tif" in extensions
+    assert ".qptiff" in extensions
+    assert ".jpeg" in extensions
 
 
 def test_get_reader_uses_resolved_path_for_plugin_probe(monkeypatch, tmp_path) -> None:

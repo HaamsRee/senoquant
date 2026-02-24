@@ -7,6 +7,7 @@ from .quantification.frontend import QuantificationTab
 from .visualization.frontend import VisualizationTab
 from .settings.frontend import SettingsTab
 from .batch.frontend import BatchTab
+from .sennet_portal.frontend import SenNetPortalTab
 
 __all__ = [
     "SegmentationTab",
@@ -16,4 +17,5 @@ __all__ = [
     "VisualizationTab",
     "SettingsTab",
     "BatchTab",
+    "SenNetPortalTab",
 ]
