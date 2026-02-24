@@ -129,6 +129,8 @@ class Qt:
     ItemIsEnabled = 1 << 1
     Checked = 2
     Unchecked = 0
+    AscendingOrder = 0
+    DescendingOrder = 1
 
 
 class QTimer:
@@ -817,11 +819,30 @@ class QHeaderView(QWidget):
     ResizeToContents = 0
     Stretch = 1
 
+    def __init__(self, *_args, **_kwargs) -> None:
+        super().__init__()
+        self.sectionClicked = DummySignal()
+        self._sort_section = 0
+        self._sort_order = Qt.AscendingOrder
+
     def setSectionResizeMode(self, *_args, **_kwargs) -> None:
         return None
 
     def setVisible(self, *_args, **_kwargs) -> None:
         return None
+
+    def setSortIndicatorShown(self, *_args, **_kwargs) -> None:
+        return None
+
+    def setSortIndicator(self, section: int, order: int) -> None:
+        self._sort_section = int(section)
+        self._sort_order = int(order)
+
+    def sortIndicatorSection(self) -> int:
+        return self._sort_section
+
+    def sortIndicatorOrder(self) -> int:
+        return self._sort_order
 
 
 class QTableWidgetItem:
@@ -854,6 +875,7 @@ class QTableWidget(QWidget):
         self._cols = 0
         self._items: dict[tuple[int, int], QTableWidgetItem] = {}
         self._cell_widgets: dict[tuple[int, int], QWidget] = {}
+        self._row_hidden: dict[int, bool] = {}
         self._h_header = QHeaderView()
         self._v_header = QHeaderView()
 
@@ -881,6 +903,9 @@ class QTableWidget(QWidget):
             for key, value in self._cell_widgets.items()
             if key[0] < self._rows and key[1] < self._cols
         }
+        self._row_hidden = {
+            row: hidden for row, hidden in self._row_hidden.items() if row < self._rows
+        }
 
     def insertRow(self, row: int) -> None:
         self._rows = max(self._rows, int(row) + 1)
@@ -899,6 +924,12 @@ class QTableWidget(QWidget):
 
     def rowCount(self) -> int:
         return self._rows
+
+    def setRowHidden(self, row: int, hidden: bool) -> None:
+        self._row_hidden[int(row)] = bool(hidden)
+
+    def isRowHidden(self, row: int) -> bool:
+        return bool(self._row_hidden.get(int(row), False))
 
 
 class QPalette:

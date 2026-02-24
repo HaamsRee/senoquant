@@ -82,6 +82,7 @@ class SenNetPortalTab(
         layout.addWidget(self._status_label)
         layout.addStretch(1)
         self.setLayout(layout)
+        self._populate_table(preserve_filters=False)
         self._refresh_globus_auth_status()
         self._refresh_dataset_types()
 
@@ -161,6 +162,12 @@ class SenNetPortalTab(
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(7, QHeaderView.ResizeToContents)
+        if hasattr(header, "setSortIndicatorShown"):
+            header.setSortIndicatorShown(True)
+        if hasattr(header, "setSortIndicator"):
+            header.setSortIndicator(1, self._SORT_ASC)
+        if hasattr(header, "sectionClicked"):
+            header.sectionClicked.connect(self._on_table_header_clicked)
         self._dataset_table.verticalHeader().setVisible(False)
 
         button_row = QHBoxLayout()
@@ -169,8 +176,11 @@ class SenNetPortalTab(
         self._select_all_button.clicked.connect(self._select_all_datasets)
         self._clear_all_button = QPushButton("Clear all")
         self._clear_all_button.clicked.connect(self._clear_all_datasets)
+        self._clear_filters_button = QPushButton("Clear filters")
+        self._clear_filters_button.clicked.connect(self._clear_filters)
         button_row.addWidget(self._select_all_button)
         button_row.addWidget(self._clear_all_button)
+        button_row.addWidget(self._clear_filters_button)
         button_row.addStretch(1)
 
         layout.addLayout(button_row)
@@ -267,8 +277,7 @@ class SenNetPortalTab(
             Internal state and table UI are updated in-place.
         """
         self._datasets = list(datasets)
-        self._populate_table()
-        self._populate_column_filter_combos()
+        self._populate_table(preserve_filters=False)
         self._download_button.setEnabled(bool(self._datasets))
         self._notify(
             f"Found {len(self._datasets)} compatible dataset(s). "

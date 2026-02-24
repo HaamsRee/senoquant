@@ -401,10 +401,12 @@ def test_sennet_portal_tab_instantiates() -> None:
     assert hasattr(tab, "_gcp_status_label")
     assert hasattr(tab, "_gcp_install_button")
     assert hasattr(tab, "_gcp_check_again_button")
+    assert hasattr(tab, "_clear_filters_button")
+    assert tab._dataset_table.cellWidget(0, 1) is not None
 
 
 def test_sennet_portal_select_all_and_clear_all() -> None:
-    """Toggle include checkboxes and reset filters via Select/Clear actions."""
+    """Apply Select/Clear actions only to visible rows."""
     tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
     tab._on_search_complete(
         [
@@ -435,23 +437,35 @@ def test_sennet_portal_select_all_and_clear_all() -> None:
 
     assert 0 not in tab._column_filter_combos
     tab._column_filter_combos[3].setCurrentText("Human")
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
 
     tab._clear_all_datasets()
-    assert tab._column_filter_combos[3].currentText() == "All"
+    assert tab._column_filter_combos[3].currentText() == "Human"
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
 
-    tab._column_filter_combos[4].setCurrentText("Pancreas")
     tab._select_all_datasets()
-    assert tab._column_filter_combos[4].currentText() == "All"
+    assert tab._column_filter_combos[3].currentText() == "Human"
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
-    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._clear_filters()
+    assert tab._column_filter_combos[3].currentText() == "All"
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is False
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
 
 
-def test_sennet_portal_column_filter_selects_matching_rows() -> None:
-    """Apply source/organ dropdown filters to include selections."""
+def test_sennet_portal_column_filter_hides_nonmatching_rows() -> None:
+    """Apply source/organ filters and hide plus uncheck excluded rows."""
     tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
     tab._on_search_complete(
         [
@@ -481,12 +495,60 @@ def test_sennet_portal_column_filter_selects_matching_rows() -> None:
     )
 
     tab._column_filter_combos[3].setCurrentText("Human")
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
 
     tab._column_filter_combos[3].setCurrentText("All")
     tab._column_filter_combos[4].setCurrentText("Pancreas")
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is False
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
+
+
+def test_sennet_portal_header_sort_preserves_check_states() -> None:
+    """Sort table by heading and preserve include checkboxes per dataset."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                source_type="Mouse",
+                organ="Pancreas",
+            ),
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            ),
+        ]
+    )
+
+    tab._dataset_table.item(1, 0).setCheckState(Qt.Unchecked)
+    tab._on_table_header_clicked(1)
+    assert tab._dataset_table.item(1, 1).text() == "SNT1"
+    assert tab._dataset_table.item(2, 1).text() == "SNT2"
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._on_table_header_clicked(1)
+    assert tab._dataset_table.item(1, 1).text() == "SNT2"
+    assert tab._dataset_table.item(2, 1).text() == "SNT1"
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
 
 

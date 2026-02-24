@@ -39,8 +39,10 @@ See the official Globus instructions:
    - Only datasets with at least one supported file extension are shown.
 5. Optionally use the filter row under the table headers:
    - Filters are available for all metadata columns (SenNet ID, Type, Source type, Organ, Status, Access, Files).
-   - Filters drive row selection through the **Include** checkbox column.
-6. Select rows to download (or use **Select all** / **Clear all** to reset filters and update selection).
+   - Filters hide non-matching rows and exclude them from download.
+6. Select rows to download:
+   - **Select all** / **Clear all** apply only to rows currently visible in the table.
+   - **Clear filters** resets all filters and shows all rows again.
 7. Set a **Destination** folder.
 8. Click **Download selected**.
 

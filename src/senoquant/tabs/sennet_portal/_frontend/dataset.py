@@ -13,6 +13,8 @@ class SenNetPortalDatasetMixin:
 
     _FILTER_ROW_INDEX = 0
     _TABLE_COLUMN_COUNT = 8
+    _SORT_ASC = int(getattr(Qt, "AscendingOrder", 0))
+    _SORT_DESC = int(getattr(Qt, "DescendingOrder", 1))
 
     def _refresh_dataset_types(self) -> None:
         """Fetch and repopulate available antibody dataset-type options."""
@@ -50,8 +52,25 @@ class SenNetPortalDatasetMixin:
         if previous in clean_types:
             self._dataset_type_combo.setCurrentText(previous)
 
-    def _populate_table(self) -> None:
-        """Render currently loaded datasets into the selection table."""
+    def _populate_table(
+        self,
+        *,
+        checked_by_identity: dict[str, int] | None = None,
+        preserve_filters: bool = False,
+    ) -> None:
+        """Render currently loaded datasets into the selection table.
+
+        Parameters
+        ----------
+        checked_by_identity : dict of str to int or None, optional
+            Mapping of dataset identity to checkbox state to preserve when
+            rebuilding the table.
+        preserve_filters : bool, optional
+            Whether existing column-filter values should be restored.
+        """
+        previous_filters = (
+            dict(getattr(self, "_column_filter_values", {})) if preserve_filters else {}
+        )
         self._dataset_table.setRowCount(1)
         self._column_filter_combos: dict[int, QComboBox] = {}
         self._column_filter_values: dict[int, str] = {}
@@ -62,7 +81,11 @@ class SenNetPortalDatasetMixin:
             self._dataset_table.insertRow(row)
 
             include_item = QTableWidgetItem()
-            include_item.setCheckState(Qt.Checked)
+            dataset_id = self._dataset_identity(dataset)
+            if checked_by_identity is not None and dataset_id in checked_by_identity:
+                include_item.setCheckState(int(checked_by_identity[dataset_id]))
+            else:
+                include_item.setCheckState(Qt.Checked)
             include_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             self._dataset_table.setItem(row, 0, include_item)
 
@@ -79,7 +102,8 @@ class SenNetPortalDatasetMixin:
             )
 
         self._populate_column_filter_combos()
-        self._apply_column_filters_to_selection()
+        self._restore_column_filters(previous_filters)
+        self._apply_column_filters()
 
     def _init_filter_row(self) -> None:
         """Create filter widgets embedded in the first table row."""
@@ -121,19 +145,22 @@ class SenNetPortalDatasetMixin:
             combo.setCurrentText(items[0])
 
     def _on_column_filter_changed(self, _text: str) -> None:
-        """Store active filter values and apply selection filtering."""
+        """Store active filter values and apply filtering to rows."""
         for column, combo in self._column_filter_combos.items():
             self._column_filter_values[column] = combo.currentText().strip()
-        self._apply_column_filters_to_selection()
+        self._apply_column_filters()
 
-    def _apply_column_filters_to_selection(self) -> None:
-        """Select dataset rows that match all active column filters."""
+    def _apply_column_filters(self) -> None:
+        """Apply filters by updating row visibility and include state."""
+        has_active_filter = any(
+            active and active != "All" for active in self._column_filter_values.values()
+        )
         for row in range(1, self._dataset_table.rowCount()):
-            include_item = self._dataset_table.item(row, 0)
-            if include_item is None:
-                continue
             matches = self._row_matches_active_filters(row)
-            include_item.setCheckState(Qt.Checked if matches else Qt.Unchecked)
+            include_item = self._dataset_table.item(row, 0)
+            if include_item is not None and has_active_filter:
+                include_item.setCheckState(Qt.Checked if matches else Qt.Unchecked)
+            self._dataset_table.setRowHidden(row, not matches)
 
     def _row_matches_active_filters(self, row: int) -> bool:
         """Return whether one table row satisfies all active filters.
@@ -159,14 +186,16 @@ class SenNetPortalDatasetMixin:
         return True
 
     def _select_all_datasets(self) -> None:
-        """Mark all dataset rows as selected."""
-        self._reset_column_filters()
+        """Mark all visible dataset rows as selected."""
         self._set_all_dataset_check_state(Qt.Checked)
 
     def _clear_all_datasets(self) -> None:
-        """Clear dataset selection for all rows."""
-        self._reset_column_filters()
+        """Clear selection for all visible dataset rows."""
         self._set_all_dataset_check_state(Qt.Unchecked)
+
+    def _clear_filters(self) -> None:
+        """Reset active filters and show all table rows."""
+        self._reset_column_filters()
 
     def _reset_column_filters(self) -> None:
         """Reset all active column filters back to ``All``."""
@@ -178,7 +207,7 @@ class SenNetPortalDatasetMixin:
             combo.setCurrentText("All")
             combo.blockSignals(False)
             self._column_filter_values[column] = "All"
-        self._apply_column_filters_to_selection()
+        self._apply_column_filters()
 
     def _set_all_dataset_check_state(self, state: int) -> None:
         """Apply one checkbox state to every dataset include row.
@@ -189,6 +218,8 @@ class SenNetPortalDatasetMixin:
             Qt check-state value (for example ``Qt.Checked``).
         """
         for row in range(1, self._dataset_table.rowCount()):
+            if self._dataset_table.isRowHidden(row):
+                continue
             include_item = self._dataset_table.item(row, 0)
             if include_item is None:
                 continue
@@ -218,6 +249,96 @@ class SenNetPortalDatasetMixin:
             if dataset_index < len(self._datasets):
                 selected.append(self._datasets[dataset_index])
         return selected
+
+    @staticmethod
+    def _dataset_identity(dataset: SenNetDataset) -> str:
+        """Return stable identity used to preserve row check states."""
+        clean_uuid = dataset.dataset_uuid.strip()
+        if clean_uuid:
+            return f"{dataset.sennet_id}:{clean_uuid}"
+        return dataset.sennet_id
+
+    def _checked_states_by_identity(self) -> dict[str, int]:
+        """Return checkbox states keyed by stable dataset identity."""
+        states: dict[str, int] = {}
+        for row in range(1, self._dataset_table.rowCount()):
+            dataset_index = row - 1
+            if dataset_index >= len(self._datasets):
+                continue
+            include_item = self._dataset_table.item(row, 0)
+            if include_item is None:
+                continue
+            dataset = self._datasets[dataset_index]
+            states[self._dataset_identity(dataset)] = int(include_item.checkState())
+        return states
+
+    def _restore_column_filters(self, previous_filters: dict[int, str]) -> None:
+        """Restore previously selected filter values when still available."""
+        for column, active in previous_filters.items():
+            combo = self._column_filter_combos.get(column)
+            if combo is None:
+                continue
+            if combo.findText(active) < 0:
+                continue
+            combo.blockSignals(True)
+            combo.setCurrentText(active)
+            combo.blockSignals(False)
+            self._column_filter_values[column] = active
+
+    def _on_table_header_clicked(self, column: int) -> None:
+        """Sort datasets by one table column when a header section is clicked."""
+        if column < 0 or column >= self._TABLE_COLUMN_COUNT:
+            return
+        previous_column = getattr(self, "_sort_column", None)
+        previous_order = int(getattr(self, "_sort_order", self._SORT_ASC))
+        if previous_column == column:
+            order = self._SORT_DESC if previous_order == self._SORT_ASC else self._SORT_ASC
+        else:
+            order = self._SORT_ASC
+
+        checked_states = self._checked_states_by_identity()
+        self._datasets.sort(
+            key=lambda dataset: self._dataset_sort_key(
+                dataset,
+                column=column,
+                checked_states=checked_states,
+            ),
+            reverse=(order == self._SORT_DESC),
+        )
+        self._sort_column = column
+        self._sort_order = order
+        self._populate_table(checked_by_identity=checked_states, preserve_filters=True)
+
+        header = self._dataset_table.horizontalHeader()
+        if hasattr(header, "setSortIndicator"):
+            header.setSortIndicator(column, order)
+
+    def _dataset_sort_key(
+        self,
+        dataset: SenNetDataset,
+        *,
+        column: int,
+        checked_states: dict[str, int],
+    ) -> object:
+        """Return sorting key for one dataset and target table column."""
+        if column == 0:
+            checked = checked_states.get(self._dataset_identity(dataset), Qt.Checked)
+            return int(checked != Qt.Checked)
+        if column == 1:
+            return dataset.sennet_id.lower()
+        if column == 2:
+            return dataset.dataset_type.lower()
+        if column == 3:
+            return dataset.source_type.lower()
+        if column == 4:
+            return dataset.organ.lower()
+        if column == 5:
+            return dataset.status.lower()
+        if column == 6:
+            return dataset.access_level.lower()
+        if column == 7:
+            return len(dataset.compatible_paths)
+        return dataset.sennet_id.lower()
 
 
 __all__ = ["SenNetPortalDatasetMixin"]
