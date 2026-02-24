@@ -31,26 +31,26 @@ See the official Globus instructions:
 1. Open **SenNet Portal**.
 2. Choose dataset filters:
 
-   - **Dataset type** (or keep `Any antibody-based imaging`).
-   - **Status** (default `Published`).
-   - **Max results**.
+    - **Dataset type** (or keep `Any antibody-based imaging`).
+    - **Status** (default `Published`).
+    - **Max results**.
 
 3. Click **Find datasets**.
 4. Review compatible datasets in the table:
 
-   - Only antibody-imaging datasets are included.
-   - Only datasets with at least one supported file extension are shown.
-   - The table columns are: **SenNet ID**, **Type**, **Source type**, **Organ**, **Age**, **Status**, **Access**, and **Files**.
+    - Only antibody-imaging datasets are included.
+    - Only datasets with at least one supported file extension are shown.
+    - The table columns are: **SenNet ID**, **Type**, **Source type**, **Organ**, **Age**, **Status**, **Access**, and **Files**.
 
 5. Optionally use the filter row under the table headers:
 
-   - Filters are available for all metadata columns (SenNet ID, Type, Source type, Organ, Age, Status, Access, Files).
-   - Filters hide non-matching rows and exclude them from download.
+    - Filters are available for all metadata columns (SenNet ID, Type, Source type, Organ, Age, Status, Access, Files).
+    - Filters hide non-matching rows and exclude them from download.
 
 6. Select rows to download:
 
-   - **Select all** / **Clear all** apply only to rows currently visible in the table.
-   - **Clear filters** resets all filters and shows all rows again.
+    - **Select all** / **Clear all** apply only to rows currently visible in the table.
+    - **Clear filters** resets all filters and shows all rows again.
 
 7. Set a **Destination** folder.
 8. Click **Download selected**.
@@ -63,23 +63,23 @@ The portal filters files dynamically using the extensions supported by the SenoQ
 
 - **Age column**:
 
-  - `Age` is a best-effort normalized sample age value from SenNet metadata.
-  - Age is shown as a display string such as `30 years` or `18 months`.
-  - For `Mouse` sources, age is displayed in **months**; for other sources, age is displayed in **years**.
-  - If age cannot be derived from available metadata, `Age` is shown as `Unknown`.
+    - `Age` is a best-effort normalized sample age value from SenNet metadata.
+    - Age is shown as a display string such as `30 years` or `18 months`.
+    - For `Mouse` sources, age is displayed in **months**; for other sources, age is displayed in **years**.
+    - If age cannot be derived from available metadata, `Age` is shown as `Unknown`.
 
 - **Age filter**:
 
-  - The Age filter uses **Min** and **Max** numeric fields in the filter row under the `Age` header.
-  - Rows match only when their numeric age value is within the specified bounds.
-  - Rows with `Unknown` (non-numeric) age are excluded whenever a Min or Max age filter is active.
-  - Non-numeric Min/Max inputs are ignored.
+    - The Age filter uses **Min** and **Max** numeric fields in the filter row under the `Age` header.
+    - Rows match only when their numeric age value is within the specified bounds.
+    - Rows with `Unknown` (non-numeric) age are excluded whenever a Min or Max age filter is active.
+    - Non-numeric Min/Max inputs are ignored.
 
 - **Filter selection behavior**:
 
-  - When any filter is active, matching rows remain visible and selected, while non-matching rows are hidden and unchecked.
-  - **Select all** / **Clear all** affect only currently visible rows.
-  - **Clear filters** resets all categorical and age-range filters.
+    - When any filter is active, matching rows remain visible and selected, while non-matching rows are hidden and unchecked.
+    - **Select all** / **Clear all** affect only currently visible rows.
+    - **Clear filters** resets all categorical and age-range filters.
 
 ## Notes
 

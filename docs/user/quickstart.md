@@ -104,8 +104,8 @@ feature layers.
 1. Switch to the **Prediction** tab.
 2. Select **Select model**: `demo_model` (current placeholder).
 3. In **Model interface**:
-   - Select **Image layer**.
-   - Set **Multiplier**.
+    - Select **Image layer**.
+    - Set **Multiplier**.
 4. Click **Run**.
 
 **Output:** A new image layer named `<image layer>_demo_model`.
