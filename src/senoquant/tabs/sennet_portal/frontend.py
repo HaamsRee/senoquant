@@ -90,7 +90,7 @@ class SenNetPortalTab(
         QGroupBox
             Group box containing dataset type, status, and result-limit inputs.
         """
-        section = QGroupBox("Dataset Filters")
+        section = QGroupBox("Dataset filters")
         section_layout = QVBoxLayout()
         form_layout = QFormLayout()
         form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -125,7 +125,7 @@ class SenNetPortalTab(
         QGroupBox
             Group box containing the dataset selection table.
         """
-        section = QGroupBox("Compatible SenNet Datasets")
+        section = QGroupBox("Compatible SenNet datasets")
         layout = QVBoxLayout()
 
         self._dataset_table = QTableWidget()
@@ -152,6 +152,17 @@ class SenNetPortalTab(
         header.setSectionResizeMode(6, QHeaderView.Stretch)
         self._dataset_table.verticalHeader().setVisible(False)
 
+        button_row = QHBoxLayout()
+        button_row.setContentsMargins(0, 0, 0, 0)
+        self._select_all_button = QPushButton("Select all")
+        self._select_all_button.clicked.connect(self._select_all_datasets)
+        self._clear_all_button = QPushButton("Clear all")
+        self._clear_all_button.clicked.connect(self._clear_all_datasets)
+        button_row.addWidget(self._select_all_button)
+        button_row.addWidget(self._clear_all_button)
+        button_row.addStretch(1)
+
+        layout.addLayout(button_row)
         layout.addWidget(self._dataset_table)
         section.setLayout(layout)
         return section
@@ -310,6 +321,45 @@ class SenNetPortalTab(
             on_success=self._on_download_complete,
             on_error_prefix="Download failed",
         )
+
+    def _select_all_datasets(self) -> None:
+        """Mark all dataset rows as selected.
+
+        Returns
+        -------
+        None
+            All row checkboxes are set to checked state.
+        """
+        self._set_all_dataset_check_state(Qt.Checked)
+
+    def _clear_all_datasets(self) -> None:
+        """Clear dataset selection for all rows.
+
+        Returns
+        -------
+        None
+            All row checkboxes are set to unchecked state.
+        """
+        self._set_all_dataset_check_state(Qt.Unchecked)
+
+    def _set_all_dataset_check_state(self, state: int) -> None:
+        """Apply one checkbox state to every dataset include row.
+
+        Parameters
+        ----------
+        state : int
+            Qt check-state value (for example ``Qt.Checked``).
+
+        Returns
+        -------
+        None
+            Existing include cells are updated in-place.
+        """
+        for row in range(self._dataset_table.rowCount()):
+            include_item = self._dataset_table.item(row, 0)
+            if include_item is None:
+                continue
+            include_item.setCheckState(state)
 
     def _selected_datasets(self) -> list[SenNetDataset]:
         """Collect datasets whose include checkbox is enabled.

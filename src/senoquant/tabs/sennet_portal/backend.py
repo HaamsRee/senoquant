@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from senoquant.reader.supported_extensions import supported_image_extensions
+
 from ._backend_models import SenNetDataset
 from ._backend_search import SenNetPortalSearchMixin
 from ._backend_transfer import SenNetPortalTransferMixin
@@ -28,22 +30,6 @@ class SenNetPortalBackend(
     SEARCH_API_URL = "https://search.api.sennetconsortium.org/search"
     PARAM_SEARCH_FILES_URL = "https://search.api.sennetconsortium.org/param-search/files"
     ENTITY_API_URL = "https://entity.api.sennetconsortium.org"
-
-    # Matches SenoQuant batch input defaults and reader expectations.
-    SUPPORTED_IMAGE_EXTENSIONS = (
-        ".ome.tiff",
-        ".ome.tif",
-        ".tiff",
-        ".tif",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".czi",
-        ".nd2",
-        ".lif",
-        ".zarr",
-        ".qptiff",
-    )
 
     # SenNet dataset-type terms commonly used for antibody-based imaging.
     ANTIBODY_DATASET_TYPES = (
@@ -82,8 +68,9 @@ class SenNetPortalBackend(
             This initializer stores configuration on the instance.
         """
         self._request_timeout = float(request_timeout)
+        self._supported_image_extensions = supported_image_extensions()
         self._extension_check_order = tuple(
-            sorted(self.SUPPORTED_IMAGE_EXTENSIONS, key=len, reverse=True)
+            sorted(self._supported_image_extensions, key=len, reverse=True)
         )
         self._globus_ls_ready_cache: bool | None = None
 

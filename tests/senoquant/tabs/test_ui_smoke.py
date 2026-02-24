@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import dask.array as da
 import numpy as np
+from qtpy.QtCore import Qt
 
 from tests.conftest import DummyLayer, DummyViewer
 from senoquant._widget import SenoQuantWidget
 from senoquant.tabs.batch.frontend import BatchTab
 from senoquant.tabs.quantification.frontend import QuantificationTab
+from senoquant.tabs.sennet_portal.backend import SenNetDataset
 from senoquant.tabs.sennet_portal.frontend import SenNetPortalTab
 from senoquant.tabs.segmentation.frontend import SegmentationTab
 from senoquant.tabs.settings.frontend import SettingsTab
@@ -367,6 +369,46 @@ def test_sennet_portal_tab_instantiates() -> None:
     tab = SenNetPortalTab()
     assert hasattr(tab, "_dataset_table")
     assert hasattr(tab, "_download_button")
+    assert hasattr(tab, "_select_all_button")
+    assert hasattr(tab, "_clear_all_button")
+    assert hasattr(tab, "_gcp_status_label")
+    assert hasattr(tab, "_gcp_install_button")
+    assert hasattr(tab, "_gcp_check_again_button")
+
+
+def test_sennet_portal_select_all_and_clear_all() -> None:
+    """Toggle include checkboxes using Select all and Clear all actions."""
+    tab = SenNetPortalTab()
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+            ),
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+            ),
+        ]
+    )
+
+    tab._clear_all_datasets()
+    assert tab._dataset_table.item(0, 0).checkState() == Qt.Unchecked
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
+
+    tab._select_all_datasets()
+    assert tab._dataset_table.item(0, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
 
 
 def test_main_widget_instantiates(monkeypatch) -> None:
@@ -383,3 +425,27 @@ def test_main_widget_instantiates(monkeypatch) -> None:
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
     widget = SenoQuantWidget(viewer)
     assert widget is not None
+
+
+def test_main_widget_puts_sennet_portal_first(monkeypatch) -> None:
+    """Add SenNet Portal before segmentation in the main tab order."""
+    monkeypatch.setattr(
+        "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
+        lambda self: None,
+    )
+
+    captured: dict[str, list[str]] = {"labels": []}
+
+    class _RecordingTabWidget:
+        def __init__(self, *_args, **_kwargs) -> None:
+            captured["labels"] = []
+
+        def addTab(self, _widget, label: str) -> None:
+            captured["labels"].append(label)
+
+    monkeypatch.setattr("senoquant._widget.QTabWidget", _RecordingTabWidget)
+
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    SenoQuantWidget(viewer)
+    assert captured["labels"][0] == "SenNet Portal"
+    assert captured["labels"][1] == "Segmentation"

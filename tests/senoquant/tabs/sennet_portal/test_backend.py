@@ -207,6 +207,17 @@ def test_search_datasets_does_not_require_globus_login(
     assert datasets == []
 
 
+def test_backend_uses_reader_supported_extensions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Use reader-derived extensions when matching compatible paths."""
+    monkeypatch.setattr(
+        "senoquant.tabs.sennet_portal.backend.supported_image_extensions",
+        lambda: (".abc", ".very.long.ext"),
+    )
+    backend = SenNetPortalBackend()
+    assert backend._matching_supported_extension("/x/sample.VERY.LONG.EXT") == ".very.long.ext"
+    assert backend._matching_supported_extension("/x/sample.abc") == ".abc"
+
+
 def test_login_globus_runs_login_command(monkeypatch: pytest.MonkeyPatch) -> None:
     """Run globus login command when CLI is installed."""
     backend = SenNetPortalBackend()
@@ -274,6 +285,57 @@ def test_globus_login_status_reports_not_logged_in(monkeypatch: pytest.MonkeyPat
     logged_in, detail = backend.globus_login_status()
     assert logged_in is False
     assert detail == "Not logged in"
+
+
+def test_gcp_installation_status_reports_missing_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Report unavailable status when Globus CLI is not installed."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    available, detail = backend.gcp_installation_status()
+    assert available is False
+    assert detail == "Globus CLI not found"
+
+
+def test_gcp_installation_status_reports_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Report available status and endpoint id when GCP is installed."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        assert args == ["globus", "endpoint", "local-id"]
+        return subprocess.CompletedProcess(args, 0, stdout="abc-endpoint-id\n", stderr="")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    available, detail = backend.gcp_installation_status()
+    assert available is True
+    assert detail == "abc-endpoint-id"
+
+
+def test_gcp_installation_status_reports_not_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Report not-installed status from standard Globus CLI error text."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        assert args == ["globus", "endpoint", "local-id"]
+        return subprocess.CompletedProcess(
+            args,
+            1,
+            stdout="",
+            stderr="No Globus Connect Personal installation found.",
+        )
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    available, detail = backend.gcp_installation_status()
+    assert available is False
+    assert detail == "Globus Connect Personal not installed"
 
 
 def test_download_datasets_requires_clt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

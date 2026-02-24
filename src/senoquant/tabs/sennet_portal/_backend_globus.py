@@ -18,6 +18,33 @@ class SenNetPortalGlobusMixin(
 ):
     """Mixin containing Globus auth helpers and param-search file lookup."""
 
+    def gcp_installation_status(self) -> tuple[bool, str]:
+        """Return local Globus Connect Personal availability status.
+
+        Returns
+        -------
+        tuple of (bool, str)
+            A tuple where the first value indicates whether GCP appears
+            available, and the second value contains a detail string.
+        """
+        if shutil.which("globus") is None:
+            return False, "Globus CLI not found"
+
+        local_id = self._run_command(["globus", "endpoint", "local-id"])
+        if local_id.returncode != 0:
+            stderr = (local_id.stderr or "").strip()
+            stdout = (local_id.stdout or "").strip()
+            detail = stderr or stdout or "Unable to verify Globus Connect Personal."
+            if "No Globus Connect Personal installation found" in detail:
+                return False, "Globus Connect Personal not installed"
+            return False, detail
+
+        endpoint_id_lines = (local_id.stdout or "").strip().splitlines()
+        endpoint_id = endpoint_id_lines[0].strip() if endpoint_id_lines else ""
+        if endpoint_id:
+            return True, endpoint_id
+        return False, "Globus Connect Personal not installed"
+
     def login_globus(self) -> None:
         """Run interactive Globus CLI login flow.
 

@@ -6,14 +6,25 @@ It is designed for antibody-based imaging datasets and only allows downloads for
 
 ## Prerequisites
 
-- Install the SenNet CLI (`sennet-clt`) from the SenNet docs.
-- Authenticate once from a terminal:
-
-```bash
-sennet-clt login
-```
-
+- `globus-cli` (which provides `globus`) is installed automatically with SenoQuant dependencies.
+- `atlas-consortia-clt` (which provides `sennet-clt`) is installed automatically with SenoQuant dependencies.
+- Install and configure **Globus Connect Personal (GCP)** for local downloads.
+- Use the **Login** button in the **Connection** section to authenticate with Globus.
 - (Optional) If you need non-public datasets, provide a bearer token in the tab.
+
+## Connection panel
+
+The **Connection** section includes runtime checks for Globus tools:
+
+- **Globus status** and **Login/Logout** controls for CLI authentication.
+- **GCP status** row for local endpoint availability.
+- **Install Globus Connect Personal** button when GCP is not detected.
+- **Check again** button to refresh status after installing/configuring GCP.
+
+If your environment is behind a corporate firewall, GCP may require a **Setup Key**.
+See the official Globus instructions:
+
+- <https://docs.globus.org/globus-connect-personal/troubleshooting-guide/#generating-gcp-setup-key>
 
 ## Workflow
 
@@ -32,13 +43,7 @@ sennet-clt login
 
 ## Supported extensions
 
-The portal currently accepts:
-
-- `.ome.tif`, `.ome.tiff`
-- `.tif`, `.tiff`
-- `.png`, `.jpg`, `.jpeg`
-- `.czi`, `.nd2`, `.lif`
-- `.zarr`
+The portal filters files dynamically using the extensions supported by the SenoQuant reader (via BioIO plugin registration).
 
 ## Notes
 
