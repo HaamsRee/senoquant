@@ -173,7 +173,10 @@ class SenNetPortalBackgroundMixin:
         """
         button.setEnabled(True)
         button.setText(original_text)
-        self._download_button.setEnabled(bool(self._datasets))
+        if bool(getattr(self, "_download_locked", False)):
+            self._download_button.setEnabled(False)
+        else:
+            self._download_button.setEnabled(bool(self._datasets))
         try:
             self._active_workers.remove((thread, worker))
         except ValueError:

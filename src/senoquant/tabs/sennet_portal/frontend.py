@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from qtpy.QtCore import QObject, QThread
+from qtpy.QtCore import QObject, QThread, QTimer
 from qtpy.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -15,6 +15,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QProgressBar,
     QSpinBox,
     QTableWidget,
     QVBoxLayout,
@@ -71,6 +72,13 @@ class SenNetPortalTab(
         self._active_workers: list[tuple[QThread, QObject]] = []
         self._datasets: list[SenNetDataset] = []
         self._dataset_type_options: list[str] = list(self._backend.ANTIBODY_DATASET_TYPES)
+        self._download_locked = False
+        self._download_task_ids: list[str] = []
+        self._download_monitor_in_flight = False
+        self._download_summary: dict[str, object] = {}
+        self._download_poll_timer = QTimer(self)
+        self._download_poll_timer.setInterval(3000)
+        self._download_poll_timer.timeout.connect(self._poll_download_tasks)
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_connection_section())
@@ -218,10 +226,16 @@ class SenNetPortalTab(
         self._download_button = QPushButton("Download selected")
         self._download_button.setEnabled(False)
         self._download_button.clicked.connect(self._download_selected)
+        self._download_progress_bar = QProgressBar()
+        self._download_progress_bar.setVisible(False)
+        self._download_speed_label = QLabel("")
+        self._download_speed_label.setVisible(False)
 
         form_layout.addRow("Destination", destination_widget)
         section_layout.addLayout(form_layout)
         section_layout.addWidget(self._download_button)
+        section_layout.addWidget(self._download_progress_bar)
+        section_layout.addWidget(self._download_speed_label)
         section.setLayout(section_layout)
         return section
 
@@ -304,6 +318,7 @@ class SenNetPortalTab(
             self._notify("Select at least one dataset row to download.")
             return
 
+        self._download_locked = False
         destination = Path(destination_text)
         self._run_background(
             button=self._download_button,
@@ -329,9 +344,156 @@ class SenNetPortalTab(
         dataset_count = int(result.get("dataset_count", 0))
         file_count = int(result.get("file_count", 0))
         destination = str(result.get("destination", "")).strip()
+        task_ids = [str(task_id).strip() for task_id in result.get("task_ids", []) if str(task_id).strip()]
+        if not task_ids:
+            self._notify(
+                f"Submitted transfer for {dataset_count} dataset(s), {file_count} file(s) to {destination}."
+            )
+            self._download_locked = False
+            self._download_progress_bar.setVisible(False)
+            self._download_speed_label.setVisible(False)
+            self._download_button.setEnabled(bool(self._datasets))
+            return
+
+        self._download_locked = True
+        self._download_task_ids = task_ids
+        self._download_summary = {
+            "dataset_count": dataset_count,
+            "file_count": file_count,
+            "destination": destination,
+        }
+        self._download_progress_bar.setVisible(True)
+        self._download_progress_bar.setValue(0)
+        self._download_speed_label.setVisible(True)
+        self._download_speed_label.setText("Transfer in progress: 0%")
+        self._download_button.setEnabled(False)
         self._notify(
-            f"Downloaded {dataset_count} dataset(s), {file_count} file(s) to {destination}."
+            f"Transfer initiated for {dataset_count} dataset(s), {file_count} file(s). "
+            "Monitoring progress..."
         )
+        self._start_download_monitoring()
+
+    def _start_download_monitoring(self) -> None:
+        """Begin polling Globus task status for active transfer task IDs."""
+        if not self._download_task_ids:
+            self._download_locked = False
+            self._download_button.setEnabled(bool(self._datasets))
+            return
+        self._download_monitor_in_flight = False
+        self._download_poll_timer.start()
+        self._poll_download_tasks()
+
+    def _stop_download_monitoring(self) -> None:
+        """Stop task polling and release download lock state."""
+        self._download_task_ids = []
+        self._download_monitor_in_flight = False
+        if hasattr(self._download_poll_timer, "stop"):
+            self._download_poll_timer.stop()
+        self._download_locked = False
+        self._download_button.setEnabled(bool(self._datasets))
+
+    def _poll_download_tasks(self) -> None:
+        """Poll backend for aggregate transfer progress in a worker thread."""
+        if not self._download_task_ids:
+            self._stop_download_monitoring()
+            return
+        if self._download_monitor_in_flight:
+            return
+        self._download_monitor_in_flight = True
+
+        thread = QThread(self)
+        worker = _RunWorker(
+            lambda: self._backend.download_tasks_status(self._download_task_ids)
+        )
+        worker.moveToThread(thread)
+
+        def handle_success(payload: dict[str, object]) -> None:
+            self._download_monitor_in_flight = False
+            self._on_download_progress(payload)
+            self._finish_background(thread, worker, self._download_button, "Download selected")
+
+        def handle_error(message: str) -> None:
+            self._download_monitor_in_flight = False
+            self._stop_download_monitoring()
+            self._notify(
+                "Download progress monitoring failed. "
+                f"Check Globus task status manually. Detail: {message}"
+            )
+            self._finish_background(thread, worker, self._download_button, "Download selected")
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(handle_success)
+        worker.error.connect(handle_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(worker.deleteLater)
+
+        self._active_workers.append((thread, worker))
+        thread.start()
+
+    def _on_download_progress(self, status: dict[str, object]) -> None:
+        """Update progress widgets from aggregated transfer status payload."""
+        percent = int(status.get("progress_percent", 0) or 0)
+        speed_bps = int(status.get("speed_bps", 0) or 0)
+        completed = int(status.get("subtasks_completed", 0) or 0)
+        total = int(status.get("subtasks_total", 0) or 0)
+        overall = str(status.get("overall_status", "UNKNOWN")).strip() or "UNKNOWN"
+        self._download_progress_bar.setValue(max(0, min(100, percent)))
+        self._download_speed_label.setText(
+            f"Transfer {overall}: {percent}% ({completed}/{total} subtasks), "
+            f"{self._format_bps(speed_bps)}"
+        )
+
+        if not bool(status.get("all_complete", False)):
+            return
+
+        dataset_count = int(self._download_summary.get("dataset_count", 0) or 0)
+        file_count = int(self._download_summary.get("file_count", 0) or 0)
+        destination = str(self._download_summary.get("destination", "")).strip()
+        all_succeeded = bool(status.get("all_succeeded", False))
+        self._stop_download_monitoring()
+        if all_succeeded:
+            self._notify(
+                f"Transfer complete: {dataset_count} dataset(s), {file_count} file(s) "
+                f"to {destination}."
+            )
+        else:
+            self._notify(
+                f"Transfer finished with failures: {dataset_count} dataset(s), "
+                f"{file_count} file(s). Check Globus activity."
+            )
+
+    @staticmethod
+    def _format_bps(bytes_per_second: int) -> str:
+        """Format transfer speed in human-readable units."""
+        value = float(max(0, int(bytes_per_second)))
+        units = ("B/s", "KB/s", "MB/s", "GB/s", "TB/s")
+        index = 0
+        while value >= 1024.0 and index < len(units) - 1:
+            value /= 1024.0
+            index += 1
+        return f"{value:.1f} {units[index]}"
+
+    def cancel_active_downloads(self) -> None:
+        """Cancel active transfer tasks and stop monitoring state."""
+        if not self._download_task_ids:
+            return
+        task_ids = list(self._download_task_ids)
+        try:
+            self._backend.cancel_download_tasks(task_ids)
+        except Exception:
+            pass
+        self._stop_download_monitoring()
+        self._download_progress_bar.setVisible(False)
+        self._download_speed_label.setVisible(False)
+
+    def closeEvent(self, event) -> None:
+        """Cancel in-progress transfer tasks when SenNet Portal closes."""
+        self.cancel_active_downloads()
+        super_close = getattr(super(), "closeEvent", None)
+        if callable(super_close):
+            super_close(event)
 
 
 __all__ = ["SenNetPortalTab", "_RunWorker"]

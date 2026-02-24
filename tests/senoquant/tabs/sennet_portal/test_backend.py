@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -146,7 +147,16 @@ def test_download_datasets_builds_manifest_and_runs_clt(
             (transfer_root / "SNT1" / "image_a.ome.tif").write_text(
                 "fake-data", encoding="utf-8"
             )
-            return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=(
+                    "Message: The transfer has been accepted and a task has been created "
+                    "and queued for execution\n"
+                    "Task ID: 5724a523-11aa-11f1-a049-0e5b09a3151b\n"
+                ),
+                stderr="",
+            )
         return subprocess.CompletedProcess(args, 1, stdout="", stderr="unexpected")
 
     monkeypatch.setattr(backend, "_run_command", fake_run)
@@ -182,6 +192,89 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     assert '"cedar_mapped_metadata"' in metadata_payload
     assert result["dataset_count"] == 1
     assert result["file_count"] == 1
+    assert result["task_ids"] == ["5724a523-11aa-11f1-a049-0e5b09a3151b"]
+
+
+def test_extract_task_ids_parses_globus_stdout() -> None:
+    """Extract task IDs from globus transfer output text."""
+    backend = SenNetPortalBackend()
+    task_ids = backend._extract_task_ids(
+        "Task ID: 11111111-2222-3333-4444-555555555555\n"
+        "Task ID: 11111111-2222-3333-4444-555555555555\n"
+        "Task ID: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n",
+        None,
+    )
+    assert task_ids == [
+        "11111111-2222-3333-4444-555555555555",
+        "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    ]
+
+
+def test_download_tasks_status_aggregates_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Aggregate per-task status payloads from globus task show output."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+
+    payloads = {
+        "task-a": {
+            "task_id": "task-a",
+            "status": "ACTIVE",
+            "files": 10,
+            "subtasks_total": 20,
+            "subtasks_pending": 10,
+            "subtasks_retrying": 0,
+            "subtasks_succeeded": 10,
+            "subtasks_failed": 0,
+            "effective_bytes_per_second": 5_000_000,
+            "bytes_transferred": 123,
+        },
+        "task-b": {
+            "task_id": "task-b",
+            "status": "SUCCEEDED",
+            "files": 5,
+            "subtasks_total": 10,
+            "subtasks_pending": 0,
+            "subtasks_retrying": 0,
+            "subtasks_succeeded": 10,
+            "subtasks_failed": 0,
+            "effective_bytes_per_second": 0,
+            "bytes_transferred": 456,
+        },
+    }
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        task_id = args[3]
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payloads[task_id]), stderr="")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    status = backend.download_tasks_status(["task-a", "task-b"])
+    assert status["task_count"] == 2
+    assert status["overall_status"] == "ACTIVE"
+    assert status["all_complete"] is False
+    assert status["progress_percent"] == 67
+    assert status["speed_bps"] == 5_000_000
+
+
+def test_cancel_download_tasks_runs_globus_cancel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cancel each active task through globus CLI."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    backend.cancel_download_tasks(["task-a", "task-b"])
+    assert calls == [
+        ["globus", "task", "cancel", "task-a"],
+        ["globus", "task", "cancel", "task-b"],
+    ]
 
 
 def test_sample_age_normalization_uses_mouse_months_and_human_years() -> None:

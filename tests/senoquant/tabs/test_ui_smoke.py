@@ -125,7 +125,26 @@ class _DummySenNetPortalBackend:
         return []
 
     def download_datasets(self, _datasets, _destination) -> dict[str, object]:
-        return {"dataset_count": 0, "file_count": 0, "destination": ""}
+        return {"dataset_count": 0, "file_count": 0, "destination": "", "task_ids": []}
+
+    def download_tasks_status(self, _task_ids) -> dict[str, object]:
+        return {
+            "task_count": 0,
+            "overall_status": "SUCCEEDED",
+            "all_complete": True,
+            "all_succeeded": True,
+            "any_failed": False,
+            "progress_percent": 100,
+            "files": 0,
+            "subtasks_total": 0,
+            "subtasks_completed": 0,
+            "speed_bps": 0,
+            "bytes_transferred": 0,
+            "tasks": [],
+        }
+
+    def cancel_download_tasks(self, _task_ids) -> None:
+        return None
 
     def login_globus(self) -> None:
         return None
@@ -556,6 +575,74 @@ def test_sennet_portal_age_range_filter_hides_rows_outside_bounds() -> None:
     assert tab._age_filter_max_input.text() == ""
     assert tab._dataset_table.isRowHidden(1) is False
     assert tab._dataset_table.isRowHidden(2) is False
+
+
+def test_sennet_portal_download_button_locked_until_task_completion() -> None:
+    """Disable download button while active transfer tasks are still running."""
+
+    class _ActiveTaskBackend(_DummySenNetPortalBackend):
+        def download_tasks_status(self, _task_ids) -> dict[str, object]:
+            return {
+                "task_count": 1,
+                "overall_status": "ACTIVE",
+                "all_complete": False,
+                "all_succeeded": False,
+                "any_failed": False,
+                "progress_percent": 25,
+                "files": 4,
+                "subtasks_total": 8,
+                "subtasks_completed": 2,
+                "speed_bps": 1024,
+                "bytes_transferred": 2048,
+                "tasks": [],
+            }
+
+    tab = SenNetPortalTab(backend=_ActiveTaskBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            )
+        ]
+    )
+
+    tab._on_download_complete(
+        {
+            "dataset_count": 1,
+            "file_count": 4,
+            "destination": "/tmp/downloads",
+            "task_ids": ["5724a523-11aa-11f1-a049-0e5b09a3151b"],
+        }
+    )
+    assert tab._download_button.isEnabled() is False
+    assert tab._download_progress_bar._visible is True
+    assert "Transfer" in tab._download_speed_label.text()
+
+    tab._on_download_progress(
+        {
+            "task_count": 1,
+            "overall_status": "SUCCEEDED",
+            "all_complete": True,
+            "all_succeeded": True,
+            "any_failed": False,
+            "progress_percent": 100,
+            "files": 4,
+            "subtasks_total": 8,
+            "subtasks_completed": 8,
+            "speed_bps": 0,
+            "bytes_transferred": 1234,
+            "tasks": [],
+        }
+    )
+    assert tab._download_button.isEnabled() is True
 
 
 def test_sennet_portal_header_sort_preserves_check_states() -> None:

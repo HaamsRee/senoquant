@@ -22,6 +22,7 @@ class SenoQuantWidget(QWidget):
         super().__init__()
         self._viewer = napari_viewer
         self._settings_backend = SettingsBackend()
+        self._sennet_portal_tab = None
 
         layout = QVBoxLayout()
 
@@ -36,7 +37,8 @@ class SenoQuantWidget(QWidget):
             batch_tab=batch_tab,
         )
 
-        tabs.addTab(SenNetPortalTab(napari_viewer=napari_viewer), "SenNet Portal")
+        self._sennet_portal_tab = SenNetPortalTab(napari_viewer=napari_viewer)
+        tabs.addTab(self._sennet_portal_tab, "SenNet Portal")
         tabs.addTab(segmentation_tab, "Segmentation")
         tabs.addTab(spots_tab, "Spots")
         tabs.addTab(PredictionTab(napari_viewer=napari_viewer), "Prediction")
@@ -47,3 +49,13 @@ class SenoQuantWidget(QWidget):
 
         layout.addWidget(tabs)
         self.setLayout(layout)
+
+    def closeEvent(self, event) -> None:
+        """Cancel active SenNet downloads before widget teardown."""
+        portal = getattr(self, "_sennet_portal_tab", None)
+        cancel = getattr(portal, "cancel_active_downloads", None)
+        if callable(cancel):
+            cancel()
+        super_close = getattr(super(), "closeEvent", None)
+        if callable(super_close):
+            super_close(event)
