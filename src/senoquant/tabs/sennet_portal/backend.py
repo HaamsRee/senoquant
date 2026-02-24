@@ -30,6 +30,7 @@ class SenNetPortalBackend(
     SEARCH_API_URL = "https://search.api.sennetconsortium.org/search"
     PARAM_SEARCH_FILES_URL = "https://search.api.sennetconsortium.org/param-search/files"
     ENTITY_API_URL = "https://entity.api.sennetconsortium.org"
+    ORGANS_API_URL = "https://ontology.api.hubmapconsortium.org/organs"
 
     # SenNet dataset-type terms commonly used for antibody-based imaging.
     ANTIBODY_DATASET_TYPES = (
@@ -73,6 +74,7 @@ class SenNetPortalBackend(
             sorted(self._supported_image_extensions, key=len, reverse=True)
         )
         self._globus_ls_ready_cache: bool | None = None
+        self._organ_term_lookup_cache: dict[str, str] = {}
 
 
 __all__ = ["SenNetDataset", "SenNetPortalBackend"]

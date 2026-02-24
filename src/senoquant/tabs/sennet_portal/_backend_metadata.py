@@ -100,6 +100,25 @@ class SenNetPortalMetadataMixin:
             return value.strip()
         return ""
 
+    @staticmethod
+    def _dataset_uuid_from_payload(payload: dict[str, Any]) -> str:
+        """Extract dataset UUID from SenNet payload when available.
+
+        Parameters
+        ----------
+        payload : dict of str to Any
+            Dataset summary or entity payload.
+
+        Returns
+        -------
+        str
+            UUID value or an empty string when unavailable.
+        """
+        value = payload.get("uuid")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return ""
+
     def _dataset_title(
         self,
         summary_payload: dict[str, Any],
@@ -184,6 +203,171 @@ class SenNetPortalMetadataMixin:
 
         target = self.ANTIBODY_FIRST_LEVEL.lower()
         return any(level.strip().lower() == target for level in first_levels)
+
+    def _source_type_from_payload(self, payload: dict[str, Any]) -> str:
+        """Extract source type from SenNet dataset payload schema.
+
+        Parameters
+        ----------
+        payload : dict of str to Any
+            Dataset summary payload from SenNet Search API.
+
+        Returns
+        -------
+        str
+            Source type value (for example, Human or Mouse), or ``"Unknown"``.
+
+        Notes
+        -----
+        Live SenNet dataset records expose source type under
+        ``sources[*].source_type``.
+        """
+        sources = payload.get("sources")
+        if isinstance(sources, list):
+            for source in sources:
+                if isinstance(source, dict):
+                    value = source.get("source_type")
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+
+        source = payload.get("source")
+        if isinstance(source, dict):
+            value = source.get("source_type")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+        direct = payload.get("source_type")
+        if isinstance(direct, str) and direct.strip():
+            return direct.strip()
+        return "Unknown"
+
+    def _organ_from_payload(self, payload: dict[str, Any], *, token: str | None) -> str:
+        """Extract organ and resolve UBERON IDs to SenNet organ terms.
+
+        Parameters
+        ----------
+        payload : dict of str to Any
+            Dataset summary payload from SenNet Search API.
+        token : str or None
+            Optional bearer token for ontology API requests.
+
+        Returns
+        -------
+        str
+            Organ term (for example, Pancreas), or ``"Unknown"``.
+
+        Notes
+        -----
+        Live SenNet dataset records typically expose organ IDs under
+        ``origin_samples[*].organ`` as UBERON IDs. This method resolves those
+        IDs using the HuBMAP ontology endpoint configured for SenNet.
+        """
+        organ_uberon = self._organ_uberon_from_payload(payload)
+        if not organ_uberon:
+            return "Unknown"
+
+        mapping = self._sennet_organs_lookup(token=token)
+        mapped = mapping.get(organ_uberon)
+        if mapped:
+            return mapped
+
+        fallback = self._organ_hierarchy_from_payload(payload)
+        if fallback:
+            return fallback
+        return organ_uberon
+
+    @staticmethod
+    def _organ_uberon_from_payload(payload: dict[str, Any]) -> str:
+        """Extract organ UBERON ID from SenNet dataset payload.
+
+        Parameters
+        ----------
+        payload : dict of str to Any
+            Dataset summary payload from SenNet Search API.
+
+        Returns
+        -------
+        str
+            UBERON identifier or empty string when unavailable.
+        """
+        origin_samples = payload.get("origin_samples")
+        if isinstance(origin_samples, list):
+            for sample in origin_samples:
+                if isinstance(sample, dict):
+                    value = sample.get("organ")
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+
+        direct = payload.get("organ")
+        if isinstance(direct, str) and direct.strip():
+            return direct.strip()
+        return ""
+
+    @staticmethod
+    def _organ_hierarchy_from_payload(payload: dict[str, Any]) -> str:
+        """Extract human-readable organ hierarchy string from payload.
+
+        Parameters
+        ----------
+        payload : dict of str to Any
+            Dataset summary payload from SenNet Search API.
+
+        Returns
+        -------
+        str
+            Organ hierarchy label or empty string when unavailable.
+        """
+        origin_samples = payload.get("origin_samples")
+        if isinstance(origin_samples, list):
+            for sample in origin_samples:
+                if isinstance(sample, dict):
+                    value = sample.get("organ_hierarchy")
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+        direct = payload.get("organ_hierarchy")
+        if isinstance(direct, str) and direct.strip():
+            return direct.strip()
+        return ""
+
+    def _sennet_organs_lookup(self, *, token: str | None) -> dict[str, str]:
+        """Return cached mapping from UBERON IDs to SenNet organ terms.
+
+        Parameters
+        ----------
+        token : str or None
+            Optional bearer token for ontology API requests.
+
+        Returns
+        -------
+        dict of str to str
+            Mapping ``UBERON:... -> term`` for SenNet application context.
+        """
+        cached = getattr(self, "_organ_term_lookup_cache", None)
+        if isinstance(cached, dict) and cached:
+            return cached
+
+        try:
+            payload = self._fetch_json(
+                self.ORGANS_API_URL,
+                params={"application_context": "SENNET"},
+                token=token,
+            )
+        except Exception:
+            payload = []
+
+        lookup: dict[str, str] = {}
+        if isinstance(payload, list):
+            for item in payload:
+                if not isinstance(item, dict):
+                    continue
+                organ_uberon = item.get("organ_uberon")
+                term = item.get("term")
+                if isinstance(organ_uberon, str) and organ_uberon.strip():
+                    if isinstance(term, str) and term.strip():
+                        lookup[organ_uberon.strip()] = term.strip()
+
+        self._organ_term_lookup_cache = lookup
+        return lookup
 
     def _matches_requested_dataset_type(
         self,

@@ -37,9 +37,12 @@ See the official Globus instructions:
 4. Review compatible datasets in the table:
    - Only antibody-imaging datasets are included.
    - Only datasets with at least one supported file extension are shown.
-5. Select rows to download.
-6. Set a **Destination** folder.
-7. Click **Download selected**.
+5. Optionally use the filter row under the table headers:
+   - Filters are available for **all columns** (Include, SenNet ID, Type, Source type, Organ, Status, Access, Files, Extensions).
+   - Filters drive row selection through the **Include** checkbox column.
+6. Select rows to download (or use **Select all** / **Clear all**).
+7. Set a **Destination** folder.
+8. Click **Download selected**.
 
 ## Supported extensions
 
@@ -50,3 +53,4 @@ The portal filters files dynamically using the extensions supported by the SenoQ
 - File compatibility is resolved from SenNet Search API `param-search/files`.
 - Transfers use SenNet CLI manifest mode internally.
 - If your selected destination is outside your home directory, SenoQuant stages the transfer and then moves files into your chosen folder.
+- A `senoquant_query_metadata.json` sidecar is written in each dataset output folder.

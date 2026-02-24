@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -25,6 +26,14 @@ class SenNetDataset:
         Dataset-relative file paths that match SenoQuant-supported formats.
     compatible_extensions : list of str
         Unique supported file extensions detected in ``compatible_paths``.
+    source_type : str, optional
+        Biological source label (for example, Human or Mouse).
+    organ : str, optional
+        Organ or tissue label associated with the dataset.
+    dataset_uuid : str, optional
+        Dataset UUID used by downstream transfer layout naming.
+    query_metadata : dict of str to Any, optional
+        Metadata about the originating search query and filters.
     """
 
     sennet_id: str
@@ -34,6 +43,10 @@ class SenNetDataset:
     title: str
     compatible_paths: list[str]
     compatible_extensions: list[str]
+    source_type: str = "Unknown"
+    organ: str = "Unknown"
+    dataset_uuid: str = ""
+    query_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 __all__ = ["SenNetDataset"]

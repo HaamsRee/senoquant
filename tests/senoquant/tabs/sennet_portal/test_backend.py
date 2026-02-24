@@ -24,9 +24,12 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
                     {
                         "_source": {
                             "sennet_id": "SNT1",
+                            "uuid": "uuid-snt1",
                             "dataset_type": "PhenoCycler",
                             "status": "Published",
                             "data_access_level": "consortium",
+                            "sources": [{"source_type": "Human"}],
+                            "origin_samples": [{"organ": "UBERON:0001264"}],
                             "dataset_type_hierarchy": {
                                 "first_level": ["Antibody-based imaging"]
                             },
@@ -55,6 +58,9 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
         }
 
     def fake_fetch_json(url: str, *, params=None, token=None):
+        if url == backend.ORGANS_API_URL:
+            assert params == {"application_context": "SENNET"}
+            return [{"organ_uberon": "UBERON:0001264", "term": "Pancreas"}]
         assert url == backend.PARAM_SEARCH_FILES_URL
         assert params == {"dataset_sennet_id": "SNT1"}
         return [
@@ -73,6 +79,9 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
 
     assert len(datasets) == 1
     assert datasets[0].sennet_id == "SNT1"
+    assert datasets[0].dataset_uuid == "uuid-snt1"
+    assert datasets[0].source_type == "Human"
+    assert datasets[0].organ == "Pancreas"
     assert datasets[0].compatible_paths == ["/raw/image_a.ome.tif"]
     assert datasets[0].compatible_extensions == [".ome.tif"]
 
@@ -130,8 +139,49 @@ def test_download_datasets_builds_manifest_and_runs_clt(
     assert len(calls) == 2
     assert calls[1][:2] == ["sennet-clt", "transfer"]
     assert "SNT1 /raw/image_a.ome.tif" in manifest_text["value"]
+    assert (destination / "SNT1" / "senoquant_query_metadata.json").is_file()
     assert result["dataset_count"] == 1
     assert result["file_count"] == 1
+
+
+def test_available_antibody_dataset_types_uses_aggregation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Discover dynamic dataset types from Search API aggregation buckets."""
+    backend = SenNetPortalBackend()
+
+    def fake_post(url: str, *, payload, token=None):
+        assert url == backend.SEARCH_API_URL
+        assert payload["size"] == 0
+        assert payload["aggs"]["dataset_types"]["terms"]["field"] == "dataset_type.keyword"
+        return {
+            "aggregations": {
+                "dataset_types": {
+                    "buckets": [
+                        {"key": "MIBI"},
+                        {"key": "PhenoCycler"},
+                    ]
+                }
+            }
+        }
+
+    monkeypatch.setattr(backend, "_post_json", fake_post)
+    dataset_types = backend.available_antibody_dataset_types()
+    assert dataset_types == ["MIBI", "PhenoCycler"]
+
+
+def test_available_antibody_dataset_types_falls_back_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Return fallback static list when aggregation query fails."""
+    backend = SenNetPortalBackend()
+
+    def fake_post(url: str, *, payload, token=None):
+        raise RuntimeError("network failure")
+
+    monkeypatch.setattr(backend, "_post_json", fake_post)
+    dataset_types = backend.available_antibody_dataset_types()
+    assert dataset_types == list(backend.ANTIBODY_DATASET_TYPES)
 
 
 def test_search_datasets_uses_param_search_files_when_indexed_files_missing(
@@ -161,6 +211,9 @@ def test_search_datasets_uses_param_search_files_when_indexed_files_missing(
         }
 
     def fake_fetch_json(url: str, *, params=None, token=None):
+        if url == backend.ORGANS_API_URL:
+            assert params == {"application_context": "SENNET"}
+            return []
         assert url == backend.PARAM_SEARCH_FILES_URL
         assert params == {"dataset_sennet_id": "SNT1"}
         return [

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from qtpy.QtCore import QObject, QThread, Qt
+from qtpy.QtCore import QObject, QThread
 from qtpy.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -17,7 +17,6 @@ from qtpy.QtWidgets import (
     QPushButton,
     QSpinBox,
     QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -27,12 +26,14 @@ from senoquant.tabs.sennet_portal._frontend_background import (
     _RunWorker,
 )
 from senoquant.tabs.sennet_portal._frontend_connection import SenNetPortalConnectionMixin
+from senoquant.tabs.sennet_portal._frontend_dataset import SenNetPortalDatasetMixin
 from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBackend
 
 
 class SenNetPortalTab(
     QWidget,
     SenNetPortalConnectionMixin,
+    SenNetPortalDatasetMixin,
     SenNetPortalBackgroundMixin,
 ):
     """UI for discovering and downloading SenNet datasets.
@@ -69,6 +70,7 @@ class SenNetPortalTab(
         self._viewer = napari_viewer
         self._active_workers: list[tuple[QThread, QObject]] = []
         self._datasets: list[SenNetDataset] = []
+        self._dataset_type_options: list[str] = list(self._backend.ANTIBODY_DATASET_TYPES)
 
         layout = QVBoxLayout()
         layout.addWidget(self._make_connection_section())
@@ -81,6 +83,7 @@ class SenNetPortalTab(
         layout.addStretch(1)
         self.setLayout(layout)
         self._refresh_globus_auth_status()
+        self._refresh_dataset_types()
 
     def _make_filter_section(self) -> QGroupBox:
         """Create dataset search filters and discovery trigger button.
@@ -97,7 +100,7 @@ class SenNetPortalTab(
 
         self._dataset_type_combo = QComboBox()
         self._dataset_type_combo.addItem("Any antibody-based imaging")
-        self._dataset_type_combo.addItems(self._backend.ANTIBODY_DATASET_TYPES)
+        self._dataset_type_combo.addItems(self._dataset_type_options)
 
         self._status_combo = QComboBox()
         self._status_combo.addItems(["Published", "QA", "New"])
@@ -108,12 +111,18 @@ class SenNetPortalTab(
 
         self._search_button = QPushButton("Find datasets")
         self._search_button.clicked.connect(self._search_datasets)
+        self._refresh_dataset_types_button = QPushButton("Refresh dataset types")
+        self._refresh_dataset_types_button.clicked.connect(self._refresh_dataset_types)
 
         form_layout.addRow("Dataset type", self._dataset_type_combo)
         form_layout.addRow("Status", self._status_combo)
         form_layout.addRow("Max results", self._max_results_spin)
         section_layout.addLayout(form_layout)
-        section_layout.addWidget(self._search_button)
+        button_row = QHBoxLayout()
+        button_row.setContentsMargins(0, 0, 0, 0)
+        button_row.addWidget(self._search_button)
+        button_row.addWidget(self._refresh_dataset_types_button)
+        section_layout.addLayout(button_row)
         section.setLayout(section_layout)
         return section
 
@@ -129,12 +138,14 @@ class SenNetPortalTab(
         layout = QVBoxLayout()
 
         self._dataset_table = QTableWidget()
-        self._dataset_table.setColumnCount(7)
+        self._dataset_table.setColumnCount(9)
         self._dataset_table.setHorizontalHeaderLabels(
             [
                 "Include",
                 "SenNet ID",
                 "Type",
+                "Source type",
+                "Organ",
                 "Status",
                 "Access",
                 "Files",
@@ -144,12 +155,14 @@ class SenNetPortalTab(
 
         header = self._dataset_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(6, QHeaderView.Stretch)
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(8, QHeaderView.Stretch)
         self._dataset_table.verticalHeader().setVisible(False)
 
         button_row = QHBoxLayout()
@@ -225,7 +238,7 @@ class SenNetPortalTab(
         """
         type_text = self._dataset_type_combo.currentText().strip()
         if type_text == "Any antibody-based imaging":
-            dataset_types = list(self._backend.ANTIBODY_DATASET_TYPES)
+            dataset_types = list(self._dataset_type_options)
         else:
             dataset_types = [type_text]
 
@@ -257,43 +270,12 @@ class SenNetPortalTab(
         """
         self._datasets = list(datasets)
         self._populate_table()
+        self._populate_column_filter_combos()
         self._download_button.setEnabled(bool(self._datasets))
         self._notify(
             f"Found {len(self._datasets)} compatible dataset(s). "
             "Select rows and choose a destination to download."
         )
-
-    def _populate_table(self) -> None:
-        """Render currently loaded datasets into the selection table.
-
-        Returns
-        -------
-        None
-            Table rows are recreated from ``self._datasets``.
-        """
-        self._dataset_table.setRowCount(0)
-        for row, dataset in enumerate(self._datasets):
-            self._dataset_table.insertRow(row)
-
-            include_item = QTableWidgetItem()
-            include_item.setCheckState(Qt.Checked)
-            include_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-            self._dataset_table.setItem(row, 0, include_item)
-
-            self._dataset_table.setItem(row, 1, QTableWidgetItem(dataset.sennet_id))
-            self._dataset_table.setItem(row, 2, QTableWidgetItem(dataset.dataset_type))
-            self._dataset_table.setItem(row, 3, QTableWidgetItem(dataset.status))
-            self._dataset_table.setItem(row, 4, QTableWidgetItem(dataset.access_level))
-            self._dataset_table.setItem(
-                row,
-                5,
-                QTableWidgetItem(str(len(dataset.compatible_paths))),
-            )
-            self._dataset_table.setItem(
-                row,
-                6,
-                QTableWidgetItem(", ".join(dataset.compatible_extensions)),
-            )
 
     def _download_selected(self) -> None:
         """Validate selection and start asynchronous download operation.
@@ -321,65 +303,6 @@ class SenNetPortalTab(
             on_success=self._on_download_complete,
             on_error_prefix="Download failed",
         )
-
-    def _select_all_datasets(self) -> None:
-        """Mark all dataset rows as selected.
-
-        Returns
-        -------
-        None
-            All row checkboxes are set to checked state.
-        """
-        self._set_all_dataset_check_state(Qt.Checked)
-
-    def _clear_all_datasets(self) -> None:
-        """Clear dataset selection for all rows.
-
-        Returns
-        -------
-        None
-            All row checkboxes are set to unchecked state.
-        """
-        self._set_all_dataset_check_state(Qt.Unchecked)
-
-    def _set_all_dataset_check_state(self, state: int) -> None:
-        """Apply one checkbox state to every dataset include row.
-
-        Parameters
-        ----------
-        state : int
-            Qt check-state value (for example ``Qt.Checked``).
-
-        Returns
-        -------
-        None
-            Existing include cells are updated in-place.
-        """
-        for row in range(self._dataset_table.rowCount()):
-            include_item = self._dataset_table.item(row, 0)
-            if include_item is None:
-                continue
-            include_item.setCheckState(state)
-
-    def _selected_datasets(self) -> list[SenNetDataset]:
-        """Collect datasets whose include checkbox is enabled.
-
-        Returns
-        -------
-        list of SenNetDataset
-            Subset of datasets currently selected by the user.
-        """
-        selected: list[SenNetDataset] = []
-        row_count = self._dataset_table.rowCount()
-        for row in range(row_count):
-            include_item = self._dataset_table.item(row, 0)
-            if include_item is None:
-                continue
-            if include_item.checkState() != Qt.Checked:
-                continue
-            if row < len(self._datasets):
-                selected.append(self._datasets[row])
-        return selected
 
     def _on_download_complete(self, result: dict[str, object]) -> None:
         """Display final download summary after a successful transfer.

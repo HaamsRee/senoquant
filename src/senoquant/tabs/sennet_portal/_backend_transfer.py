@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 import shutil
@@ -90,6 +91,7 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
 
             if staging_dir is not None:
                 self._merge_directory(staging_dir, destination_path)
+            self._write_query_metadata_files(destination_path, dataset_list)
         finally:
             shutil.rmtree(manifest_root, ignore_errors=True)
             if staging_dir is not None:
@@ -126,6 +128,92 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin)
 
         rel_text = str(relative)
         return (rel_text if rel_text else "."), None
+
+    def _write_query_metadata_files(
+        self,
+        destination: Path,
+        datasets: Sequence[SenNetDataset],
+    ) -> None:
+        """Write query metadata JSON files into dataset output folders.
+
+        Parameters
+        ----------
+        destination : pathlib.Path
+            Destination directory containing SenNet CLT output folders.
+        datasets : sequence of SenNetDataset
+            Dataset rows included in the transfer request.
+
+        Returns
+        -------
+        None
+            Sidecar JSON files are created in matching dataset folders.
+        """
+        generated_at = datetime.now(UTC).isoformat()
+        for dataset in datasets:
+            for folder in self._dataset_output_dirs(destination, dataset):
+                folder.mkdir(parents=True, exist_ok=True)
+                payload = {
+                    "generated_at_utc": generated_at,
+                    "generated_by": "SenoQuant SenNet Portal",
+                    "dataset": {
+                        "sennet_id": dataset.sennet_id,
+                        "dataset_uuid": dataset.dataset_uuid,
+                        "dataset_type": dataset.dataset_type,
+                        "source_type": dataset.source_type,
+                        "organ": dataset.organ,
+                        "status": dataset.status,
+                        "access_level": dataset.access_level,
+                        "title": dataset.title,
+                    },
+                    "query": dataset.query_metadata,
+                    "compatible_paths": dataset.compatible_paths,
+                    "compatible_extensions": dataset.compatible_extensions,
+                }
+                metadata_path = folder / "senoquant_query_metadata.json"
+                metadata_path.write_text(
+                    json.dumps(payload, indent=2, sort_keys=True),
+                    encoding="utf-8",
+                )
+
+    @staticmethod
+    def _dataset_output_dirs(destination: Path, dataset: SenNetDataset) -> list[Path]:
+        """Resolve output directories associated with a dataset transfer.
+
+        Parameters
+        ----------
+        destination : pathlib.Path
+            Root transfer destination directory.
+        dataset : SenNetDataset
+            Dataset metadata used to identify target subfolders.
+
+        Returns
+        -------
+        list of pathlib.Path
+            Candidate dataset directories where metadata JSON should be stored.
+        """
+        expected_dirs: list[Path] = []
+        prefix = f"{dataset.sennet_id}-"
+        if dataset.dataset_uuid.strip():
+            expected_dirs.append(destination / f"{dataset.sennet_id}-{dataset.dataset_uuid}")
+
+        if destination.exists():
+            for child in destination.iterdir():
+                if not child.is_dir():
+                    continue
+                if child.name == dataset.sennet_id or child.name.startswith(prefix):
+                    expected_dirs.append(child)
+
+        unique: list[Path] = []
+        seen: set[Path] = set()
+        for path in expected_dirs:
+            resolved = path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            unique.append(path)
+        if not unique:
+            unique.append(destination / dataset.sennet_id)
+        return unique
 
     @staticmethod
     def _home_dir() -> Path:

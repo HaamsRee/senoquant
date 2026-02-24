@@ -107,6 +107,33 @@ class _DummySpotsBackend:
         return self._detector
 
 
+class _DummySenNetPortalBackend:
+    """Minimal SenNet backend stub for portal UI smoke tests."""
+
+    ANTIBODY_DATASET_TYPES = ("PhenoCycler", "CODEX")
+
+    def globus_login_status(self) -> tuple[bool, str]:
+        return False, "Not logged in"
+
+    def gcp_installation_status(self) -> tuple[bool, str]:
+        return True, "endpoint-1"
+
+    def available_antibody_dataset_types(self, *, token=None, max_types: int = 200) -> list[str]:
+        return ["CODEX", "PhenoCycler"]
+
+    def search_datasets(self, **_kwargs) -> list[SenNetDataset]:
+        return []
+
+    def download_datasets(self, _datasets, _destination) -> dict[str, object]:
+        return {"dataset_count": 0, "file_count": 0, "destination": ""}
+
+    def login_globus(self) -> None:
+        return None
+
+    def logout_globus(self) -> None:
+        return None
+
+
 def test_settings_tab_instantiates() -> None:
     """Instantiate the settings tab UI.
 
@@ -366,7 +393,7 @@ def test_batch_tab_instantiates() -> None:
 
 def test_sennet_portal_tab_instantiates() -> None:
     """Instantiate the SenNet portal tab UI."""
-    tab = SenNetPortalTab()
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
     assert hasattr(tab, "_dataset_table")
     assert hasattr(tab, "_download_button")
     assert hasattr(tab, "_select_all_button")
@@ -378,7 +405,7 @@ def test_sennet_portal_tab_instantiates() -> None:
 
 def test_sennet_portal_select_all_and_clear_all() -> None:
     """Toggle include checkboxes using Select all and Clear all actions."""
-    tab = SenNetPortalTab()
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
     tab._on_search_complete(
         [
             SenNetDataset(
@@ -389,6 +416,8 @@ def test_sennet_portal_select_all_and_clear_all() -> None:
                 title="Dataset 1",
                 compatible_paths=["/raw/a.qptiff"],
                 compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
             ),
             SenNetDataset(
                 sennet_id="SNT2",
@@ -398,17 +427,59 @@ def test_sennet_portal_select_all_and_clear_all() -> None:
                 title="Dataset 2",
                 compatible_paths=["/raw/b.ome.tif"],
                 compatible_extensions=[".ome.tif"],
+                source_type="Mouse",
+                organ="Lung",
             ),
         ]
     )
 
     tab._clear_all_datasets()
-    assert tab._dataset_table.item(0, 0).checkState() == Qt.Unchecked
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
 
     tab._select_all_datasets()
-    assert tab._dataset_table.item(0, 0).checkState() == Qt.Checked
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
+
+
+def test_sennet_portal_column_filter_selects_matching_rows() -> None:
+    """Apply source/organ dropdown filters to include selections."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            ),
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                source_type="Mouse",
+                organ="Pancreas",
+            ),
+        ]
+    )
+
+    tab._column_filter_combos[3].setCurrentText("Human")
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._column_filter_combos[3].setCurrentText("All")
+    tab._column_filter_combos[4].setCurrentText("Pancreas")
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
 
 
 def test_main_widget_instantiates(monkeypatch) -> None:
@@ -422,6 +493,13 @@ def test_main_widget_instantiates(monkeypatch) -> None:
         "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
         lambda self: None,
     )
+    monkeypatch.setattr(
+        "senoquant._widget.SenNetPortalTab",
+        lambda napari_viewer=None: SenNetPortalTab(
+            backend=_DummySenNetPortalBackend(),
+            napari_viewer=napari_viewer,
+        ),
+    )
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
     widget = SenoQuantWidget(viewer)
     assert widget is not None
@@ -432,6 +510,13 @@ def test_main_widget_puts_sennet_portal_first(monkeypatch) -> None:
     monkeypatch.setattr(
         "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
         lambda self: None,
+    )
+    monkeypatch.setattr(
+        "senoquant._widget.SenNetPortalTab",
+        lambda napari_viewer=None: SenNetPortalTab(
+            backend=_DummySenNetPortalBackend(),
+            napari_viewer=napari_viewer,
+        ),
     )
 
     captured: dict[str, list[str]] = {"labels": []}
