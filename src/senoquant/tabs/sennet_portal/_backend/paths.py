@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Sequence
 from urllib.parse import unquote, urlparse
 
-from ._backend_models import SenNetDataset
+from .models import SenNetDataset
 
 
 class SenNetPortalPathMixin:

@@ -11,6 +11,22 @@ import pytest
 from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBackend
 
 
+@pytest.fixture(autouse=True)
+def _stable_supported_extensions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Use deterministic reader extensions for SenNet backend tests.
+
+    Notes
+    -----
+    The real reader extension set is environment-dependent and may include
+    non-image suffixes through installed plugins. Pinning here keeps test
+    expectations stable across developer/CI environments.
+    """
+    monkeypatch.setattr(
+        "senoquant.tabs.sennet_portal.backend.supported_image_extensions",
+        lambda: (".ome.tif", ".ome.tiff", ".qptiff", ".czi"),
+    )
+
+
 def test_search_datasets_filters_antibody_and_supported_paths() -> None:
     """Return only antibody datasets with compatible file extensions."""
     backend = SenNetPortalBackend()

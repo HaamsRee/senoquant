@@ -9,9 +9,9 @@ import shutil
 import tempfile
 from typing import Sequence
 
-from ._backend_command import SenNetPortalCommandMixin
-from ._backend_models import SenNetDataset
-from ._backend_paths import SenNetPortalPathMixin
+from .command import SenNetPortalCommandMixin
+from .models import SenNetDataset
+from .paths import SenNetPortalPathMixin
 
 
 class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalPathMixin):

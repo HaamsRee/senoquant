@@ -21,12 +21,12 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from senoquant.tabs.sennet_portal._frontend_background import (
+from senoquant.tabs.sennet_portal._frontend.background import (
     SenNetPortalBackgroundMixin,
     _RunWorker,
 )
-from senoquant.tabs.sennet_portal._frontend_connection import SenNetPortalConnectionMixin
-from senoquant.tabs.sennet_portal._frontend_dataset import SenNetPortalDatasetMixin
+from senoquant.tabs.sennet_portal._frontend.connection import SenNetPortalConnectionMixin
+from senoquant.tabs.sennet_portal._frontend.dataset import SenNetPortalDatasetMixin
 from senoquant.tabs.sennet_portal.backend import SenNetDataset, SenNetPortalBackend
 
 

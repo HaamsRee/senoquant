@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import shutil
 
-from ._backend_api import SenNetPortalApiMixin
-from ._backend_command import SenNetPortalCommandMixin
-from ._backend_metadata import SenNetPortalMetadataMixin
-from ._backend_paths import SenNetPortalPathMixin
+from .api import SenNetPortalApiMixin
+from .command import SenNetPortalCommandMixin
+from .metadata import SenNetPortalMetadataMixin
+from .paths import SenNetPortalPathMixin
 
 
 class SenNetPortalGlobusMixin(

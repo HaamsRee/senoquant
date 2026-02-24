@@ -198,9 +198,13 @@ class SenNetPortalBackgroundMixin:
             and Notification is not None
             and NotificationSeverity is not None
         ):
-            show_console_notification(
-                Notification(message, severity=NotificationSeverity.WARNING)
-            )
+            try:
+                show_console_notification(
+                    Notification(message, severity=NotificationSeverity.WARNING)
+                )
+            except Exception:
+                # Notification plumbing can fail in constrained test/runtime envs.
+                pass
             try:
                 sys.stdout.flush()
             except Exception:  # pragma: no cover - best-effort flush

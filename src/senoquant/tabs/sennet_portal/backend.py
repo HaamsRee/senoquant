@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from senoquant.reader.supported_extensions import supported_image_extensions
 
-from ._backend_models import SenNetDataset
-from ._backend_search import SenNetPortalSearchMixin
-from ._backend_transfer import SenNetPortalTransferMixin
+from ._backend.models import SenNetDataset
+from ._backend.search import SenNetPortalSearchMixin
+from ._backend.transfer import SenNetPortalTransferMixin
 
 
 class SenNetPortalBackend(

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from ._backend_globus import SenNetPortalGlobusMixin
-from ._backend_models import SenNetDataset
+from .globus import SenNetPortalGlobusMixin
+from .models import SenNetDataset
 
 
 class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
