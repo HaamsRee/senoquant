@@ -34,7 +34,7 @@ python -m pip install build --quiet
 python -m build --wheel -o "${WHEEL_DIR}" 2>&1 | grep -v "SetuptoolsDeprecationWarning" | grep -v "License classifiers" | grep -v "See https://"
 
 # Get version from pyproject.toml
-VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b7")
+VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b8")
 echo "[SenoQuant] Using version: ${VERSION}"
 
 MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
