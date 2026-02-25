@@ -488,7 +488,67 @@ class QScrollArea(QWidget):
 class QTabWidget(QWidget):
     """Tab widget stub."""
 
-    def addTab(self, _widget, _label: str) -> None:
+    def __init__(self, *_args, **_kwargs) -> None:
+        super().__init__()
+        self._tabs: list[tuple[QWidget, str]] = []
+        self._current_index = -1
+        self.currentChanged = DummySignal()
+        self._corner_widget = None
+
+    def addTab(self, widget, label: str) -> None:
+        self._tabs.append((widget, label))
+        if self._current_index < 0:
+            self.setCurrentIndex(0)
+
+    def setCurrentIndex(self, index: int) -> None:
+        if 0 <= int(index) < len(self._tabs):
+            self._current_index = int(index)
+            self.currentChanged.emit(self._current_index)
+
+    def currentIndex(self) -> int:
+        return self._current_index
+
+    def tabText(self, index: int) -> str:
+        if 0 <= int(index) < len(self._tabs):
+            return self._tabs[int(index)][1]
+        return ""
+
+    def widget(self, index: int):
+        if 0 <= int(index) < len(self._tabs):
+            return self._tabs[int(index)][0]
+        return None
+
+    def count(self) -> int:
+        return len(self._tabs)
+
+    def setCornerWidget(self, widget, *_args, **_kwargs) -> None:
+        self._corner_widget = widget
+
+    def cornerWidget(self, *_args, **_kwargs):
+        return self._corner_widget
+
+    def addCornerWidget(self, widget) -> None:
+        self._corner_widget = widget
+
+    def removeTab(self, index: int) -> None:
+        if 0 <= int(index) < len(self._tabs):
+            self._tabs.pop(int(index))
+            if not self._tabs:
+                self._current_index = -1
+            elif self._current_index >= len(self._tabs):
+                self.setCurrentIndex(len(self._tabs) - 1)
+
+    def clear(self) -> None:
+        self._tabs = []
+        self._current_index = -1
+
+    def setMovable(self, *_args, **_kwargs) -> None:
+        return None
+
+    def setTabsClosable(self, *_args, **_kwargs) -> None:
+        return None
+
+    def setDocumentMode(self, *_args, **_kwargs) -> None:
         return None
 
 

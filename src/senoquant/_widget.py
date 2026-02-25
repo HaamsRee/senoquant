@@ -1,5 +1,7 @@
 """Example QtPy widget for napari."""
 
+import webbrowser
+
 import qtpy.QtWidgets as QtWidgets
 from qtpy.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
@@ -17,6 +19,8 @@ from .tabs import (
 )
 from .tabs.settings.backend import SettingsBackend
 
+USER_DOCS_BASE_URL = "https://haamsree.github.io/senoquant/user/"
+
 
 class SenoQuantWidget(QWidget):
     """Main SenoQuant widget with tabbed UI."""
@@ -29,6 +33,10 @@ class SenoQuantWidget(QWidget):
         self._shutdown_errors: list[str] = []
         self._application_shutdown_connected = False
         self._tab_widget = QTabWidget()
+        self._tab_help_urls: list[str] = []
+        self._help_button = QtWidgets.QPushButton()
+        self._help_button.clicked.connect(self._open_current_tab_help)
+        self._configure_help_button()
 
         layout = QVBoxLayout()
 
@@ -46,14 +54,15 @@ class SenoQuantWidget(QWidget):
         )
 
         self._sennet_portal_tab = SenNetPortalTab(napari_viewer=napari_viewer)
-        self._tab_widget.addTab(self._sennet_portal_tab, "SenNet Portal")
-        self._tab_widget.addTab(self._segmentation_tab, "Segmentation")
-        self._tab_widget.addTab(self._spots_tab, "Spots")
-        self._tab_widget.addTab(self._prediction_tab, "Prediction")
-        self._tab_widget.addTab(self._quantification_tab, "Quantification")
-        self._tab_widget.addTab(self._visualization_tab, "Visualization")
-        self._tab_widget.addTab(self._batch_tab, "Batch")
-        self._tab_widget.addTab(self._settings_tab, "Settings")
+        self._add_tab_with_help(self._sennet_portal_tab, "SenNet Portal", "sennet-portal")
+        self._add_tab_with_help(self._segmentation_tab, "Segmentation", "segmentation")
+        self._add_tab_with_help(self._spots_tab, "Spots", "spots")
+        self._add_tab_with_help(self._prediction_tab, "Prediction", "prediction")
+        self._add_tab_with_help(self._quantification_tab, "Quantification", "quantification")
+        self._add_tab_with_help(self._visualization_tab, "Visualization", "visualization")
+        self._add_tab_with_help(self._batch_tab, "Batch", "batch")
+        self._add_tab_with_help(self._settings_tab, "Settings", "settings")
+        self._install_help_button()
 
         layout.addWidget(self._tab_widget)
         self.setLayout(layout)
@@ -66,6 +75,75 @@ class SenoQuantWidget(QWidget):
         self._register_shutdown_target("Batch", self._batch_tab)
         self._register_shutdown_target("Settings", self._settings_tab)
         self._attach_application_shutdown_hook()
+
+    def _add_tab_with_help(self, tab: QWidget, label: str, docs_slug: str) -> None:
+        """Add one tab and register the corresponding user-guide URL.
+
+        Parameters
+        ----------
+        tab : QWidget
+            Tab widget to insert.
+        label : str
+            Visible tab label.
+        docs_slug : str
+            User docs slug segment under ``/user/``.
+        """
+        self._tab_widget.addTab(tab, label)
+        self._tab_help_urls.append(f"{USER_DOCS_BASE_URL}{docs_slug}/")
+
+    def _configure_help_button(self) -> None:
+        """Set help button icon/text affordance with robust test fallback."""
+        icon_setter = getattr(self._help_button, "setIcon", None)
+        style_getter = getattr(self, "style", None)
+        qstyle_class = getattr(QtWidgets, "QStyle", None)
+        icon_name = "SP_FileDialogInfoView"
+        icon_value = getattr(qstyle_class, icon_name, None) if qstyle_class is not None else None
+        icon_applied = False
+        if callable(icon_setter) and callable(style_getter) and icon_value is not None:
+            style = style_getter()
+            standard_icon = getattr(style, "standardIcon", None)
+            if callable(standard_icon):
+                icon_setter(standard_icon(icon_value))
+                icon_applied = True
+
+        self._help_button.setText("" if icon_applied else "Help")
+        set_tool_tip = getattr(self._help_button, "setToolTip", None)
+        if callable(set_tool_tip):
+            set_tool_tip("Open docs for this tab")
+        set_accessible_name = getattr(self._help_button, "setAccessibleName", None)
+        if callable(set_accessible_name):
+            set_accessible_name("Help")
+
+    def _install_help_button(self) -> None:
+        """Attach one contextual help button to the tab-bar top-right corner."""
+        set_corner_widget = getattr(self._tab_widget, "setCornerWidget", None)
+        if callable(set_corner_widget):
+            set_corner_widget(self._help_button)
+
+        current_changed = getattr(self._tab_widget, "currentChanged", None)
+        connect = getattr(current_changed, "connect", None)
+        if callable(connect):
+            connect(self._refresh_help_button_state)
+        self._refresh_help_button_state()
+
+    def _refresh_help_button_state(self, *_args) -> None:
+        """Enable help only when one URL exists for the active tab."""
+        self._help_button.setEnabled(self._current_tab_help_url() is not None)
+
+    def _current_tab_help_url(self) -> str | None:
+        """Return the active tab help URL when available."""
+        current_index_getter = getattr(self._tab_widget, "currentIndex", None)
+        tab_index = int(current_index_getter()) if callable(current_index_getter) else 0
+        if 0 <= tab_index < len(self._tab_help_urls):
+            return self._tab_help_urls[tab_index]
+        return None
+
+    def _open_current_tab_help(self) -> None:
+        """Open user documentation for the currently selected tab."""
+        help_url = self._current_tab_help_url()
+        if help_url is None:
+            return
+        webbrowser.open(help_url, new=2)
 
     def _register_shutdown_target(self, name: str, target: object) -> None:
         """Register one tab-level shutdown callback when available.
