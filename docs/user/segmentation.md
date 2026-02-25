@@ -106,7 +106,7 @@ For CPSAM, dimensionality is auto-detected from the selected image (`2D` vs `3D`
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| **Dilation iterations** | int | 5 | 1 - 100 | Number of binary dilation iterations to expand nuclear masks. |
+| **Dilation (px)** | int | 5 | 1 - 100 | Pixels to dilate outward from each nuclear mask. |
 
 ### perinuclear_rings (Cytoplasmic)
 
@@ -117,6 +117,6 @@ For CPSAM, dimensionality is auto-detected from the selected image (`2D` vs `3D`
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
 | **Inner erosion (px)** | int | 2 | 1 - 50 | Pixels to erode inward from the nuclear boundary. |
-| **Outer dilation (px)** | int | 5 | 0 - 50 | Pixels to dilate outward from the nuclear boundary. |
+| **Outer dilation (px)** | int | 5 | 0 - 50 | Pixels to dilate outward from the nuclear boundary (`0` means no outward dilation). |
 
 > **Note:** The minimum inner erosion is set to 1 pixel as needed by the logic to associate across segmentation masks in Quantification.

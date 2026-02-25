@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy import ndimage as ndi
 
 from senoquant.tabs.segmentation.models.nuclear_dilation.model import (
     NuclearDilationModel,
@@ -21,6 +22,21 @@ class MockLayer:
     def __init__(self, data):
         """Initialize mock layer with data."""
         self.data = data
+
+
+def _reference_nuclear_dilation(labels: np.ndarray, iterations: int) -> np.ndarray:
+    """Reference implementation using full-frame per-label morphology."""
+    output = np.zeros_like(labels)
+    for label_id in np.unique(labels):
+        if label_id == 0:
+            continue
+        mask = labels == label_id
+        dilated_mask = ndi.binary_dilation(
+            mask,
+            iterations=iterations,
+        )
+        output[dilated_mask] = label_id
+    return output
 
 
 def test_nuclear_dilation_preserves_label_ids() -> None:
@@ -43,7 +59,7 @@ def test_nuclear_dilation_preserves_label_ids() -> None:
     result = model.run(
         task="cytoplasmic",
         nuclear_layer=nuclear_layer,
-        settings={"dilation_iterations": 3}
+        settings={"dilation_px": 3}
     )
     
     dilated = result["masks"]
@@ -62,8 +78,8 @@ def test_nuclear_dilation_preserves_label_ids() -> None:
     assert np.all(dilated[nuclear_mask == 5] == 5)
 
 
-def test_nuclear_dilation_default_iterations() -> None:
-    """Use default iteration count when not specified.
+def test_nuclear_dilation_default_dilation_px() -> None:
+    """Use default dilation pixel value when not specified.
 
     Returns
     -------
@@ -84,12 +100,12 @@ def test_nuclear_dilation_default_iterations() -> None:
     
     dilated = result["masks"]
     
-    # Should have dilated with default iterations (5)
+    # Should have dilated with default dilation (5 px)
     assert np.sum(dilated == 1) > np.sum(nuclear_mask == 1)
 
 
-def test_nuclear_dilation_zero_iterations() -> None:
-    """Handle zero iterations gracefully.
+def test_nuclear_dilation_zero_dilation_px() -> None:
+    """Handle zero dilation input gracefully.
 
     Returns
     -------
@@ -102,16 +118,16 @@ def test_nuclear_dilation_zero_iterations() -> None:
     
     nuclear_layer = MockLayer(nuclear_mask)
     
-    # Zero iterations should be clamped to 1 (minimum)
+    # Zero dilation should be clamped to 1 (minimum)
     result = model.run(
         task="cytoplasmic",
         nuclear_layer=nuclear_layer,
-        settings={"dilation_iterations": 0}
+        settings={"dilation_px": 0}
     )
     
     dilated = result["masks"]
     
-    # Should still dilate (minimum 1 iteration)
+    # Should still dilate (minimum 1 px)
     assert np.sum(dilated == 1) > np.sum(nuclear_mask == 1)
 
 
@@ -171,7 +187,7 @@ def test_nuclear_dilation_3d() -> None:
     result = model.run(
         task="cytoplasmic",
         nuclear_layer=nuclear_layer,
-        settings={"dilation_iterations": 2}
+        settings={"dilation_px": 2}
     )
     
     dilated = result["masks"]
@@ -202,7 +218,8 @@ def test_nuclear_dilation_model_info() -> None:
     
     settings = model.list_settings()
     assert len(settings) == 1
-    assert settings[0]["key"] == "dilation_iterations"
+    assert settings[0]["key"] == "dilation_px"
+    assert settings[0]["label"] == "Dilation (px)"
     assert settings[0]["type"] == "int"
     assert settings[0]["default"] == 5
 
@@ -222,3 +239,22 @@ def test_run_raises_error_when_nuclear_layer_is_none() -> None:
     # Try to run without nuclear_layer keyword argument
     with pytest.raises(ValueError, match="Nuclear layer is required"):
         model.run(task="cytoplasmic", layer=image, settings={}, nuclear_layer=None)
+
+
+def test_nuclear_dilation_matches_reference_for_sparse_label_ids() -> None:
+    """Match legacy full-frame behavior for sparse/non-sequential labels."""
+    model = NuclearDilationModel(models_root=None)
+
+    nuclear_mask = np.zeros((80, 80), dtype=np.uint32)
+    nuclear_mask[6:11, 8:13] = 3
+    nuclear_mask[35:39, 20:26] = 100
+    nuclear_mask[50:56, 48:53] = 1000
+
+    result = model.run(
+        task="cytoplasmic",
+        nuclear_layer=MockLayer(nuclear_mask),
+        settings={"dilation_px": 4},
+    )
+
+    expected = _reference_nuclear_dilation(nuclear_mask, iterations=4)
+    assert np.array_equal(result["masks"], expected)
