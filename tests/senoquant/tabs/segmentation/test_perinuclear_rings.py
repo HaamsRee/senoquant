@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy import ndimage as ndi
 
 from senoquant.tabs.segmentation.models.perinuclear_rings.model import (
     PerinuclearRingsModel,
@@ -15,6 +16,34 @@ class MockLayer:
 
     def __init__(self, data: np.ndarray) -> None:
         self.data = data
+
+
+def _reference_perinuclear_rings(
+    labels: np.ndarray,
+    *,
+    erosion_px: int,
+    dilation_px: int,
+) -> np.ndarray:
+    """Reference implementation matching perinuclear ring semantics."""
+    output = np.zeros_like(labels)
+    for label_id in np.unique(labels):
+        if label_id == 0:
+            continue
+        nucleus_mask = labels == label_id
+        eroded_mask = ndi.binary_erosion(
+            nucleus_mask,
+            iterations=erosion_px,
+        )
+        if dilation_px == 0:
+            dilated_mask = nucleus_mask
+        else:
+            dilated_mask = ndi.binary_dilation(
+                nucleus_mask,
+                iterations=dilation_px,
+            )
+        ring_mask = dilated_mask & ~eroded_mask
+        output[ring_mask] = label_id
+    return output
 
 
 def test_perinuclear_rings_basic() -> None:
@@ -186,3 +215,52 @@ def test_perinuclear_rings_overlap_guarantee() -> None:
     
     # Should have some overlap with original boundary
     assert original_boundary_pixels > 0
+
+
+def test_perinuclear_rings_matches_reference_for_sparse_label_ids() -> None:
+    """Match legacy full-frame behavior for sparse/non-sequential labels."""
+    model = PerinuclearRingsModel()
+
+    nuclear_data = np.zeros((90, 90), dtype=np.uint32)
+    nuclear_data[8:14, 8:14] = 4
+    nuclear_data[34:42, 45:53] = 99
+    nuclear_data[60:66, 20:27] = 1200
+
+    result = model.run(
+        task="cytoplasmic",
+        nuclear_layer=MockLayer(nuclear_data),
+        settings={"erosion_px": 2, "dilation_px": 4},
+    )
+
+    expected = _reference_perinuclear_rings(
+        nuclear_data,
+        erosion_px=2,
+        dilation_px=4,
+    )
+    assert np.array_equal(result["masks"], expected)
+
+
+def test_perinuclear_rings_zero_dilation_has_no_outward_growth() -> None:
+    """Zero dilation should not create ring pixels outside nucleus masks."""
+    model = PerinuclearRingsModel()
+
+    nuclear_data = np.zeros((40, 40), dtype=np.uint32)
+    nuclear_data[12:20, 12:20] = 7
+    nuclear_data[24:32, 24:32] = 250
+
+    result = model.run(
+        task="cytoplasmic",
+        nuclear_layer=MockLayer(nuclear_data),
+        settings={"erosion_px": 1, "dilation_px": 0},
+    )
+
+    expected = _reference_perinuclear_rings(
+        nuclear_data,
+        erosion_px=1,
+        dilation_px=0,
+    )
+    masks = result["masks"]
+    assert np.array_equal(masks, expected)
+
+    outside_original = (masks > 0) & (nuclear_data == 0)
+    assert not np.any(outside_original)

@@ -8,6 +8,7 @@ import numpy as np
 from scipy import ndimage as ndi
 
 from senoquant.tabs.segmentation.models.base import SenoQuantSegmentationModel
+from senoquant.tabs.segmentation.models.morphology import iter_label_regions
 from senoquant.utils import layer_data_asarray
 
 if TYPE_CHECKING:
@@ -101,32 +102,31 @@ class PerinuclearRingsModel(SenoQuantSegmentationModel):
         dilation_px = max(int(settings_dict.get("dilation_px", 5)), 0)
 
         ring_labels = np.zeros_like(nuclear_data)
+        crop_pad = max(erosion_px, dilation_px)
 
-        # Process each nucleus individually to maintain label relationships
-        for label_id in np.unique(nuclear_data):
-            if label_id == 0:
-                continue
-            
-            # Create binary mask for this nucleus
-            nucleus_mask = nuclear_data == label_id
-            
-            # Erode inward (minimum 1 px to maintain overlap)
+        # Process each nucleus independently to preserve label identity.
+        for label_id, region_slices, nucleus_mask in iter_label_regions(
+            nuclear_data,
+            pad=crop_pad,
+        ):
+            # Erode inward (minimum 1 px to maintain overlap).
             eroded_mask = ndi.binary_erosion(
                 nucleus_mask,
                 iterations=erosion_px,
             )
-            
-            # Dilate outward
-            dilated_mask = ndi.binary_dilation(
-                nucleus_mask,
-                iterations=dilation_px,
-            )
-            
-            # Ring is the difference: dilated - eroded
-            # This creates a ring that includes the original boundary
+
+            if dilation_px == 0:
+                # Zero outward dilation means keep the original boundary.
+                dilated_mask = nucleus_mask
+            else:
+                dilated_mask = ndi.binary_dilation(
+                    nucleus_mask,
+                    iterations=dilation_px,
+                )
+
+            # Ring is the difference: dilated - eroded.
             ring_mask = dilated_mask & ~eroded_mask
-            
-            # Assign the original label ID to the ring
-            ring_labels[ring_mask] = label_id
+            output_region = ring_labels[region_slices]
+            output_region[ring_mask] = label_id
 
         return {"masks": ring_labels}

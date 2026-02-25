@@ -26,7 +26,7 @@
     {
       "key": "dilation_px",
       "label": "Outer dilation (px)",
-      "tooltip": "Pixels to dilate outward from the nuclear boundary to set ring thickness.",
+      "tooltip": "Pixels to dilate outward from the nuclear boundary to set ring thickness (0 means no outward dilation).",
       "type": "int",
       "min": 0,
       "max": 50,
