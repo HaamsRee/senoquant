@@ -72,7 +72,7 @@ class SenNetPortalApiMixin:
         if cleaned_token:
             headers["Authorization"] = f"Bearer {cleaned_token}"
 
-        request = Request(request_url, headers=headers)
+        request = Request(request_url, headers=headers, method="GET")
         try:
             with urlopen(request, timeout=self._request_timeout) as response:
                 data = response.read()
