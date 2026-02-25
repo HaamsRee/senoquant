@@ -897,6 +897,49 @@ def test_main_widget_puts_sennet_portal_first(monkeypatch) -> None:
     assert captured["labels"][1] == "Segmentation"
 
 
+def test_main_widget_help_button_opens_active_tab_docs(monkeypatch) -> None:
+    """Open tab-specific user guide links from the shared help button."""
+    monkeypatch.setattr(
+        "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
+        lambda self: None,
+    )
+    monkeypatch.setattr(
+        "senoquant._widget.SenNetPortalTab",
+        lambda napari_viewer=None: SenNetPortalTab(
+            backend=_DummySenNetPortalBackend(),
+            napari_viewer=napari_viewer,
+        ),
+    )
+    opened_urls: list[tuple[str, int]] = []
+
+    def _open(url: str, new: int = 0, autoraise: bool = True) -> bool:
+        del autoraise
+        opened_urls.append((url, new))
+        return True
+
+    monkeypatch.setattr("senoquant._widget.webbrowser.open", _open)
+
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    widget = SenoQuantWidget(viewer)
+
+    expected_urls = [
+        "https://haamsree.github.io/senoquant/user/sennet-portal/",
+        "https://haamsree.github.io/senoquant/user/segmentation/",
+        "https://haamsree.github.io/senoquant/user/spots/",
+        "https://haamsree.github.io/senoquant/user/prediction/",
+        "https://haamsree.github.io/senoquant/user/quantification/",
+        "https://haamsree.github.io/senoquant/user/visualization/",
+        "https://haamsree.github.io/senoquant/user/batch/",
+        "https://haamsree.github.io/senoquant/user/settings/",
+    ]
+    for index, expected_url in enumerate(expected_urls):
+        widget._tab_widget.setCurrentIndex(index)
+        widget._help_button.clicked.emit()
+        assert opened_urls[-1] == (expected_url, 2)
+
+    assert widget._tab_widget.cornerWidget() is widget._help_button
+
+
 def test_main_widget_runs_shutdown_on_qt_application_quit(monkeypatch) -> None:
     """Run global shutdown hooks from QApplication close/quit signals once."""
 
