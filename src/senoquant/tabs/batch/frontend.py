@@ -148,8 +148,7 @@ class BatchTab(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setWidget(content)
         self._scroll_area = scroll
-        self._apply_scroll_height()
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         self._run_button = QPushButton("Run batch")
         self._run_button.clicked.connect(self._run_batch)
@@ -160,9 +159,10 @@ class BatchTab(QWidget):
         layout.addWidget(self._progress_bar)
 
         self._status_label = QLabel("Ready")
-        self._status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        if hasattr(self._status_label, "setWordWrap"):
+            self._status_label.setWordWrap(True)
+        self._status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         layout.addWidget(self._status_label)
-        layout.addStretch(1)
         self.setLayout(layout)
 
         self._refresh_segmentation_models()
@@ -171,16 +171,6 @@ class BatchTab(QWidget):
         self._refresh_channel_choices()
         self._refresh_spot_channel_choices()
         self._update_processing_state()
-
-    def showEvent(self, event) -> None:
-        """Re-apply scroll sizing when the widget is shown."""
-        super().showEvent(event)
-        self._apply_scroll_height()
-
-    def resizeEvent(self, event) -> None:
-        """Re-apply scroll sizing when the widget is resized."""
-        super().resizeEvent(event)
-        self._apply_scroll_height()
 
     def _make_input_section(self) -> QGroupBox:
         """Build the input configuration section."""
@@ -218,16 +208,6 @@ class BatchTab(QWidget):
         section_layout.addLayout(form_layout)
         section.setLayout(section_layout)
         return section
-
-    def _apply_scroll_height(self) -> None:
-        """Pin scroll area height to 75% of the parent widget."""
-        parent = self.parentWidget()
-        if parent is None:
-            return
-        height = int(parent.height() * 0.75)
-        if hasattr(self, "_scroll_area") and self._scroll_area is not None:
-            self._scroll_area.setMinimumHeight(height)
-            self._scroll_area.setMaximumHeight(height)
 
     def _make_channel_section(self) -> QGroupBox:
         """Build the channel mapping section."""

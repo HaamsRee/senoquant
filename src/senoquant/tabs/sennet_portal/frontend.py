@@ -14,6 +14,7 @@ from qtpy.QtWidgets import (
     QLineEdit,
     QPushButton,
     QProgressBar,
+    QSizePolicy,
     QSpinBox,
     QTableWidget,
     QVBoxLayout,
@@ -81,12 +82,16 @@ class SenNetPortalTab(
         layout = QVBoxLayout()
         layout.addWidget(self._make_connection_section())
         layout.addWidget(self._make_filter_section())
-        layout.addWidget(self._make_dataset_section())
+        dataset_section = self._make_dataset_section()
+        dataset_section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout.addWidget(dataset_section, 1)
         layout.addWidget(self._make_destination_section())
 
         self._status_label = QLabel("Ready. Search for antibody-imaging datasets.")
+        if hasattr(self._status_label, "setWordWrap"):
+            self._status_label.setWordWrap(True)
+        self._status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         layout.addWidget(self._status_label)
-        layout.addStretch(1)
         self.setLayout(layout)
         self._populate_table(preserve_filters=False)
         self._refresh_globus_auth_status()
