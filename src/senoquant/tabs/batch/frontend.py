@@ -476,8 +476,7 @@ class BatchTab(QWidget):
     def _remove_spot_channel_row(self, row: dict) -> None:
         """Remove a spot-channel row from the UI."""
         widget = row.get("widget")
-        if widget is not None and hasattr(widget, "setParent"):
-            widget.setParent(None)
+        self._dispose_dynamic_widget(widget, self._spot_channels_layout)
         if row in self._spot_channel_rows:
             self._spot_channel_rows.remove(row)
         self._refresh_spot_channel_choices()
@@ -552,10 +551,12 @@ class BatchTab(QWidget):
     def _remove_channel_row(self, row: dict) -> None:
         """Remove a channel mapping row."""
         widget = row.get("widget")
-        if widget is not None and hasattr(widget, "setParent"):
-            widget.setParent(None)
+        self._dispose_dynamic_widget(widget, self._channels_layout)
         if row in self._channel_rows:
             self._channel_rows.remove(row)
+        if not self._channel_rows:
+            self._add_channel_row()
+            return
         self._sync_channel_map()
 
     def _sync_channel_map(self) -> None:
@@ -1113,6 +1114,8 @@ class BatchTab(QWidget):
         self._clear_channel_rows()
         for config in job.channel_map:
             self._add_channel_row(config)
+        if not self._channel_rows:
+            self._add_channel_row()
 
         self._nuclear_enabled.setChecked(job.nuclear.enabled)
         self._set_combo_value(self._nuclear_model_combo, job.nuclear.model)
@@ -1170,8 +1173,7 @@ class BatchTab(QWidget):
         """Remove all channel rows from the UI."""
         for row in list(self._channel_rows):
             widget = row.get("widget")
-            if widget is not None and hasattr(widget, "setParent"):
-                widget.setParent(None)
+            self._dispose_dynamic_widget(widget, self._channels_layout)
         self._channel_rows = []
         self._channel_configs = []
 
@@ -1179,9 +1181,29 @@ class BatchTab(QWidget):
         """Remove all spot channel rows from the UI."""
         for row in list(self._spot_channel_rows):
             widget = row.get("widget")
-            if widget is not None and hasattr(widget, "setParent"):
-                widget.setParent(None)
+            self._dispose_dynamic_widget(widget, self._spot_channels_layout)
         self._spot_channel_rows = []
+
+    @staticmethod
+    def _dispose_dynamic_widget(widget, layout) -> None:
+        """Detach and schedule deletion for a dynamic child widget."""
+        if widget is None:
+            return
+        if layout is not None and hasattr(layout, "removeWidget"):
+            try:
+                layout.removeWidget(widget)
+            except RuntimeError:
+                pass
+        if hasattr(widget, "setParent"):
+            try:
+                widget.setParent(None)
+            except RuntimeError:
+                pass
+        if hasattr(widget, "deleteLater"):
+            try:
+                widget.deleteLater()
+            except RuntimeError:
+                pass
 
     @staticmethod
     def _set_combo_value(combo: QComboBox, value: str) -> None:
@@ -1207,9 +1229,11 @@ class BatchTab(QWidget):
         self._progress_bar.setVisible(True)
         self._progress_bar.setValue(0)
 
-        thread = QThread()
+        thread = QThread(self)
         worker.moveToThread(thread)
         worker.progress.connect(self._update_progress)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(worker.deleteLater)
         worker.finished.connect(lambda result: on_success(result))
         worker.finished.connect(
             lambda: self._finish_background_run(run_button, run_text, thread, worker)
@@ -1221,8 +1245,8 @@ class BatchTab(QWidget):
             lambda: self._finish_background_run(run_button, run_text, thread, worker)
         )
         thread.started.connect(worker.run)
-        thread.start()
         self._active_workers.append((thread, worker))
+        thread.start()
 
     def _finish_background_run(
         self,
@@ -1238,7 +1262,8 @@ class BatchTab(QWidget):
         self._progress_bar.setVisible(False)
         self._progress_bar.setValue(0)
         thread.quit()
-        thread.wait()
+        if hasattr(thread, "wait"):
+            thread.wait()
         try:
             self._active_workers.remove((thread, worker))
         except ValueError:
