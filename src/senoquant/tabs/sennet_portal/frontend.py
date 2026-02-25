@@ -439,12 +439,18 @@ class SenNetPortalTab(
             return
         percent = int(status.get("progress_percent", 0) or 0)
         speed_bps = int(status.get("speed_bps", 0) or 0)
-        completed = int(status.get("subtasks_completed", 0) or 0)
-        total = int(status.get("subtasks_total", 0) or 0)
+        files_total = int(status.get("files", 0) or 0)
+        files_transferred = int(status.get("files_transferred", 0) or 0)
+        subtasks_completed = int(status.get("subtasks_completed", 0) or 0)
+        subtasks_total = int(status.get("subtasks_total", 0) or 0)
+        if files_total > 0:
+            completed_text = f"{max(0, min(files_total, files_transferred))}/{files_total} files"
+        else:
+            completed_text = f"{subtasks_completed}/{subtasks_total} subtasks"
         overall = str(status.get("overall_status", "UNKNOWN")).strip() or "UNKNOWN"
         self._download_progress_bar.setValue(max(0, min(100, percent)))
         self._download_speed_label.setText(
-            f"Transfer {overall}: {percent}% ({completed}/{total} subtasks), "
+            f"Transfer {overall}: {percent}% ({completed_text}), "
             f"{self._format_bps(speed_bps)}"
         )
 

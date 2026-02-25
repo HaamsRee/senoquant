@@ -137,6 +137,7 @@ class _DummySenNetPortalBackend:
             "any_failed": False,
             "progress_percent": 100,
             "files": 0,
+            "files_transferred": 0,
             "subtasks_total": 0,
             "subtasks_completed": 0,
             "speed_bps": 0,
@@ -593,6 +594,7 @@ def test_sennet_portal_download_button_locked_until_task_completion() -> None:
                 "any_failed": False,
                 "progress_percent": 25,
                 "files": 4,
+                "files_transferred": 1,
                 "subtasks_total": 8,
                 "subtasks_completed": 2,
                 "speed_bps": 1024,
@@ -639,6 +641,7 @@ def test_sennet_portal_download_button_locked_until_task_completion() -> None:
             "any_failed": False,
             "progress_percent": 100,
             "files": 4,
+            "files_transferred": 4,
             "subtasks_total": 8,
             "subtasks_completed": 8,
             "speed_bps": 0,
@@ -669,6 +672,7 @@ def test_sennet_portal_progress_poll_error_keeps_pending_task_ids() -> None:
                 "any_failed": False,
                 "progress_percent": 100,
                 "files": 4,
+                "files_transferred": 4,
                 "subtasks_total": 8,
                 "subtasks_completed": 8,
                 "speed_bps": 0,
@@ -715,6 +719,30 @@ def test_sennet_portal_progress_poll_error_keeps_pending_task_ids() -> None:
     assert tab._cancel_download_button.isEnabled() is False
 
 
+def test_sennet_portal_progress_label_prefers_file_counts() -> None:
+    """Show file counters in the transfer status label when available."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._download_locked = True
+    tab._on_download_progress(
+        {
+            "task_count": 1,
+            "overall_status": "ACTIVE",
+            "all_complete": False,
+            "all_succeeded": False,
+            "any_failed": False,
+            "progress_percent": 40,
+            "files": 10,
+            "files_transferred": 4,
+            "subtasks_total": 80,
+            "subtasks_completed": 20,
+            "speed_bps": 1024,
+            "bytes_transferred": 4096,
+            "tasks": [],
+        }
+    )
+    assert "(4/10 files)" in tab._download_speed_label.text()
+
+
 def test_sennet_portal_cancel_download_resets_ui_status() -> None:
     """Cancel active transfer and reset visible transfer status widgets."""
     class _ActiveTaskBackend(_DummySenNetPortalBackend):
@@ -727,6 +755,7 @@ def test_sennet_portal_cancel_download_resets_ui_status() -> None:
                 "any_failed": False,
                 "progress_percent": 25,
                 "files": 4,
+                "files_transferred": 1,
                 "subtasks_total": 8,
                 "subtasks_completed": 2,
                 "speed_bps": 1024,

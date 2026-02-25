@@ -25,9 +25,9 @@ def extract_task_ids(stdout: str | None, stderr: str | None) -> list[str]:
     if not text:
         return []
     matches = re.findall(
-        r"Task ID:\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+        r"^\s*Task ID:\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\s*$",
         text,
-        flags=re.IGNORECASE,
+        flags=re.IGNORECASE | re.MULTILINE,
     )
     unique: list[str] = []
     seen: set[str] = set()
@@ -57,6 +57,7 @@ def aggregate_task_status(tasks: Sequence[dict[str, object]]) -> dict[str, objec
     total_subtasks = 0
     completed_subtasks = 0
     files = 0
+    files_transferred = 0
     speed_bps = 0
     bytes_transferred = 0
     statuses: list[str] = []
@@ -70,14 +71,18 @@ def aggregate_task_status(tasks: Sequence[dict[str, object]]) -> dict[str, objec
         subtasks_retrying = int(payload.get("subtasks_retrying", 0) or 0)
         total_subtasks += subtasks_total
         completed_subtasks += max(0, subtasks_total - subtasks_pending - subtasks_retrying)
-        files += int(payload.get("files", 0) or 0)
+        task_files = int(payload.get("files", 0) or 0)
+        task_files_transferred = int(payload.get("files_transferred", 0) or 0)
+        files += task_files
+        files_transferred += task_files_transferred
         speed_bps += int(payload.get("effective_bytes_per_second", 0) or 0)
         bytes_transferred += int(payload.get("bytes_transferred", 0) or 0)
         task_rows.append(
             {
                 "task_id": str(payload.get("task_id", "")).strip(),
                 "status": status,
-                "files": int(payload.get("files", 0) or 0),
+                "files": task_files,
+                "files_transferred": task_files_transferred,
                 "subtasks_total": subtasks_total,
                 "subtasks_pending": subtasks_pending,
                 "subtasks_succeeded": int(payload.get("subtasks_succeeded", 0) or 0),
@@ -87,11 +92,12 @@ def aggregate_task_status(tasks: Sequence[dict[str, object]]) -> dict[str, objec
             }
         )
 
-    progress_percent = (
-        int(round((completed_subtasks / total_subtasks) * 100))
-        if total_subtasks > 0
-        else 0
-    )
+    if files > 0:
+        progress_percent = int(round((files_transferred / files) * 100))
+    elif total_subtasks > 0:
+        progress_percent = int(round((completed_subtasks / total_subtasks) * 100))
+    else:
+        progress_percent = 0
     all_complete = all(status in terminal_states for status in statuses)
     any_failed = any(status in {"FAILED", "CANCELED", "EXPIRED"} for status in statuses)
     if all(status == "SUCCEEDED" for status in statuses):
@@ -111,6 +117,7 @@ def aggregate_task_status(tasks: Sequence[dict[str, object]]) -> dict[str, objec
         "any_failed": any_failed,
         "progress_percent": max(0, min(100, progress_percent)),
         "files": files,
+        "files_transferred": files_transferred,
         "subtasks_total": total_subtasks,
         "subtasks_completed": completed_subtasks,
         "speed_bps": speed_bps,

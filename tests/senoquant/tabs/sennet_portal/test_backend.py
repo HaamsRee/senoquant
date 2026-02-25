@@ -229,6 +229,7 @@ def test_extract_task_ids_parses_globus_stdout() -> None:
     """Extract task IDs from globus transfer output text."""
     task_ids = extract_task_ids(
         "Task ID: 11111111-2222-3333-4444-555555555555\n"
+        "Parent Task ID: bbbbbbbb-cccc-dddd-eeee-ffffffffffff\n"
         "Task ID: 11111111-2222-3333-4444-555555555555\n"
         "Task ID: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n",
         None,
@@ -359,6 +360,7 @@ def test_download_tasks_status_aggregates_progress(
             "task_id": "task-a",
             "status": "ACTIVE",
             "files": 10,
+            "files_transferred": 3,
             "subtasks_total": 20,
             "subtasks_pending": 10,
             "subtasks_retrying": 0,
@@ -371,6 +373,7 @@ def test_download_tasks_status_aggregates_progress(
             "task_id": "task-b",
             "status": "SUCCEEDED",
             "files": 5,
+            "files_transferred": 5,
             "subtasks_total": 10,
             "subtasks_pending": 0,
             "subtasks_retrying": 0,
@@ -390,8 +393,39 @@ def test_download_tasks_status_aggregates_progress(
     assert status["task_count"] == 2
     assert status["overall_status"] == "ACTIVE"
     assert status["all_complete"] is False
-    assert status["progress_percent"] == 67
+    assert status["progress_percent"] == 53
+    assert status["files"] == 15
+    assert status["files_transferred"] == 8
     assert status["speed_bps"] == 5_000_000
+
+
+def test_download_tasks_status_progress_falls_back_to_subtasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Use subtask counters when file totals are unavailable."""
+    backend = SenNetPortalBackend()
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/globus")
+
+    payload = {
+        "task_id": "task-a",
+        "status": "ACTIVE",
+        "files": 0,
+        "files_transferred": 0,
+        "subtasks_total": 20,
+        "subtasks_pending": 10,
+        "subtasks_retrying": 0,
+        "subtasks_succeeded": 10,
+        "subtasks_failed": 0,
+        "effective_bytes_per_second": 10_000,
+        "bytes_transferred": 123,
+    }
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(backend, "_run_command", fake_run)
+    status = backend.download_tasks_status(["task-a"])
+    assert status["progress_percent"] == 50
 
 
 def test_cancel_download_tasks_runs_globus_cancel(
