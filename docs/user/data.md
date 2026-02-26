@@ -1,12 +1,13 @@
 # Data & File Formats
 
-SenoQuant uses [**BioIO**](https://github.com/bioio-devs/bioio) with [**bioio-bioformats**](https://github.com/bioio-devs/bioio-bioformats) as its primary file reader, which provides access to the full [BioFormats](https://docs.openmicroscopy.org/bio-formats/5.8.2/supported-formats.html) ecosystem of microscopy formats. This unified reader automatically handles most common microscopy and image formats.
+SenoQuant uses [**BioIO**](https://github.com/bioio-devs/bioio) with multiple format-specific plugins for faster pixel loading (for example `bioio-czi`, `bioio-lif`, `bioio-nd2`, `bioio-ome-tiff`, and `bioio-ome-zarr`). When possible, SenoQuant still opens metadata through [**bioio-bioformats**](https://github.com/bioio-devs/bioio-bioformats) to preserve richer metadata coverage from [BioFormats](https://docs.openmicroscopy.org/bio-formats/5.8.2/supported-formats.html).
 
 ## Reader behavior
 
 When you open a file in napari with SenoQuant installed:
 
-1. **Format detection**: bioio-bioformats automatically determines the appropriate format handler.
+1. **Data reader selection**: SenoQuant prefers fast format-specific BioIO readers for pixel data, and falls back when needed.
+2. **Metadata reader selection**: SenoQuant tries to read metadata with bioio-bioformats whenever possible.
 3. **Scene processing**: Multi-scene files (e.g., `.lif`, `.czi`) have each scene loaded as separate layers.
 4. **Channel splitting**: Each channel within a scene becomes an individual image layer in napari.
 5. **Colormap detection**: Channel colors from OME metadata are used when available; otherwise falls back to a default colormap cycle.
@@ -45,12 +46,13 @@ Files with multiple scenes (e.g., Leica `.lif`, Zeiss `.czi`) are processed as f
 
 ## Supported file formats
 
-SenoQuant supports most common file formats via BioFormats, including:
+SenoQuant supports most common microscopy formats through BioIO plugins (with BioFormats metadata fallback), including:
 
 - **Zeiss CZI**: `.czi`
 - **Leica LIF**: `.lif`
 - **Nikon ND2**: `.nd2`
 - **OME-TIFF**: `.ome.tiff`, `.ome.tif`, `.ome.tf2`, `.ome.tf8`, `.ome.btf`
+- **OME-ZARR**: `.zarr`
 - **TIFF**: `.tiff`, `.tif`, `.tf2`, `.tf8`, `.btf`
 - **PNG/JPEG**: `.png`, `.jpg`
 - **And many more**: See the [BioFormats supported formats](https://docs.openmicroscopy.org/bio-formats/5.8.2/supported-formats.html) list.
@@ -66,6 +68,8 @@ Layer metadata includes:
 - **`path`**: Original file path.
 - **`channel_index`**: Zero-based channel index.
 - **`physical_pixel_sizes`**: Physical dimensions in micrometers (X, Y, Z).
+- **`data_reader`**: Reader class used for pixel data loading.
+- **`metadata_reader`**: Reader class used for metadata extraction.
 
 Access metadata programmatically:
 

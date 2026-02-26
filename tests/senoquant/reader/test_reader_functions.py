@@ -205,6 +205,229 @@ def test_get_reader_uses_resolved_path_for_plugin_probe(monkeypatch, tmp_path) -
     assert probed_path["value"] == str(resolved_path)
 
 
+def test_open_bioimage_prefers_fast_reader_over_bioformats(monkeypatch) -> None:
+    """Prefer a non-BioFormats reader for pixel loading when available."""
+
+    class _BioFormatsReader:
+        pass
+
+    _BioFormatsReader.__module__ = "bioio_bioformats"
+
+    class _FastReader:
+        pass
+
+    _FastReader.__module__ = "bioio_czi"
+
+    opened: list[tuple[object | None, dict]] = []
+
+    class _BioImage:
+        @staticmethod
+        def determine_plugin(_path: str):
+            return _BioFormatsReader
+
+        def __init__(self, _path: str, reader=None, **kwargs):
+            opened.append((reader, kwargs))
+            self.reader = reader
+
+    monkeypatch.setattr(core, "_ensure_java_truststore", lambda: None)
+    monkeypatch.setattr(core, "_candidate_fast_reader_classes", lambda _path: (_FastReader,))
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(BioImage=_BioImage))
+
+    image = core._open_bioimage("sample.czi")
+    assert image.reader is _FastReader
+    assert opened[0][0] is _FastReader
+
+
+def test_reader_module_priority_for_path_uses_bioio_plugin_registry(monkeypatch) -> None:
+    """Discover reader modules from ``bioio.plugins.get_plugins`` entries."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".czi": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_czi")
+                        ),
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_bioformats")
+                        ),
+                    ],
+                    ".tif": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_tifffile")
+                        ),
+                    ],
+                }
+            )
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+    modules = core._reader_module_priority_for_path("sample.czi")
+    assert modules == ("bioio_czi", "bioio_bioformats")
+
+
+def test_reader_module_priority_for_path_skips_disallowed_modules(monkeypatch) -> None:
+    """Ignore modules explicitly disallowed for data reading."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".tif": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_tiff_glob")
+                        ),
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_tifffile")
+                        ),
+                    ]
+                }
+            )
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+    modules = core._reader_module_priority_for_path("sample.tif")
+    assert modules == ("bioio_tifffile",)
+
+
+def test_open_metadata_bioimage_prefers_bioformats_reader(monkeypatch) -> None:
+    """Open metadata with BioFormats when data reader is non-BioFormats."""
+
+    class _FastReader:
+        pass
+
+    _FastReader.__module__ = "bioio_czi"
+
+    class _BioFormatsReader:
+        pass
+
+    _BioFormatsReader.__module__ = "bioio_bioformats"
+
+    class _BioImage:
+        def __init__(self, _path: str, reader=None, **_kwargs):
+            self.reader = reader
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".czi": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_bioformats")
+                        )
+                    ]
+                }
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio_bioformats",
+        types.SimpleNamespace(Reader=_BioFormatsReader),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio",
+        types.SimpleNamespace(BioImage=_BioImage, plugins=_Plugins()),
+    )
+
+    data_image = types.SimpleNamespace(reader=_FastReader)
+    metadata_image = core._open_metadata_bioimage("sample.czi", fallback_image=data_image)
+    assert metadata_image.reader is _BioFormatsReader
+
+
+def test_open_metadata_bioimage_falls_back_when_bioformats_fails(monkeypatch) -> None:
+    """Use data reader metadata when BioFormats metadata open fails."""
+
+    class _FastReader:
+        pass
+
+    _FastReader.__module__ = "bioio_czi"
+
+    class _BioFormatsReader:
+        pass
+
+    _BioFormatsReader.__module__ = "bioio_bioformats"
+
+    class _BioImage:
+        def __init__(self, _path: str, reader=None, **_kwargs):
+            if reader is _BioFormatsReader:
+                raise RuntimeError("bioformats unavailable")
+            self.reader = reader
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".czi": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_bioformats")
+                        )
+                    ]
+                }
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio_bioformats",
+        types.SimpleNamespace(Reader=_BioFormatsReader),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio",
+        types.SimpleNamespace(BioImage=_BioImage, plugins=_Plugins()),
+    )
+
+    data_image = types.SimpleNamespace(reader=_FastReader)
+    metadata_image = core._open_metadata_bioimage("sample.czi", fallback_image=data_image)
+    assert metadata_image is data_image
+
+
+def test_iter_channel_layers_prefers_metadata_image_for_metadata(monkeypatch) -> None:
+    """Populate layer metadata from metadata-image source when provided."""
+    dims = types.SimpleNamespace(order="YX")
+    data_image = types.SimpleNamespace(dims=dims, metadata={"source": "data"})
+    metadata_image = types.SimpleNamespace(dims=dims, metadata={"source": "metadata"})
+
+    monkeypatch.setattr(
+        core,
+        "_get_dask_data",
+        lambda *_args, **_kwargs: [[1, 2], [3, 4]],
+    )
+
+    def _fake_sizes(image):
+        if image is metadata_image:
+            return {"Z": 1.0, "Y": 2.0, "X": 3.0}
+        return {"Z": 9.0, "Y": 9.0, "X": 9.0}
+
+    monkeypatch.setattr(core, "_physical_pixel_sizes", _fake_sizes)
+
+    layers = core._iter_channel_layers(
+        data_image,
+        base_name="sample.czi",
+        scene_id="Scene 0",
+        scene_idx=0,
+        total_scenes=1,
+        path="sample.czi",
+        metadata_image=metadata_image,
+        data_reader_name="bioio_czi.Reader",
+        metadata_reader_name="bioio_bioformats.Reader",
+    )
+
+    assert len(layers) == 1
+    layer_metadata = layers[0][1]["metadata"]
+    assert layer_metadata["bioio_metadata"] == {"source": "metadata"}
+    assert layer_metadata["physical_pixel_sizes"] == {"Z": 1.0, "Y": 2.0, "X": 3.0}
+    assert layer_metadata["data_reader"] == "bioio_czi.Reader"
+    assert layer_metadata["metadata_reader"] == "bioio_bioformats.Reader"
+
+
 def test_stage_network_path_downloads_once_and_reuses_cache(monkeypatch, tmp_path) -> None:
     """Download a network image to temp once and reuse cached local path."""
     monkeypatch.setattr(core, "_NETWORK_STAGE_ROOT", tmp_path)

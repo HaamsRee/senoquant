@@ -42,7 +42,7 @@ Canonical JSON Schema for this envelope is stored at
 {
   "input_path": "/path/to/images",
   "output_path": "/path/to/output",
-  "extensions": [".tif", ".ome.tif"],
+  "extensions": [".tif", ".ome.tif", ".zarr"],
   "include_subfolders": false,
   "process_all_scenes": false,
   "overwrite": false,

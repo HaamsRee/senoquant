@@ -245,6 +245,48 @@ def test_read_senoquant_uses_staged_path_but_preserves_original_path(
     assert kwargs_seen["base_name"] == "sample.tif"
 
 
+def test_read_senoquant_uses_metadata_scene_index_fallback(monkeypatch) -> None:
+    """Use metadata reader scene by index when scene ids differ across readers."""
+    _install_dummy_bioio(monkeypatch)
+
+    data_image = _DummyImage(["Image:0"])
+
+    class _MetadataImage:
+        def __init__(self) -> None:
+            self.scenes = ["filename-scene"]
+            self.scene_calls: list[str] = []
+            self.metadata = {"source": "metadata"}
+
+        def set_scene(self, scene_id: str) -> None:
+            if scene_id not in self.scenes:
+                raise IndexError(scene_id)
+            self.scene_calls.append(scene_id)
+
+    metadata_image = _MetadataImage()
+    seen_kwargs: dict[str, object] = {}
+
+    monkeypatch.setattr(reader_core, "_resolve_reader_path", lambda path: path)
+    monkeypatch.setattr(reader_core, "_open_bioimage", lambda _path: data_image)
+    monkeypatch.setattr(
+        reader_core,
+        "_open_metadata_bioimage",
+        lambda _path, *, fallback_image: metadata_image,
+    )
+    monkeypatch.setattr(reader_core, "_select_scene_indices", lambda *_args: [0])
+
+    def _fake_iter(_image, **kwargs):
+        seen_kwargs.update(kwargs)
+        return [("layer-0", {"name": "x"}, "image")]
+
+    monkeypatch.setattr(reader_core, "_iter_channel_layers", _fake_iter)
+
+    layers = reader_core._read_senoquant("C:/tmp/sample.tif")
+    assert [layer[0] for layer in layers] == ["layer-0"]
+    assert data_image.scene_calls == ["Image:0"]
+    assert metadata_image.scene_calls == ["filename-scene"]
+    assert seen_kwargs["metadata_image"] is metadata_image
+
+
 def test_napari_dialog_parent_prefers_viewer_qt_window(monkeypatch) -> None:
     """Use napari viewer window as dialog parent when available."""
     qt_window = object()

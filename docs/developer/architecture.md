@@ -39,9 +39,12 @@ Prediction-specific note:
 ## Reader pipeline
 
 The reader implementation lives in `src/senoquant/reader/core.py` and
-relies on BioIO with bioio-bioformats to open files. The reader:
+uses a hybrid BioIO strategy. The reader:
 
-- Uses bioio-bioformats with `dask_tiles=True` for large image support.
+- Prefers fast format-specific BioIO plugins for pixel loading.
+- Uses bioio-bioformats for metadata extraction when available.
+- Falls back to the data reader for metadata when BioFormats metadata open fails.
+- Uses `dask_tiles=True` when BioFormats is used for pixel loading.
 - Extracts channel colors from OME metadata when available.
 - Falls back to a default colormap cycle when all channels have the same color.
 - Iterates scenes and channels to create napari layers.

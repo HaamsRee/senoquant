@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import atexit
 import hashlib
+import importlib
 import itertools
 import logging
 import os
@@ -29,6 +30,11 @@ _MACOS_TRUSTSTORE_TYPE_FLAG = "-Djavax.net.ssl.trustStoreType=KeychainStore"
 _LINUX_JAVA_CACERTS_PATHS = (
     "/etc/ssl/certs/java/cacerts",
     "/etc/pki/java/cacerts",
+)
+_DISALLOWED_DATA_READER_MODULES: frozenset[str] = frozenset(
+    {
+        "bioio_tiff_glob",
+    }
 )
 
 
@@ -84,7 +90,7 @@ def _network_download_source(path: str) -> str:
 
 
 def _stage_network_path(path: str) -> str:
-    """Download a network path to a local temp file for BioFormats."""
+    """Download a network path to a local temp file for BioIO readers."""
     cached = _STAGED_NETWORK_PATHS.get(path)
     if cached is not None and Path(cached).is_file():
         return cached
@@ -118,7 +124,7 @@ def _stage_network_path(path: str) -> str:
 
 
 def _resolve_reader_path(path: str) -> str:
-    """Resolve input to a local path consumable by BioFormats."""
+    """Resolve input to a local path consumable by BioIO readers."""
     if _is_network_path(path):
         return _stage_network_path(path)
     if Path(path).is_file():
@@ -184,6 +190,183 @@ def _ensure_java_truststore() -> None:
         updated = f"{current} {' '.join(additions)}".strip()
         os.environ[env_name] = updated
         _LOGGER.info("Configured %s JVM truststore options for %s.", env_name, platform.system())
+
+
+def _path_extension_candidates(path: str) -> tuple[str, ...]:
+    """Return candidate extensions (longest to shortest) for a path."""
+    name = _path_display_name(path).strip().lower()
+    if "." not in name:
+        return ()
+    parts = [part for part in name.split(".") if part]
+    if len(parts) <= 1:
+        return ()
+    candidates: list[str] = []
+    for index in range(1, len(parts)):
+        candidates.append(f".{'.'.join(parts[index:])}")
+    return tuple(candidates)
+
+
+def _reader_module_priority_for_path(path: str) -> tuple[str, ...]:
+    """Return prioritized BioIO reader module names for a path."""
+    ordered_modules: list[str] = []
+    plugins_by_extension = _plugins_by_extension()
+    for extension in _path_extension_candidates(path):
+        plugin_entries = plugins_by_extension.get(extension, ())
+        for plugin_entry in plugin_entries:
+            module_name = _plugin_entry_module_name(plugin_entry)
+            if module_name:
+                if module_name in _DISALLOWED_DATA_READER_MODULES:
+                    continue
+                ordered_modules.append(module_name)
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for module_name in ordered_modules:
+        if module_name in seen:
+            continue
+        seen.add(module_name)
+        deduped.append(module_name)
+    return tuple(deduped)
+
+
+def _plugins_by_extension() -> dict[str, tuple[object, ...]]:
+    """Return normalized BioIO plugin registry grouped by extension."""
+    try:
+        import bioio
+    except Exception:
+        return {}
+
+    try:
+        plugins = bioio.plugins.get_plugins(use_cache=True)
+    except Exception:
+        return {}
+
+    if not hasattr(plugins, "items"):
+        return {}
+
+    normalized: dict[str, list[object]] = {}
+    for extension_key, entries in plugins.items():
+        extension = _normalize_extension(extension_key)
+        if extension is None:
+            continue
+        if isinstance(entries, (list, tuple)):
+            normalized.setdefault(extension, []).extend(entries)
+            continue
+        normalized.setdefault(extension, []).append(entries)
+    return {key: tuple(value) for key, value in normalized.items()}
+
+
+def _normalize_extension(value: object) -> str | None:
+    """Normalize an extension-like value into lowercase ``.ext`` format."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip().lower()
+    if not text:
+        return None
+    if not text.startswith("."):
+        text = f".{text.lstrip('.')}"
+    return text
+
+
+def _plugin_entry_module_name(plugin_entry: object) -> str | None:
+    """Extract importable module name from a BioIO plugin entry."""
+    entrypoint = getattr(plugin_entry, "entrypoint", None)
+    value = getattr(entrypoint, "value", None)
+    if not isinstance(value, str):
+        return None
+    module_name = value.strip().split(":", 1)[0].strip()
+    if not module_name:
+        return None
+    return module_name
+
+
+def _load_reader_class(module_name: str):
+    """Load ``Reader`` class from a BioIO plugin module."""
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:
+        return None
+    reader_class = getattr(module, "Reader", None)
+    if reader_class is None:
+        return None
+    return reader_class
+
+
+def _reader_identifier(reader_obj: object | None) -> str | None:
+    """Return ``module.Class`` style identifier for reader class/instance."""
+    if reader_obj is None:
+        return None
+    reader_class = reader_obj if isinstance(reader_obj, type) else type(reader_obj)
+    module_name = getattr(reader_class, "__module__", "")
+    class_name = getattr(reader_class, "__name__", "")
+    if not class_name:
+        return None
+    return f"{module_name}.{class_name}" if module_name else class_name
+
+
+def _is_bioformats_reader(reader_obj: object | None) -> bool:
+    """Return True when the reader appears to be BioFormats-based."""
+    identifier = _reader_identifier(reader_obj)
+    if not identifier:
+        return False
+    return "bioformats" in identifier.lower()
+
+
+def _candidate_fast_reader_classes(path: str) -> tuple[object, ...]:
+    """Return importable non-BioFormats reader classes for the given path."""
+    candidates: list[object] = []
+    for module_name in _reader_module_priority_for_path(path):
+        reader_class = _load_reader_class(module_name)
+        if reader_class is None:
+            continue
+        if _is_bioformats_reader(reader_class):
+            continue
+        candidates.append(reader_class)
+    return tuple(candidates)
+
+
+def _bioformats_reader_class_for_path(path: str):
+    """Return BioFormats reader class matched from BioIO plugin registry."""
+    plugins_by_extension = _plugins_by_extension()
+    candidate_modules: list[str] = []
+    for extension in _path_extension_candidates(path):
+        for plugin_entry in plugins_by_extension.get(extension, ()):
+            module_name = _plugin_entry_module_name(plugin_entry)
+            if not module_name:
+                continue
+            candidate_modules.append(module_name)
+    if not candidate_modules:
+        for plugin_entries in plugins_by_extension.values():
+            for plugin_entry in plugin_entries:
+                module_name = _plugin_entry_module_name(plugin_entry)
+                if module_name:
+                    candidate_modules.append(module_name)
+
+    seen: set[str] = set()
+    for module_name in candidate_modules:
+        if module_name in seen:
+            continue
+        seen.add(module_name)
+        reader_class = _load_reader_class(module_name)
+        if reader_class is None:
+            continue
+        if _is_bioformats_reader(reader_class):
+            return reader_class
+    return None
+
+
+def _open_bioimage_with_reader(path: str, reader, *, dask_tiles: bool = True):
+    """Open a BioImage with an explicit reader and optional dask tiling."""
+    import bioio
+
+    kwargs = {}
+    if dask_tiles and _is_bioformats_reader(reader):
+        kwargs["dask_tiles"] = True
+    return bioio.BioImage(path, reader=reader, **kwargs)
+
+
+def _bioimage_reader_identity(image) -> str | None:
+    """Return reader identity for an open BioImage-like object."""
+    return _reader_identifier(getattr(image, "reader", None))
 
 
 def get_reader(path: str | list[str]) -> Callable | None:
@@ -314,11 +497,21 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
             exc_info=exc,
         )
         raise
+    metadata_image = _open_metadata_bioimage(reader_path, fallback_image=image)
     try:
         layers: list[tuple] = []
+        data_reader_name = _bioimage_reader_identity(image)
+        metadata_reader_name = _bioimage_reader_identity(metadata_image)
+        if metadata_image is not image:
+            _LOGGER.info(
+                "Using data reader %s with metadata reader %s for %s",
+                data_reader_name or "<unknown>",
+                metadata_reader_name or "<unknown>",
+                path,
+            )
         colormap_cycle = _colormap_cycle()
         # Try to get channel colors from OME metadata
-        channel_colors = _get_channel_colors_from_ome(image)
+        channel_colors = _get_channel_colors_from_ome(metadata_image)
         # If all channel colors are the same (e.g., all white), fall back to cycle
         if channel_colors and _all_channels_same_color(channel_colors):
             channel_colors = None
@@ -330,6 +523,28 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
         for scene_idx in selected_scene_indices:
             scene_id = scenes[scene_idx]
             image.set_scene(scene_id)
+            scene_metadata_image = metadata_image
+            if scene_metadata_image is not image:
+                metadata_scene_id = _set_scene_with_index_fallback(
+                    scene_metadata_image,
+                    scene_id=scene_id,
+                    scene_idx=scene_idx,
+                )
+                if metadata_scene_id is None:
+                    _LOGGER.warning(
+                        "Metadata reader failed to set scene %s for %s; falling back to data reader metadata.",
+                        scene_id,
+                        path,
+                    )
+                    scene_metadata_image = image
+                elif metadata_scene_id != scene_id:
+                    _LOGGER.debug(
+                        "Metadata reader scene-id mismatch for %s: requested %s, using %s at index %d.",
+                        path,
+                        scene_id,
+                        metadata_scene_id,
+                        scene_idx,
+                    )
             layers.extend(
                 _iter_channel_layers(
                     image,
@@ -340,6 +555,12 @@ def _read_senoquant(path: str) -> Iterable[tuple]:
                     path=path,
                     colormap_cycle=colormap_cycle,
                     channel_colors=channel_colors,
+                    metadata_image=scene_metadata_image,
+                    data_reader_name=data_reader_name,
+                    metadata_reader_name=(
+                        _bioimage_reader_identity(scene_metadata_image)
+                        or metadata_reader_name
+                    ),
                 )
             )
 
@@ -360,6 +581,38 @@ def _select_scene_indices(path: str, scenes: list[str]) -> list[int]:
     if selected is None:
         return []
     return selected
+
+
+def _set_scene_with_index_fallback(
+    image,
+    *,
+    scene_id: str,
+    scene_idx: int,
+) -> str | None:
+    """Set scene by id, then fall back to index-matched scene id."""
+    try:
+        image.set_scene(scene_id)
+        return scene_id
+    except Exception as id_exc:
+        scenes = list(getattr(image, "scenes", []) or [])
+        if 0 <= scene_idx < len(scenes):
+            index_scene_id = scenes[scene_idx]
+            try:
+                image.set_scene(index_scene_id)
+                return str(index_scene_id)
+            except Exception as index_exc:
+                _LOGGER.debug(
+                    "Failed metadata scene index fallback for scene %s at index %d.",
+                    scene_id,
+                    scene_idx,
+                    exc_info=index_exc,
+                )
+        _LOGGER.debug(
+            "Failed to set metadata scene %s directly.",
+            scene_id,
+            exc_info=id_exc,
+        )
+        return None
 
 
 def _prompt_scene_selection(path: str, scenes: list[str]) -> list[int] | None:
@@ -522,7 +775,7 @@ def _checked_scene_indices(scene_list) -> list[int]:
 
 
 def _open_bioimage(path: str):
-    """Open a BioImage using bioio with bioformats reader.
+    """Open a BioImage, preferring fast non-BioFormats readers for data.
 
     Parameters
     ----------
@@ -532,24 +785,87 @@ def _open_bioimage(path: str):
     Returns
     -------
     bioio.BioImage
-        BioIO image instance for the requested file.
+        BioIO image instance for pixel loading.
     """
     _ensure_java_truststore()
     import bioio
 
-    try:
-        import bioio_bioformats
+    detected_plugin = None
+    if hasattr(bioio.BioImage, "determine_plugin"):
+        try:
+            detected_plugin = bioio.BioImage.determine_plugin(path)
+        except Exception as exc:
+            _LOGGER.debug(
+                "Failed to determine preferred BioIO plugin for %s",
+                path,
+                exc_info=exc,
+            )
 
-        # Use dask_tiles=True to enable tile-based reading for large images.
-        # This avoids the 2GB limit in BioFormats.
-        return bioio.BioImage(
+    if detected_plugin is not None and not _is_bioformats_reader(detected_plugin):
+        try:
+            return _open_bioimage_with_reader(path, detected_plugin, dask_tiles=True)
+        except Exception as exc:
+            _LOGGER.debug(
+                "Detected non-BioFormats reader %s failed for %s",
+                _reader_identifier(detected_plugin) or "<unknown>",
+                path,
+                exc_info=exc,
+            )
+
+    detected_identifier = _reader_identifier(detected_plugin)
+    for reader_class in _candidate_fast_reader_classes(path):
+        if _reader_identifier(reader_class) == detected_identifier:
+            continue
+        try:
+            image = _open_bioimage_with_reader(path, reader_class, dask_tiles=True)
+            _LOGGER.info(
+                "Opened %s with fast BioIO reader %s",
+                path,
+                _reader_identifier(reader_class) or "<unknown>",
+            )
+            return image
+        except Exception as exc:
+            _LOGGER.debug(
+                "Fast BioIO reader %s failed for %s",
+                _reader_identifier(reader_class) or "<unknown>",
+                path,
+                exc_info=exc,
+            )
+
+    if detected_plugin is not None:
+        try:
+            return _open_bioimage_with_reader(path, detected_plugin, dask_tiles=True)
+        except Exception as exc:
+            _LOGGER.warning(
+                "Detected BioIO reader %s failed for %s; trying default auto reader.",
+                _reader_identifier(detected_plugin) or "<unknown>",
+                path,
+                exc_info=exc,
+            )
+
+    return bioio.BioImage(path)
+
+
+def _open_metadata_bioimage(path: str, *, fallback_image):
+    """Open metadata-focused BioImage, preferring BioFormats when available."""
+    bioformats_reader = _bioformats_reader_class_for_path(path)
+    if bioformats_reader is None:
+        return fallback_image
+    if _is_bioformats_reader(getattr(fallback_image, "reader", None)):
+        return fallback_image
+    try:
+        return _open_bioimage_with_reader(
             path,
-            reader=bioio_bioformats.Reader,
-            dask_tiles=True,
+            bioformats_reader,
+            dask_tiles=False,
         )
-    except ImportError:
-        # Fallback to auto-detection if bioio-bioformats is not available
-        return bioio.BioImage(path)
+    except Exception as exc:
+        _LOGGER.info(
+            "BioFormats metadata open failed for %s; using data reader metadata fallback.",
+            path,
+            exc_info=exc,
+        )
+        return fallback_image
 
 
 def _colormap_cycle() -> Iterable[str]:
@@ -726,6 +1042,9 @@ def _iter_channel_layers(
     path: str,
     colormap_cycle: Iterable[str] | None = None,
     channel_colors: list[dict | None] | None = None,
+    metadata_image=None,
+    data_reader_name: str | None = None,
+    metadata_reader_name: str | None = None,
 ) -> list[tuple]:
     """Split BioIO data into single-channel (Z)YX napari layers.
 
@@ -750,12 +1069,20 @@ def _iter_channel_layers(
         Iterator that provides colormap names to assign to each layer.
     channel_colors : list of dict or None, optional
         List of colormap dictionaries from OME metadata for each channel.
+    metadata_image : bioio.BioImage, optional
+        BioImage used as metadata source. Falls back to ``image`` when omitted.
+    data_reader_name : str or None, optional
+        Reader identifier used for pixel loading.
+    metadata_reader_name : str or None, optional
+        Reader identifier used for metadata extraction.
 
     Returns
     -------
     list of tuple
         napari layer tuples for each channel.
     """
+    metadata_source = metadata_image if metadata_image is not None else image
+    metadata_reader_name = metadata_reader_name or data_reader_name
     dims = getattr(image, "dims", None)
     axes_present = _axes_present(image)
     t_size = getattr(dims, "T", 1) if "T" in axes_present else 1
@@ -805,16 +1132,18 @@ def _iter_channel_layers(
         if c_size > 1:
             layer_name = f"{layer_name} - Channel {channel_index}"
 
-        physical_sizes = _physical_pixel_sizes(image)
+        physical_sizes = _physical_pixel_sizes(metadata_source)
         meta = {
             "name": layer_name,
             "blending": "additive",
             "metadata": {
-                "bioio_metadata": image.metadata,
+                "bioio_metadata": getattr(metadata_source, "metadata", None),
                 "scene_info": scene_meta,
                 "path": path,
                 "channel_index": channel_index,
                 "physical_pixel_sizes": physical_sizes,
+                "data_reader": data_reader_name,
+                "metadata_reader": metadata_reader_name,
             },
         }
         # Use OME channel color if available, otherwise fall back to cycle
