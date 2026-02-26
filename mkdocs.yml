@@ -26,6 +26,11 @@ plugins:
           options:
             show_source: false
             heading_level: 3
+            docstring_style: numpy
+            docstring_section_style: table
+            members_order: source
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
 
 markdown_extensions:
   - admonition
@@ -33,6 +38,9 @@ markdown_extensions:
   - pymdownx.superfences
   - toc:
       permalink: true
+
+extra_css:
+  - assets/stylesheets/api-reference.css
 
 nav:
   - Home: index.md
