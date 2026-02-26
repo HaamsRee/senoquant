@@ -193,11 +193,12 @@ fi
 rm -f "${PKG_PATH}" "${COMPONENT_PKG}" "${COMPONENT_PLIST}" "${DIST_DISTRIBUTION}"
 rm -rf "${STAGING_DIR}"
 
-# Prepare staging root with Applications/SenoQuant.app
-mkdir -p "${STAGING_DIR}/Applications"
-cp -R "${APP_DIR}" "${STAGING_DIR}/Applications/" 2>/dev/null || \
-ditto "${APP_DIR}" "${STAGING_DIR}/Applications/SenoQuant.app"
-if [ ! -d "${STAGING_DIR}/Applications/SenoQuant.app" ]; then
+# Prepare staging root with SenoQuant.app.
+# Combined with --install-location "/Applications", this installs to
+# ~/Applications/SenoQuant.app in CurrentUserHomeDirectory mode.
+cp -R "${APP_DIR}" "${STAGING_DIR}/" 2>/dev/null || \
+ditto "${APP_DIR}" "${STAGING_DIR}/SenoQuant.app"
+if [ ! -d "${STAGING_DIR}/SenoQuant.app" ]; then
     echo "[SenoQuant] ERROR: App bundle missing from staging. Aborting."
     exit 1
 fi
