@@ -6,7 +6,7 @@ This guide walks through the basic workflow for analyzing senescence markers in 
 
 - napari installed with SenoQuant.
 - System meets the [installation requirements](installation.md#system-requirements).
-- Multi-channel microscopy image (supported formats: `.tif`, `.czi`, `.lif`, `.nd2`, etc.).
+- Multi-channel microscopy image (supported formats: `.tif`, `.czi`, `.lif`, `.nd2`, `.zarr`, etc.).
 - Channels containing: Nuclei, IF markers, and/or spots.
 
 ## Basic workflow
@@ -186,7 +186,7 @@ In the SenoQuant dock widget, select **Batch**.
 ### 2. Configure inputs
 
 1. **Input folder** → Choose the directory containing images.
-2. **Extensions** → List the file types to include (e.g., `.tif, .nd2, .czi`).
+2. **Extensions** → List the file types to include (e.g., `.tif, .nd2, .czi, .zarr`).
 3. (Optional) **Include subfolders** → Enable if your data are nested.
 4. (Optional) **Process all scenes** → Enable for multi-scene files.
 

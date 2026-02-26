@@ -11,7 +11,7 @@ across diverse tissue contexts.
 
 ## Features
 
-- Read microscopy formats via BioIO, including OME-TIFF, ND2, LIF, CZI, and more.
+- Read microscopy formats via BioIO, including OME-TIFF, OME-ZARR, ND2, LIF, CZI, and more.
 - Segment nuclei and cytoplasm with built-in models, including StarDist, Cellpose SAM, and morphological operations.
 - Detect punctate spots with built-in detectors.
 - Run prediction models for senescence-associated feature maps in a dedicated Prediction tab (includes `demo_model` placeholder).
