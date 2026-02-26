@@ -2,6 +2,8 @@
 
 This guide walks through the basic workflow for analyzing senescence markers in tissue images using SenoQuant.
 
+> **Tip:** There is a help icon in the top-right corner that opens the current tab's User Guide page.
+
 ## Prerequisites
 
 - napari installed with SenoQuant.
