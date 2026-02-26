@@ -44,6 +44,36 @@ def test_pad_tensor_for_rotation_grows_canvas() -> None:
     assert pad_y >= 0 and pad_x >= 0
 
 
+def test_pad_xy_to_chunk_multiple_pads_2d_and_restores_with_crop() -> None:
+    """Pad 2D image to chunk multiples and allow exact crop-back."""
+    data = np.arange(35, dtype=np.float32).reshape(5, 7)
+
+    padded, crop_slices = rmp._pad_xy_to_chunk_multiple(
+        data,
+        chunk_size=(4, 4),
+    )
+
+    assert padded.shape == (8, 8)
+    restored = padded[crop_slices]
+    assert restored.shape == data.shape
+    assert np.array_equal(restored, data)
+
+
+def test_pad_xy_to_chunk_multiple_pads_3d_xy_only() -> None:
+    """Pad 3D stack along trailing Y/X axes only."""
+    data = np.arange(3 * 5 * 7, dtype=np.float32).reshape(3, 5, 7)
+
+    padded, crop_slices = rmp._pad_xy_to_chunk_multiple(
+        data,
+        chunk_size=(4, 4),
+    )
+
+    assert padded.shape == (3, 8, 8)
+    restored = padded[crop_slices]
+    assert restored.shape == data.shape
+    assert np.array_equal(restored, data)
+
+
 def test_markers_from_local_maxima_empty() -> None:
     """Return empty markers when no local maxima cross threshold."""
     enhanced = np.zeros((4, 4), dtype=np.float32)
@@ -236,3 +266,67 @@ def test_rmp_detector_denoises_input_and_top_hat(
     assert np.allclose(captured_top_hat["value"], expected_postprocess_input)
     expected_reference = calls[0][0] + 10.0
     assert np.allclose(captured_reference["value"], expected_reference)
+
+
+def test_rmp_detector_pads_tiled_input_then_crops_before_postprocess(
+    monkeypatch,
+) -> None:
+    """Pad tiled input to chunk multiples and crop top-hat back to original shape."""
+    image = np.zeros((17, 19), dtype=np.float32)
+    captured_shapes: dict[str, tuple[int, ...]] = {}
+
+    monkeypatch.setattr(rmp, "layer_data_asarray", lambda layer: np.asarray(layer.data))
+    monkeypatch.setattr(
+        rmp,
+        "_normalize_image",
+        lambda array: np.asarray(array, dtype=np.float32),
+    )
+    monkeypatch.setattr(
+        rmp,
+        "wavelet_denoise_input",
+        lambda array, *, enabled, sigma=None: np.asarray(array, dtype=np.float32),
+    )
+    monkeypatch.setattr(rmp, "_dask_available", lambda: True)
+    monkeypatch.setattr(rmp, "_distributed_available", lambda: False)
+
+    def fake_compute_top_hat_nd(
+        array: np.ndarray,
+        config,
+        *,
+        use_tiled: bool,
+        use_distributed: bool,
+    ) -> np.ndarray:
+        _ = config
+        captured_shapes["top_hat_input"] = tuple(array.shape)
+        assert use_tiled is True
+        assert use_distributed is False
+        return np.ones_like(array, dtype=np.float32)
+
+    monkeypatch.setattr(rmp, "_compute_top_hat_nd", fake_compute_top_hat_nd)
+
+    def fake_postprocess(
+        top_hat: np.ndarray,
+        config,
+        *,
+        reference_image: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        _ = config
+        assert reference_image is not None
+        captured_shapes["top_hat_for_postprocess"] = tuple(top_hat.shape)
+        captured_shapes["reference_image"] = tuple(np.asarray(reference_image).shape)
+        labels = np.zeros_like(reference_image, dtype=np.int32)
+        return labels, np.asarray(top_hat, dtype=np.float32)
+
+    monkeypatch.setattr(rmp, "_postprocess_top_hat", fake_postprocess)
+
+    detector = rmp.RMPDetector()
+    result = detector.run(layer=DummyLayer(image), settings={})
+
+    expected_padded_shape = (
+        rmp.RMP_TILE_CHUNK_SIZE[0],
+        rmp.RMP_TILE_CHUNK_SIZE[1],
+    )
+    assert captured_shapes["top_hat_input"] == expected_padded_shape
+    assert captured_shapes["top_hat_for_postprocess"] == image.shape
+    assert captured_shapes["reference_image"] == image.shape
+    assert result["mask"].shape == image.shape
