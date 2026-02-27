@@ -16,7 +16,9 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
-from skimage.measure import regionprops_table
+from senoquant.tabs.quantification.features.morph_parallel import (
+    regionprops_table_for_labels,
+)
 
 # Float-valued morphological properties to extract from regionprops.
 # Note: Array-valued properties (moments, etc.) are excluded.
@@ -204,19 +206,25 @@ def extract_morphology(
     version. Missing properties are silently skipped.
 
     """
+    use_parallel = labels.ndim == NDIM_2D
+
     # For 3D, some properties are not available. Try with all properties first,
     # and fall back to basic properties if it fails.
     try:
-        props = regionprops_table(
+        props = regionprops_table_for_labels(
             labels,
-            properties=MORPHOLOGY_PROPERTIES,
+            label_ids,
+            MORPHOLOGY_PROPERTIES,
+            use_parallel=use_parallel,
         )
     except (ValueError, RuntimeError):
         # Fall back to basic properties for 3D
         try:
-            props = regionprops_table(
+            props = regionprops_table_for_labels(
                 labels,
-                properties=("area",),
+                label_ids,
+                ("area",),
+                use_parallel=use_parallel,
             )
         except (ValueError, RuntimeError) as exc:
             warnings.warn(
@@ -282,4 +290,3 @@ def add_morphology_columns(
             row[col_name] = float(value) if not np.isnan(value) else value
 
     return column_names
-
