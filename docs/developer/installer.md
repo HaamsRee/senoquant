@@ -111,14 +111,15 @@ The app bundle at `~/Applications/SenoQuant.app` remains read-only after install
 
 Install location:
 
-- `$HOME` (expands to `~/Applications/`).
+- Component payload path: `/Applications`.
+- Product install domain: `CurrentUserHomeDirectory` (so app installs to `~/Applications`).
 
 Component plist settings:
 
 - `BundleIsRelocatable: false`, which prevents macOS from moving the app.
 - `BundleOverwriteAction: upgrade`, which allows reinstallation.
 
-The build uses a staging directory (`pkg_staging/Applications/`) so `pkgbuild` only packages intended files.
+The build uses a staging directory (`pkg_staging/`) with `SenoQuant.app` at the payload root so `pkgbuild --install-location /Applications` produces `~/Applications/SenoQuant.app`.
 
 ### Architecture support
 

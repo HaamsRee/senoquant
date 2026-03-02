@@ -8,6 +8,7 @@ batch backend in a background thread.
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 from qtpy.QtCore import QObject, QThread, Signal
 from qtpy.QtWidgets import (
@@ -147,8 +148,7 @@ class BatchTab(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setWidget(content)
         self._scroll_area = scroll
-        self._apply_scroll_height()
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         self._run_button = QPushButton("Run batch")
         self._run_button.clicked.connect(self._run_batch)
@@ -159,9 +159,10 @@ class BatchTab(QWidget):
         layout.addWidget(self._progress_bar)
 
         self._status_label = QLabel("Ready")
-        self._status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        if hasattr(self._status_label, "setWordWrap"):
+            self._status_label.setWordWrap(True)
+        self._status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         layout.addWidget(self._status_label)
-        layout.addStretch(1)
         self.setLayout(layout)
 
         self._refresh_segmentation_models()
@@ -170,16 +171,6 @@ class BatchTab(QWidget):
         self._refresh_channel_choices()
         self._refresh_spot_channel_choices()
         self._update_processing_state()
-
-    def showEvent(self, event) -> None:
-        """Re-apply scroll sizing when the widget is shown."""
-        super().showEvent(event)
-        self._apply_scroll_height()
-
-    def resizeEvent(self, event) -> None:
-        """Re-apply scroll sizing when the widget is resized."""
-        super().resizeEvent(event)
-        self._apply_scroll_height()
 
     def _make_input_section(self) -> QGroupBox:
         """Build the input configuration section."""
@@ -207,6 +198,7 @@ class BatchTab(QWidget):
 
         self._include_subfolders = QCheckBox("Include subfolders")
         self._process_scenes = QCheckBox("Process all scenes")
+        self._process_scenes.setChecked(True)
 
         form_layout.addRow("Input folder", input_widget)
         form_layout.addRow("Extensions", self._extensions)
@@ -216,16 +208,6 @@ class BatchTab(QWidget):
         section_layout.addLayout(form_layout)
         section.setLayout(section_layout)
         return section
-
-    def _apply_scroll_height(self) -> None:
-        """Pin scroll area height to 75% of the parent widget."""
-        parent = self.parentWidget()
-        if parent is None:
-            return
-        height = int(parent.height() * 0.75)
-        if hasattr(self, "_scroll_area") and self._scroll_area is not None:
-            self._scroll_area.setMinimumHeight(height)
-            self._scroll_area.setMaximumHeight(height)
 
     def _make_channel_section(self) -> QGroupBox:
         """Build the channel mapping section."""
@@ -494,8 +476,7 @@ class BatchTab(QWidget):
     def _remove_spot_channel_row(self, row: dict) -> None:
         """Remove a spot-channel row from the UI."""
         widget = row.get("widget")
-        if widget is not None and hasattr(widget, "setParent"):
-            widget.setParent(None)
+        self._dispose_dynamic_widget(widget, self._spot_channels_layout)
         if row in self._spot_channel_rows:
             self._spot_channel_rows.remove(row)
         self._refresh_spot_channel_choices()
@@ -570,10 +551,12 @@ class BatchTab(QWidget):
     def _remove_channel_row(self, row: dict) -> None:
         """Remove a channel mapping row."""
         widget = row.get("widget")
-        if widget is not None and hasattr(widget, "setParent"):
-            widget.setParent(None)
+        self._dispose_dynamic_widget(widget, self._channels_layout)
         if row in self._channel_rows:
             self._channel_rows.remove(row)
+        if not self._channel_rows:
+            self._add_channel_row()
+            return
         self._sync_channel_map()
 
     def _sync_channel_map(self) -> None:
@@ -1131,6 +1114,8 @@ class BatchTab(QWidget):
         self._clear_channel_rows()
         for config in job.channel_map:
             self._add_channel_row(config)
+        if not self._channel_rows:
+            self._add_channel_row()
 
         self._nuclear_enabled.setChecked(job.nuclear.enabled)
         self._set_combo_value(self._nuclear_model_combo, job.nuclear.model)
@@ -1188,8 +1173,7 @@ class BatchTab(QWidget):
         """Remove all channel rows from the UI."""
         for row in list(self._channel_rows):
             widget = row.get("widget")
-            if widget is not None and hasattr(widget, "setParent"):
-                widget.setParent(None)
+            self._dispose_dynamic_widget(widget, self._channels_layout)
         self._channel_rows = []
         self._channel_configs = []
 
@@ -1197,9 +1181,29 @@ class BatchTab(QWidget):
         """Remove all spot channel rows from the UI."""
         for row in list(self._spot_channel_rows):
             widget = row.get("widget")
-            if widget is not None and hasattr(widget, "setParent"):
-                widget.setParent(None)
+            self._dispose_dynamic_widget(widget, self._spot_channels_layout)
         self._spot_channel_rows = []
+
+    @staticmethod
+    def _dispose_dynamic_widget(widget, layout) -> None:
+        """Detach and schedule deletion for a dynamic child widget."""
+        if widget is None:
+            return
+        if layout is not None and hasattr(layout, "removeWidget"):
+            try:
+                layout.removeWidget(widget)
+            except RuntimeError:
+                pass
+        if hasattr(widget, "setParent"):
+            try:
+                widget.setParent(None)
+            except RuntimeError:
+                pass
+        if hasattr(widget, "deleteLater"):
+            try:
+                widget.deleteLater()
+            except RuntimeError:
+                pass
 
     @staticmethod
     def _set_combo_value(combo: QComboBox, value: str) -> None:
@@ -1225,9 +1229,11 @@ class BatchTab(QWidget):
         self._progress_bar.setVisible(True)
         self._progress_bar.setValue(0)
 
-        thread = QThread()
+        thread = QThread(self)
         worker.moveToThread(thread)
         worker.progress.connect(self._update_progress)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(worker.deleteLater)
         worker.finished.connect(lambda result: on_success(result))
         worker.finished.connect(
             lambda: self._finish_background_run(run_button, run_text, thread, worker)
@@ -1239,8 +1245,8 @@ class BatchTab(QWidget):
             lambda: self._finish_background_run(run_button, run_text, thread, worker)
         )
         thread.started.connect(worker.run)
-        thread.start()
         self._active_workers.append((thread, worker))
+        thread.start()
 
     def _finish_background_run(
         self,
@@ -1256,7 +1262,8 @@ class BatchTab(QWidget):
         self._progress_bar.setVisible(False)
         self._progress_bar.setValue(0)
         thread.quit()
-        thread.wait()
+        if hasattr(thread, "wait"):
+            thread.wait()
         try:
             self._active_workers.remove((thread, worker))
         except ValueError:
@@ -1287,6 +1294,12 @@ class BatchTab(QWidget):
             show_console_notification(
                 Notification(message, severity=NotificationSeverity.WARNING)
             )
+            # Some launch contexts buffer stdout until process exit.
+            # Flush explicitly so notifications appear immediately.
+            try:
+                sys.stdout.flush()
+            except Exception:  # pragma: no cover - best-effort flush
+                pass
         self._status_label.setText(message)
 
 

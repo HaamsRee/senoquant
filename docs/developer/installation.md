@@ -47,6 +47,15 @@ pip install senoquant
 
 > **Warning (Windows):** Installing via `pip`/`uv` may not pull a GPU-enabled PyTorch build on Windows. If you need GPU acceleration, use the [Windows installer](../user/installation.md#windows) instead. Or, troubleshoot PyTorch installation manually by following the [official PyTorch instructions](https://pytorch.org/get-started/locally/).
 
+### BioFormats (Java) setup
+
+SenoQuant uses format-specific BioIO readers (for example `bioio-czi`, `bioio-ome-tiff`, and `bioio-ome-zarr`) for fast data loading and uses BioFormats via `bioio-bioformats` for metadata extraction when available. BioFormats requires Java, which is automatically installed as a dependency of SenoQuant.
+
+If you get a `JVMNotFoundException` when reading images, set `JAVA_HOME` manually:
+
+- **macOS/Linux:** `export JAVA_HOME=$CONDA_PREFIX`
+- **Windows:** `set JAVA_HOME=%CONDA_PREFIX%\Library`
+
 ### Optional dependencies
 
 - `uv pip install senoquant[all]` for full stack.

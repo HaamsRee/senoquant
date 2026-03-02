@@ -15,6 +15,7 @@ Key responsibilities:
 - `frontend.py`:
   - Builds the Qt UI (`VisualizationTab`).
   - Collects marker selections and thresholds.
+  - Validates selected-marker thresholds before processing and save reruns.
   - Runs preview generation and save actions.
 - `backend.py`:
   - Orchestrates plot handler execution.
@@ -47,8 +48,8 @@ Plot runtime state is stored in `PlotConfig`:
 
 Single run flow:
 
-1. `VisualizationTab._process_plots()` gathers selected markers and thresholds.
-2. It calls `VisualizationBackend.process(..., save=False, cleanup=False)`.
+1. `VisualizationTab._process_plots()` validates selected-marker thresholds, then gathers markers/thresholds.
+2. It calls `VisualizationBackend.process(..., save=False, cleanup=False)` if validation passes.
 3. Backend calls each handler's `plot(temp_dir, input_path, export_format, markers, thresholds)`.
 4. Returned paths are stored in `VisualizationResult.plot_outputs`.
 5. Frontend renders preview files from those output paths.
@@ -58,6 +59,14 @@ Save flow:
 1. `VisualizationTab._save_plots()` calls `VisualizationBackend.save_result(...)`.
 2. Backend routes/copies files to the chosen output directory.
 3. Output paths in `PlotExportResult.outputs` are updated to final destinations.
+4. If no routed files exist and save triggers a rerun, threshold validation is applied before rerunning.
+
+## Current built-in handlers
+
+- `Spatial Plot` (`spatialplot.py`): categorical marker assignment using thresholded first-match precedence.
+- `UMAP` (`umap.py`): UMAP embedding from marker intensity features (threshold clipping supported).
+- `Double Expression` (`double_expression.py`): two-marker overlap map with threshold gating.
+- `Neighborhood Enrichment` (`neighborhood.py`): k-NN graph-based enrichment heatmap with permutation z-scores.
 
 ## Plot handler contract
 
@@ -79,6 +88,11 @@ Behavior notes:
 
 - Handlers may return explicit output paths, or return `[]` and write files into `temp_dir`.
 - Backend will fallback to routing all files in `temp_dir` when explicit paths are not returned.
+
+Threshold contract (frontend):
+
+- Selected markers must have parseable numeric threshold text before Process is allowed.
+- Thresholds can be auto-populated from a JSON file in the input folder, but this is best-effort key matching.
 
 ## Adding a new visualization plot
 
@@ -130,6 +144,9 @@ Dependency loading is currently mixed:
   inside `plot()`.
 - `UMAPPlot` imports `pandas`, `matplotlib`, and `umap-learn` at module load
   time (`src/senoquant/tabs/visualization/plots/umap.py`).
+- `NeighborhoodEnrichmentPlot` imports `numpy`, `pandas`, `matplotlib`, and
+  `scipy` (`cKDTree`) at module load time
+  (`src/senoquant/tabs/visualization/plots/neighborhood.py`).
 
 When adding new dependencies:
 

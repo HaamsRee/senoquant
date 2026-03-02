@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
-from qtpy.QtWidgets import QLabel
+
 
 if TYPE_CHECKING:
     from ..frontend import VisualizationTab, PlotUIContext
@@ -190,7 +190,7 @@ class NeighborhoodEnrichmentPlot(SenoQuantPlot):
 
     def build(self) -> None:
         """Build the configuration UI for this plot."""
-        layout = self.context.left_dynamic_layout
+        pass
 
 
     def on_plots_changed(self, plots: list[PlotUIContext]) -> None:
@@ -294,9 +294,10 @@ class NeighborhoodEnrichmentPlot(SenoQuantPlot):
         # Generate Plot
         output_filename = f"neighborhood_enrichment.{export_format}"
         output_path = temp_dir / output_filename
-        
+
+        fig, ax = plt.subplots(figsize=(6, 6))
+
         try:
-            fig, ax = plt.subplots(figsize=(6, 6))
             image = ax.imshow(zscores, cmap="bwr", aspect="equal")
             ax.set_xticks(range(len(class_names)))
             ax.set_xticklabels(class_names, rotation=45, ha="right")
@@ -319,6 +320,8 @@ class NeighborhoodEnrichmentPlot(SenoQuantPlot):
             plt.close(fig)
         except Exception as e:
             print(f"[NeighborhoodPlot] Error plotting: {e}")
+            # Close figure still
+            plt.close(fig)
             return []
 
         return [output_path]

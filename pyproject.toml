@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "senoquant"
-version = "1.0.0b5"
+version = "1.0.0b9"
 description = "napari plugin for spatial quantification of senescence markers in tissue imaging"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -41,16 +41,17 @@ classifiers = [
 dependencies = [
   # "napari",
   "bioio>=3.2.0",
+  "bioio-bioformats>=1.3.0",
   "bioio-czi>=2.4.2",
   "bioio-dv>=1.2.0",
   "bioio-imageio>=1.3.0",
   "bioio-lif>=1.4.0",
   "bioio-nd2>=1.6.0",
   "bioio-ome-tiff>=1.4.0",
-  "bioio-ome-zarr>=3.2.0",
+  "bioio-ome-zarr>=3.2.1",
   "bioio-sldy>=1.4.0",
   "bioio-tifffile>=1.3.0",
-  "bioio-tiff-glob>=1.2.0",
+  "scyjava>=1.12.0",
   "numpy>=1.23,<=1.26.4",
   "pandas>=2.0",
   "cellpose==4.0.8",
@@ -65,10 +66,15 @@ dependencies = [
   "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
+  "fsspec>=2024.4",
+  "smbprotocol>=1.13",
   "matplotlib>=3.8",
   "umap-learn>=0.5",
   "jsonschema>=3.2",
   "zarr>=3",
+  "globus-cli>=3.1.4",
+  # Provides the `sennet-clt` executable used by SenNet Portal downloads.
+  "atlas-consortia-clt>=1.0.4",
 ]
 
 [project.urls]
@@ -84,16 +90,17 @@ senoquant = "senoquant:napari.yaml"
 all = [
   "napari[all]",
   "bioio>=3.2.0",
+  "bioio-bioformats>=1.3.0",
   "bioio-czi>=2.4.2",
   "bioio-dv>=1.2.0",
   "bioio-imageio>=1.3.0",
   "bioio-lif>=1.4.0",
   "bioio-nd2>=1.6.0",
   "bioio-ome-tiff>=1.4.0",
-  "bioio-ome-zarr>=3.2.0",
+  "bioio-ome-zarr>=3.2.1",
   "bioio-sldy>=1.4.0",
   "bioio-tifffile>=1.3.0",
-  "bioio-tiff-glob>=1.2.0",
+  "scyjava>=1.12.0",
   "numpy>=1.23,<=1.26.4",
   "pandas>=2.0",
   "cellpose==4.0.8",
@@ -108,10 +115,15 @@ all = [
   "senoquant-stardist-ext>=0.1.1",
   "dask[array]>=2024.4",
   "dask[distributed]>=2024.4",
+  "fsspec>=2024.4",
+  "smbprotocol>=1.13",
   "matplotlib>=3.8",
   "umap-learn>=0.5",
   "jsonschema>=3.2",
   "zarr>=3",
+  "globus-cli>=3.1.4",
+  # Provides the `sennet-clt` executable used by SenNet Portal downloads.
+  "atlas-consortia-clt>=1.0.4",
 ]
 
 [tool.setuptools.package-data]
@@ -133,6 +145,3 @@ namespaces = false
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.pyc", "__pycache__/*", ".DS_Store"]
-
-
-

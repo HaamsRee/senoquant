@@ -83,8 +83,12 @@ if (!(Test-Path $envDir)) {
     Invoke-Checked "Creating environment: $envDir" { & $micromambaExe create -y -p $envDir python=3.11 pip }
 }
 Invoke-Checked "Upgrading pip" { & $micromambaExe run -p $envDir python -m pip install --upgrade pip }
+
 Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install uv }
 Invoke-Checked "Installing pip-system-certs" { & $micromambaExe run -p $envDir uv pip install pip-system-certs }
+
+# Install scyjava for BioFormats Java dependency
+Invoke-Checked "Installing scyjava (BioFormats dependency)" { & $micromambaExe run -p $envDir uv pip install scyjava }
 
 Invoke-Checked "Installing napari" { & $micromambaExe run -p $envDir uv pip install "napari[all]" }
 

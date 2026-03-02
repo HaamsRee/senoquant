@@ -39,7 +39,7 @@ The installer is created at:
 
 1. **Download and open the PKG file** - `SenoQuant-Installer.pkg`
 2. **Follow the installer prompts**
-   - The app is installed into `/Applications`
+   - The app is installed into `~/Applications`
 3. **Open SenoQuant**
    - Find it in Applications folder or Spotlight
    - Double-click to launch

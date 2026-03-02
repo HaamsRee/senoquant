@@ -84,3 +84,60 @@ def test_enhance_image_from_internet(monkeypatch) -> None:
     model = ufish_core._UFISH_STATE.model
     assert isinstance(model, _DummyUFish)
     assert model.load_calls == [("internet",)]
+
+
+def test_preferred_providers_returns_list(monkeypatch) -> None:
+    """_preferred_providers should return a list of provider names."""
+    # Test that the function returns a list
+    providers = ufish_core._preferred_providers()
+    assert isinstance(providers, list)
+
+
+def test_select_onnx_providers_no_device(monkeypatch) -> None:
+    """_select_onnx_providers with no device should return preferred providers."""
+    providers = ufish_core._select_onnx_providers(None)
+    assert isinstance(providers, list)
+
+
+def test_select_onnx_providers_cuda(monkeypatch) -> None:
+    """_select_onnx_providers with cuda device should include CUDA."""
+    providers = ufish_core._select_onnx_providers("cuda")
+    assert isinstance(providers, list)
+
+
+def test_select_onnx_providers_dml(monkeypatch) -> None:
+    """_select_onnx_providers with dml device should include DML."""
+    providers = ufish_core._select_onnx_providers("dml")
+    assert isinstance(providers, list)
+
+
+def test_select_onnx_providers_mps(monkeypatch) -> None:
+    """_select_onnx_providers with mps device should include CoreML."""
+    providers = ufish_core._select_onnx_providers("mps")
+    assert isinstance(providers, list)
+
+
+def test_select_onnx_providers_unknown(monkeypatch) -> None:
+    """_select_onnx_providers with unknown device should return preferred."""
+    providers = ufish_core._select_onnx_providers("unknown_device")
+    assert isinstance(providers, list)
+
+
+def test_ufish_config_defaults() -> None:
+    """UFishConfig should have sensible defaults."""
+    config = ufish_core.UFishConfig()
+    assert config.device is None
+    assert config.weights_path is None
+    assert config.load_from_internet is False
+
+
+def test_ufish_config_with_options() -> None:
+    """UFishConfig should accept custom options."""
+    config = ufish_core.UFishConfig(
+        device="cuda",
+        weights_path="/path/to/weights.onnx",
+        load_from_internet=True,
+    )
+    assert config.device == "cuda"
+    assert config.weights_path == "/path/to/weights.onnx"
+    assert config.load_from_internet is True

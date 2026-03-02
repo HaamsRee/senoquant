@@ -8,6 +8,7 @@ import numpy as np
 from scipy import ndimage as ndi
 
 from senoquant.tabs.segmentation.models.base import SenoQuantSegmentationModel
+from senoquant.tabs.segmentation.models.morphology import iter_label_regions
 from senoquant.utils import layer_data_asarray
 
 if TYPE_CHECKING:
@@ -80,17 +81,21 @@ class NuclearDilationModel(SenoQuantSegmentationModel):
 
         nuclear_data = nuclear_data.astype(np.uint32, copy=False)
         settings_dict = {} if not isinstance(settings, dict) else settings
-        dilation_iterations = max(int(settings_dict.get("dilation_iterations", 5)), 1)
+        dilation_px = max(
+            int(settings_dict.get("dilation_px", 5)),
+            1,
+        )
 
         dilated_labels = np.zeros_like(nuclear_data)
-        for label_id in np.unique(nuclear_data):
-            if label_id == 0:
-                continue
-            mask = nuclear_data == label_id
+        for label_id, region_slices, mask in iter_label_regions(
+            nuclear_data,
+            pad=dilation_px,
+        ):
             dilated_mask = ndi.binary_dilation(
                 mask,
-                iterations=dilation_iterations,
+                iterations=dilation_px,
             )
-            dilated_labels[dilated_mask] = label_id
+            output_region = dilated_labels[region_slices]
+            output_region[dilated_mask] = label_id
 
         return {"masks": dilated_labels}

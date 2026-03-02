@@ -103,7 +103,7 @@ class SettingsTab(QWidget):
             batch_job=self._export_batch_payload(),
         )
         saved_path = self._backend.save_bundle(path, payload)
-        self._set_status(f"Saved settings: {saved_path.name}")
+        self._set_status(f"Saved settings: {Path(str(saved_path)).name}")
 
     def _load_settings(self) -> None:
         """Prompt for a settings file and apply known settings payloads."""

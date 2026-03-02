@@ -10,10 +10,12 @@ SenoQuant is a napari plugin for spatial quantification of senescence markers in
 
 ### Tab-Based UI Structure
 
-The main widget (`src/senoquant/_widget.py`) composes 5 tabs:
+The main widget (`src/senoquant/_widget.py`) composes 7 tabs:
 - **Segmentation** → nuclear/cytoplasmic segmentation
 - **Spots** → spot detection (udwt, rmp models)
+- **Prediction** → prediction models for senescence analysis
 - **Quantification** → feature extraction (markers, spots, ROI)
+- **Visualization** → visualization and inspection tools
 - **Batch** → automated processing pipeline
 - **Settings** → model preloading preferences
 

@@ -11,8 +11,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import types
+from uuid import uuid4
 
 import numpy as np
+import pytest
 
 from senoquant.tabs.batch import backend as batch_backend
 from senoquant.tabs.batch.config import BatchChannelConfig
@@ -106,8 +108,9 @@ def test_process_folder_runs_detection(tmp_path: Path, monkeypatch) -> None:
         return np.ones((2, 2), dtype=np.float32), {"physical_pixel_sizes": {"Y": 1.0, "X": 1.0}}
 
     def fake_write_array(out_dir, name, data):
-        out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"{name}.npy"
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        path = out_path / f"{name}.npy"
         np.save(path, data)
         return path
 
@@ -153,8 +156,9 @@ def test_process_folder_writes_root_settings_bundle(tmp_path: Path, monkeypatch)
         return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
 
     def fake_write_array(out_dir, name, data):
-        out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"{name}.npy"
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        path = out_path / f"{name}.npy"
         np.save(path, data)
         return path
 
@@ -225,8 +229,9 @@ def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatc
         return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
 
     def fake_write_array(out_dir, name, data):
-        out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"{name}.npy"
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        path = out_path / f"{name}.npy"
         np.save(path, data)
         return path
 
@@ -349,8 +354,9 @@ def test_process_folder_nuclear_only_cyto_uses_generated_nuclear_labels(
         return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
 
     def fake_write_array(out_dir, name, data):
-        out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"{name}.npy"
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        path = out_path / f"{name}.npy"
         np.save(path, data)
         return path
 
@@ -782,7 +788,7 @@ def test_resolve_output_dir_creates_new() -> None:
         input_path = Path("test_image.tif")
         result = batch_backend._resolve_output_dir(output_root, input_path, None, False)
         assert result is not None
-        assert result.exists()
+        assert Path(result).exists()
 
 
 def test_resolve_output_dir_skip_existing() -> None:
@@ -827,4 +833,51 @@ def test_resolve_output_dir_overwrite() -> None:
         # Request with overwrite should return the directory
         result = batch_backend._resolve_output_dir(output_root, input_path, None, True)
         assert result is not None
-        assert result.exists()
+        assert Path(result).exists()
+
+
+def test_process_folder_writes_outputs_to_memory_filesystem(tmp_path: Path, monkeypatch) -> None:
+    """Write batch outputs and settings bundle to a memory:// target."""
+    fsspec = pytest.importorskip("fsspec")
+    fs = fsspec.filesystem("memory")
+
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_file = input_dir / "sample.tif"
+    input_file.write_text("data", encoding="utf-8")
+
+    root_name = f"batch-{uuid4().hex}"
+    output_root = f"memory://{root_name}/out"
+
+    def fake_iter_input_files(_root, _exts, _include):
+        yield input_file
+
+    def fake_load_channel_data(_path, _index, _scene_id):
+        return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
+
+    monkeypatch.setattr(batch_backend, "iter_input_files", fake_iter_input_files)
+    monkeypatch.setattr(batch_backend, "load_channel_data", fake_load_channel_data)
+
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+    summary = backend.process_folder(
+        input_path=str(input_dir),
+        output_path=output_root,
+        nuclear_model="nuclear",
+        nuclear_channel=0,
+        channel_map=[BatchChannelConfig(name="Ch0", index=0)],
+    )
+
+    assert summary.processed == 1
+    assert fs.exists(f"{root_name}/out/senoquant_settings.json") or fs.exists(
+        f"/{root_name}/out/senoquant_settings.json"
+    )
+    expected_paths = (
+        f"{root_name}/out/sample/Ch0_nuclear_nuc_labels.npy",
+        f"/{root_name}/out/sample/Ch0_nuclear_nuc_labels.npy",
+        f"{root_name}/out/sample/0_nuclear_nuc_labels.npy",
+        f"/{root_name}/out/sample/0_nuclear_nuc_labels.npy",
+    )
+    assert any(fs.exists(path) for path in expected_paths)

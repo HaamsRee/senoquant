@@ -24,12 +24,12 @@ The Visualization tab generates summary plots from quantification exports.
 - **Select all / Deselect all** (buttons): Toggle all marker include checkboxes.
 - **Include** (checkbox per row): Include marker in downstream plotting.
 - **Marker** (read-only): Marker name parsed from quantification columns.
-- **Threshold** (text field per row): Optional threshold value for each marker.
+- **Threshold** (text field per row): Numeric threshold value for each selected marker.
 
 **Behavior notes:**
 
 - Thresholds are applied per marker before plotting.
-- Empty threshold values are treated as automatic/no override.
+- If a thresholds JSON is found in the input folder, SenoQuant auto-fills matching marker thresholds.
 
 ### Plots section
 
@@ -42,6 +42,7 @@ The Visualization tab generates summary plots from quantification exports.
 - **Spatial Plot**
 - **UMAP**
 - **Double Expression**
+- **Neighborhood Enrichment**
 
 ### Plot preview section
 
@@ -69,13 +70,15 @@ The Visualization tab generates summary plots from quantification exports.
 ### Spatial Plot
 
 - Uses detected X/Y coordinate columns for point positions.
-- Colors by the first numeric column that is not X or Y.
-- Marker filtering keeps selected marker intensity columns and drops deselected marker intensity columns.
+- With selected markers, assigns each cell to the first marker (in marker list order) whose intensity is above threshold.
+- Cells that do not pass any selected marker threshold are labeled as **Other**.
+- Uses categorical colors (legend per assigned marker + Other).
 
 ### UMAP
 
 - Uses selected marker intensity columns as UMAP input features.
 - Requires at least two numeric input columns.
+- Applies thresholds by clipping values below threshold to 0 before embedding.
 - Generates a 2D embedding scatter plot.
 
 ### Double Expression
@@ -88,6 +91,13 @@ The Visualization tab generates summary plots from quantification exports.
   - Marker 2 positive only (blue).
   - Double positive (green).
 
+### Neighborhood Enrichment
+
+- Requires at least two selected markers with resolvable columns.
+- Builds a k-nearest-neighbor graph from X/Y coordinates and computes class-by-class enrichment z-scores.
+- Class assignment uses first-match marker precedence; unassigned cells are grouped as **Negative**.
+- Outputs a heatmap matrix with z-score annotations.
+
 ## Output naming
 
 - If **Plot name** is set and a single output is produced, filename is `<plot_name>.<ext>`.
@@ -98,4 +108,5 @@ The Visualization tab generates summary plots from quantification exports.
 
 - Use quantification outputs from the same image cohort for consistent marker columns.
 - Check X/Y coordinate column names in your exported tables if spatial plots return no output.
+- Keep marker thresholds available in a JSON file when possible to avoid manual entry on each run.
 - For Double Expression, make sure both selected markers exist as `<marker>_mean_intensity`.

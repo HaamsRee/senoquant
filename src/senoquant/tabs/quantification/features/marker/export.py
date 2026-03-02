@@ -28,6 +28,9 @@ from ..base import FeatureConfig
 if TYPE_CHECKING:
     from ..roi import ROIConfig
 
+CROSS_MAP_CHUNK_SIZE = 8_000_000
+
+
 def export_marker(
     feature: FeatureConfig,
     temp_dir: Path,
@@ -76,23 +79,21 @@ def export_marker(
     if not data.segmentations or not channels:
         return []
 
-    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-    for segmentation in data.segmentations:
-        seg_name = segmentation.label.strip()
-        if not seg_name:
-            continue
-        seg_layer = _find_layer(viewer, seg_name, "Labels")
-        if seg_layer is None:
-            continue
-        seg_labels = layer_data_asarray(seg_layer)
-        if seg_labels.size == 0:
-            continue
-        seg_label_ids, _seg_centroids = _compute_centroids(seg_labels)
-        if seg_label_ids.size == 0:
-            continue
-        all_segmentations[seg_name] = (seg_labels, seg_label_ids)
-    cross_map = _build_cross_segmentation_map(all_segmentations)
+    channel_layers = {
+        channel.channel: _find_layer(viewer, channel.channel, "Image")
+        for channel in channels
+    }
+    file_path = None
+    first_channel_name = channels[0].channel if channels else ""
+    first_channel_layer = channel_layers.get(first_channel_name)
+    if first_channel_layer is not None:
+        metadata = getattr(first_channel_layer, "metadata", {})
+        file_path = metadata.get("path")
 
+    segmentation_contexts: list[
+        tuple[int, str, object, np.ndarray, np.ndarray, np.ndarray]
+    ] = []
+    all_segmentations: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for index, segmentation in enumerate(data.segmentations, start=0):
         label_name = segmentation.label.strip()
         if not label_name:
@@ -103,16 +104,33 @@ def export_marker(
         labels = layer_data_asarray(labels_layer)
         if labels.size == 0:
             continue
-
         label_ids, centroids = _compute_centroids(labels)
         if label_ids.size == 0:
             continue
+        segmentation_contexts.append(
+            (index, label_name, labels_layer, labels, label_ids, centroids)
+        )
+        all_segmentations[label_name] = (labels, label_ids)
+
+    if len(all_segmentations) > 1:
+        cross_map = _build_cross_segmentation_map(all_segmentations)
+    else:
+        cross_map = {}
+
+    for (
+        index,
+        label_name,
+        labels_layer,
+        labels,
+        label_ids,
+        centroids,
+    ) in segmentation_contexts:
         area_px = _pixel_counts(labels, label_ids)
 
         pixel_sizes = _pixel_sizes(labels_layer, labels.ndim)
         if pixel_sizes is None:
             for channel in channels:
-                channel_layer = _find_layer(viewer, channel.channel, "Image")
+                channel_layer = channel_layers.get(channel.channel)
                 if channel_layer is None:
                     continue
                 pixel_sizes = _pixel_sizes(channel_layer, labels.ndim)
@@ -123,15 +141,7 @@ def export_marker(
         _morph_columns = add_morphology_columns(
             rows, labels, label_ids, pixel_sizes
         )
-        
-        # Extract file path from metadata if available
-        file_path = None
-        if channels:
-            first_channel_layer = _find_layer(viewer, channels[0].channel, "Image")
-            if first_channel_layer is not None:
-                metadata = getattr(first_channel_layer, "metadata", {})
-                file_path = metadata.get("path")
-        
+
         # Determine segmentation type from labels metadata with suffix fallback.
         seg_type = _segmentation_type_from_layer(labels_layer, label_name)
         file_stem = _sanitize_name(label_name or f"segmentation_{index}")
@@ -160,7 +170,7 @@ def export_marker(
         header = list(rows[0].keys()) if rows else []
 
         for channel in channels:
-            channel_layer = _find_layer(viewer, channel.channel, "Image")
+            channel_layer = channel_layers.get(channel.channel)
             if channel_layer is None:
                 continue
             image = layer_data_asarray(channel_layer)
@@ -367,9 +377,13 @@ def _intensity_sum(
         Raw intensity sums for each label id.
     """
     labels_flat = labels.ravel()
-    image_flat = np.nan_to_num(image.ravel(), nan=0.0)
+    image_flat = image.ravel()
+    if np.isfinite(image_flat).all():
+        weights = image_flat
+    else:
+        weights = np.nan_to_num(image_flat, nan=0.0)
     max_label = int(labels_flat.max()) if labels_flat.size else 0
-    sums = np.bincount(labels_flat, weights=image_flat, minlength=max_label + 1)
+    sums = np.bincount(labels_flat, weights=weights, minlength=max_label + 1)
     return sums[label_ids]
 
 
@@ -917,13 +931,9 @@ def _build_cross_segmentation_map(
                 )
                 continue
 
-            mask = (labels1 > 0) & (labels2 > 0)
-            if not np.any(mask):
-                continue
-
-            overlap_pairs = np.column_stack((labels1[mask], labels2[mask]))
-            unique_pairs = np.unique(overlap_pairs, axis=0)
-            for label_id1, label_id2 in unique_pairs:
+            for label_id1, label_id2 in _unique_overlap_pairs(
+                labels1, labels2, chunk_size=CROSS_MAP_CHUNK_SIZE
+            ):
                 id1 = int(label_id1)
                 id2 = int(label_id2)
                 if id1 not in valid_ids[seg1_name] or id2 not in valid_ids[seg2_name]:
@@ -932,6 +942,55 @@ def _build_cross_segmentation_map(
                 cross_map[(seg2_name, id2)].append((seg1_name, id1))
 
     return cross_map
+
+
+def _unique_overlap_pairs(
+    labels1: np.ndarray,
+    labels2: np.ndarray,
+    *,
+    chunk_size: int,
+) -> list[tuple[int, int]]:
+    """Return unique non-zero overlap pairs between two labels arrays.
+
+    The default chunked encoding path keeps peak memory bounded for
+    large images. If label ids exceed uint32 capacity, the function
+    falls back to a full-array pair extraction for correctness.
+    """
+    max_u32 = np.iinfo(np.uint32).max
+    max_label1 = int(labels1.max()) if labels1.size else 0
+    max_label2 = int(labels2.max()) if labels2.size else 0
+    if max_label1 > max_u32 or max_label2 > max_u32:
+        mask = (labels1 > 0) & (labels2 > 0)
+        if not np.any(mask):
+            return []
+        overlap_pairs = np.column_stack((labels1[mask], labels2[mask]))
+        unique_pairs = np.unique(overlap_pairs, axis=0)
+        return [
+            (int(label_id1), int(label_id2))
+            for label_id1, label_id2 in unique_pairs
+        ]
+
+    flat1 = labels1.ravel()
+    flat2 = labels2.ravel()
+    encoded_pairs: set[int] = set()
+    for start in range(0, flat1.size, chunk_size):
+        chunk1 = flat1[start : start + chunk_size]
+        chunk2 = flat2[start : start + chunk_size]
+        mask = (chunk1 > 0) & (chunk2 > 0)
+        if not np.any(mask):
+            continue
+        keys = (
+            chunk1[mask].astype(np.uint64) << np.uint64(32)
+        ) | chunk2[mask].astype(np.uint64)
+        encoded_pairs.update(int(key) for key in np.unique(keys))
+
+    return [
+        (
+            int((key >> 32) & max_u32),
+            int(key & max_u32),
+        )
+        for key in sorted(encoded_pairs)
+    ]
 
 
 def _add_cross_reference_column(

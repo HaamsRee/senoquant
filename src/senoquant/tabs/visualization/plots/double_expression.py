@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Iterable
 
 try:
@@ -12,6 +13,15 @@ except Exception:  # pragma: no cover - optional runtime dependency
         pass
 
 from .base import PlotData, SenoQuantPlot
+
+
+def _notify_error(message: str) -> None:
+    """Send an error notification and flush stdout for immediate visibility."""
+    show_error(message)
+    try:
+        sys.stdout.flush()
+    except Exception:  # pragma: no cover - best-effort flush
+        pass
 
 
 class DoubleExpressionData(PlotData):
@@ -67,7 +77,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
                     "skipping plot generation."
                 )
                 print(msg)
-                show_error(msg)
+                _notify_error(msg)
                 return []
             try:
                 import matplotlib.pyplot as plt
@@ -77,7 +87,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
                     "skipping plot generation."
                 )
                 print(msg)
-                show_error(msg)
+                _notify_error(msg)
                 return []
 
             print(f"[DoubleExpressionPlot] Starting with input_path={input_path}")
@@ -85,7 +95,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
             if not markers or len(markers) != 2:
                 msg = f"Double Expression Plot requires exactly 2 markers. Got {len(markers) if markers else 0}."
                 print(f"[DoubleExpressionPlot] {msg}")
-                show_error(msg)
+                _notify_error(msg)
                 return []
 
             # Find data file
@@ -111,7 +121,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
             if col1 not in df.columns or col2 not in df.columns:
                 msg = f"Missing columns for markers: {m1}, {m2}"
                 print(f"[DoubleExpressionPlot] {msg}")
-                show_error(msg)
+                _notify_error(msg)
                 return []
 
             # Get thresholds
@@ -148,7 +158,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
             if x_col is None or y_col is None:
                 msg = "[DoubleExpressionPlot] Could not find X/Y columns in the data file."
                 print(msg)
-                show_error(msg)
+                _notify_error(msg)
                 return []
 
             # Plotting
@@ -198,5 +208,5 @@ class DoubleExpressionPlot(SenoQuantPlot):
             import traceback
             print(f"[DoubleExpressionPlot] Error: {e}")
             print(traceback.format_exc())
-            show_error(f"Error in Double Expression Plot: {e}")
+            _notify_error(f"Error in Double Expression Plot: {e}")
             return []

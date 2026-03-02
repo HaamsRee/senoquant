@@ -34,7 +34,7 @@ python -m pip install build --quiet
 python -m build --wheel -o "${WHEEL_DIR}" 2>&1 | grep -v "SetuptoolsDeprecationWarning" | grep -v "License classifiers" | grep -v "See https://"
 
 # Get version from pyproject.toml
-VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b4")
+VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "1.0.0b9")
 echo "[SenoQuant] Using version: ${VERSION}"
 
 MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
@@ -178,9 +178,11 @@ PKG_NAME="SenoQuant-Installer"
 PKG_PATH="${DIST_ROOT}/${PKG_NAME}.pkg"
 COMPONENT_PKG="${DIST_ROOT}/SenoQuant.component.pkg"
 COMPONENT_PLIST="${DIST_ROOT}/component.plist"
+DIST_DISTRIBUTION="${DIST_ROOT}/distribution.xml"
 STAGING_DIR="${DIST_ROOT}/pkg_staging"
 
 PKG_ID="org.senoquant.SenoQuant"
+COMPONENT_PKG_NAME="$(basename "${COMPONENT_PKG}")"
 
 if [ ! -d "${APP_DIR}" ]; then
     echo "[SenoQuant] ERROR: App bundle missing. Aborting."
@@ -188,14 +190,15 @@ if [ ! -d "${APP_DIR}" ]; then
 fi
 
 # Remove old PKG artifacts if they exist
-rm -f "${PKG_PATH}" "${COMPONENT_PKG}" "${COMPONENT_PLIST}"
+rm -f "${PKG_PATH}" "${COMPONENT_PKG}" "${COMPONENT_PLIST}" "${DIST_DISTRIBUTION}"
 rm -rf "${STAGING_DIR}"
 
-# Prepare staging root with Applications/SenoQuant.app
-mkdir -p "${STAGING_DIR}/Applications"
-cp -R "${APP_DIR}" "${STAGING_DIR}/Applications/" 2>/dev/null || \
-ditto "${APP_DIR}" "${STAGING_DIR}/Applications/SenoQuant.app"
-if [ ! -d "${STAGING_DIR}/Applications/SenoQuant.app" ]; then
+# Prepare staging root with SenoQuant.app.
+# Combined with --install-location "/Applications", this installs to
+# ~/Applications/SenoQuant.app in CurrentUserHomeDirectory mode.
+cp -R "${APP_DIR}" "${STAGING_DIR}/" 2>/dev/null || \
+ditto "${APP_DIR}" "${STAGING_DIR}/SenoQuant.app"
+if [ ! -d "${STAGING_DIR}/SenoQuant.app" ]; then
     echo "[SenoQuant] ERROR: App bundle missing from staging. Aborting."
     exit 1
 fi
@@ -205,22 +208,45 @@ pkgbuild --analyze --root "${STAGING_DIR}" "${COMPONENT_PLIST}"
 /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "${COMPONENT_PLIST}" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Set :0:BundleOverwriteAction upgrade" "${COMPONENT_PLIST}" 2>/dev/null || true
 
-# Build component package targeting ~/Applications
+# Build component package with an Applications-relative payload path.
+# The final install domain is set in the distribution (CurrentUserHomeDirectory).
 pkgbuild \
     --root "${STAGING_DIR}" \
     --component-plist "${COMPONENT_PLIST}" \
-    --install-location "$HOME" \
+    --install-location "/Applications" \
     --identifier "${PKG_ID}" \
     --version "${VERSION}" \
     "${COMPONENT_PKG}"
 
+# Build a product distribution constrained to the current user's home domain
+# so /Applications resolves to ~/Applications for the installing user.
+cat > "${DIST_DISTRIBUTION}" << EOF
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>SenoQuant</title>
+    <options customize="never" require-scripts="false"/>
+    <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="false"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="${PKG_ID}"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="${PKG_ID}" visible="false">
+        <pkg-ref id="${PKG_ID}"/>
+    </choice>
+    <pkg-ref id="${PKG_ID}" version="${VERSION}" onConclusion="none">${COMPONENT_PKG_NAME}</pkg-ref>
+</installer-gui-script>
+EOF
+
 # Build final product package
 productbuild \
-    --package "${COMPONENT_PKG}" \
-    --version "${VERSION}" \
+    --distribution "${DIST_DISTRIBUTION}" \
+    --package-path "${DIST_ROOT}" \
     "${PKG_PATH}"
 
 rm -rf "${STAGING_DIR}"
+rm -f "${DIST_DISTRIBUTION}"
 
 echo "[SenoQuant] Build complete!"
 echo "           PKG: ${PKG_PATH}"

@@ -2,11 +2,13 @@
 
 This guide walks through the basic workflow for analyzing senescence markers in tissue images using SenoQuant.
 
+> **Tip:** There is a help icon in the top-right corner that opens the current tab's User Guide page.
+
 ## Prerequisites
 
 - napari installed with SenoQuant.
 - System meets the [installation requirements](installation.md#system-requirements).
-- Multi-channel microscopy image (supported formats: `.tif`, `.czi`, `.lif`, `.nd2`, etc.).
+- Multi-channel microscopy image (supported formats: `.tif`, `.czi`, `.lif`, `.nd2`, `.zarr`, etc.).
 - Channels containing: Nuclei, IF markers, and/or spots.
 
 ## Basic workflow
@@ -42,15 +44,16 @@ SenoQuant should launch automatically in Step 1. If not:
 
 `Plugins` → `SenoQuant`
 
-The plugin window opens as a docked widget with 7 tabs:
+The plugin window opens as a docked widget with 8 tabs:
 
-- **Segmentation**
-- **Spots**
-- **Prediction**
-- **Quantification**
-- **Visualization**
-- **Batch**
-- **Settings**
+- [**SenNet Portal**](sennet-portal.md)
+- [**Segmentation**](segmentation.md)
+- [**Spots**](spots.md)
+- [**Prediction**](prediction.md)
+- [**Quantification**](quantification.md)
+- [**Visualization**](visualization.md)
+- [**Batch**](batch.md)
+- [**Settings**](settings.md)
 
 ### 3. Run nuclear segmentation
 
@@ -103,8 +106,8 @@ feature layers.
 1. Switch to the **Prediction** tab.
 2. Select **Select model**: `demo_model` (current placeholder).
 3. In **Model interface**:
-   - Select **Image layer**.
-   - Set **Multiplier**.
+    - Select **Image layer**.
+    - Set **Multiplier**.
 4. Click **Run**.
 
 **Output:** A new image layer named `<image layer>_demo_model`.
@@ -185,7 +188,7 @@ In the SenoQuant dock widget, select **Batch**.
 ### 2. Configure inputs
 
 1. **Input folder** → Choose the directory containing images.
-2. **Extensions** → List the file types to include (e.g., `.tif, .nd2, .czi`).
+2. **Extensions** → List the file types to include (e.g., `.tif, .nd2, .czi, .zarr`).
 3. (Optional) **Include subfolders** → Enable if your data are nested.
 4. (Optional) **Process all scenes** → Enable for multi-scene files.
 
@@ -239,6 +242,7 @@ If the JSON contains batch configuration, the Batch tab is populated too.
 - [Segmentation](segmentation.md) - Detailed model settings and parameters
 - [Spots](spots.md) - Advanced spot detection configuration
 - [Prediction](prediction.md) - Prediction model workflow and placeholder example
+- [SenNet Portal](sennet-portal.md) - Browse and download compatible SenNet datasets
 - [Quantification](quantification.md) - Feature export details and column definitions
 - [Visualization](visualization.md) - Plot generation from quantification tables
 - [Batch](batch.md) - Batch processing and automation

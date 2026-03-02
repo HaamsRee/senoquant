@@ -82,6 +82,6 @@ Under construction
 
 ## Manual installation (conda/pip/uv)
 
-For manual installation using conda, pip, and uv—whether you're on Windows, macOS, Linux, or doing development work—see the [Installation guide in the Developer Guide](../../developer/installation/).
+For manual installation using conda, pip, and uv—whether you're on Windows, macOS, Linux, or doing development work—see the [Installation guide in the Developer Guide](../developer/installation.md).
 
 > **Warning:** Manual installations via `pip`/`uv` may not pull a GPU-enabled PyTorch build on Windows. If you need GPU acceleration, use the Windows Installer above. Or, troubleshoot PyTorch installation manually by following the [official PyTorch instructions](https://pytorch.org/get-started/locally/).

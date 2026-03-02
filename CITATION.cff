@@ -4,7 +4,7 @@ title: "SenoQuant"
 type: software
 authors:
   - name: "SenoQuant Contributors"
-version: "1.0.0b3"
+version: "1.0.0b9"
 license: "BSD-3-Clause"
 repository-code: "https://github.com/HaamsRee/senoquant"
 url: "https://haamsree.github.io/senoquant/"

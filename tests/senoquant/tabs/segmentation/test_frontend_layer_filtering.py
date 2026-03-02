@@ -89,7 +89,7 @@ def test_nuclear_dilation_model_attributes() -> None:
 
 
 def test_nuclear_dilation_has_dilation_setting() -> None:
-    """Verify nuclear dilation model exposes dilation_iterations setting.
+    """Verify nuclear dilation model exposes a dilation setting.
 
     Returns
     -------
@@ -101,11 +101,11 @@ def test_nuclear_dilation_has_dilation_setting() -> None:
     assert "settings" in details
     settings = details.get("settings", [])
     setting_keys = [s.get("key") for s in settings]
-    assert "dilation_iterations" in setting_keys
+    assert "dilation_px" in setting_keys
 
 
 def test_nuclear_dilation_setting_bounds() -> None:
-    """Verify dilation_iterations has proper min/max bounds.
+    """Verify nuclear dilation setting has proper bounds and label.
 
     Returns
     -------
@@ -117,11 +117,12 @@ def test_nuclear_dilation_setting_bounds() -> None:
 
     settings = details.get("settings", [])
     dilation_setting = next(
-        (s for s in settings if s.get("key") == "dilation_iterations"),
+        (s for s in settings if s.get("key") == "dilation_px"),
         None,
     )
 
     assert dilation_setting is not None
+    assert dilation_setting.get("label") == "Dilation (px)"
     assert dilation_setting.get("min") == 1
     assert dilation_setting.get("max") == 100
     assert dilation_setting.get("default") == 5

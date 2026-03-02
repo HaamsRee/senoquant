@@ -99,6 +99,11 @@ if [ ! -f "${PYTHON_EXE}" ]; then
     exit 1
 fi
 
+# Ensure console-script entry points from the bundled environment are discoverable.
+if [ -d "${ENV_DIR}/bin" ]; then
+    export PATH="${ENV_DIR}/bin:${PATH}"
+fi
+
 # Verify napari is installed
 if ! "${PYTHON_EXE}" -c "import napari" 2>/dev/null; then
     log "napari not found. Running setup..."
@@ -121,6 +126,9 @@ fi
 
 log "Environment ready. Launching napari..."
 log "=============================================="
+
+# Set JAVA_HOME for BioFormats
+export JAVA_HOME="${ENV_DIR}"
 
 # Launch napari with SenoQuant plugin
 "${PYTHON_EXE}" -m napari --with senoquant 2>&1 | tee -a "${LOG_FILE}"

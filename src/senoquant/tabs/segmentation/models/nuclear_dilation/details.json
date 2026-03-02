@@ -15,9 +15,9 @@
   },
   "settings": [
     {
-      "key": "dilation_iterations",
-      "label": "Dilation iterations",
-      "tooltip": "Number of binary-dilation steps used to expand each nuclear mask into cytoplasm.",
+      "key": "dilation_px",
+      "label": "Dilation (px)",
+      "tooltip": "Pixels to dilate outward from each nuclear mask to approximate cytoplasm.",
       "type": "int",
       "min": 1,
       "max": 100,

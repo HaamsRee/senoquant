@@ -41,8 +41,10 @@ mkdocs serve
 ## Repository map
 - `src/senoquant/`: main plugin package.
 - `src/senoquant/_widget.py`: top-level napari widget wiring.
-- `src/senoquant/tabs/`: feature tabs (`segmentation`, `spots`, `prediction`, `quantification`, `visualization`, `batch`, `settings`).
+- `src/senoquant/tabs/`: feature tabs (`sennet_portal`, `segmentation`, `spots`, `prediction`, `quantification`, `visualization`, `batch`, `settings`). Most tabs follow frontend/backend split with `frontend.py` and `backend.py` (SenNet Portal uses `frontend.py`, `backend.py`, plus internal `_frontend/` and `_backend/` modules).
+- `src/senoquant/reader/supported_extensions.py`: shared helper for dynamic reader extension discovery used by reader compatibility checks and SenNet Portal dataset/file filtering.
 - `src/senoquant/utils/settings_bundle.py`: shared `senoquant.settings` bundle schema helpers used by Settings, Batch, and quantification exports.
+- `src/senoquant/utils/shutdown.py`: centralized shutdown-hook registry for tab cleanup during app/widget close.
 - `tests/`: pytest suite (UI smoke tests, backends, readers, exports, models).
 - `docs/`: user + developer docs and API reference scaffolding.
 - `stardist_ext/`: compiled extension source/package.
@@ -51,12 +53,12 @@ mkdocs serve
 ## Implementation conventions
 - Keep files under 500 lines; split large files into multiple modules.
 - Preserve the frontend/backend split in tabs:
-  - `frontend.py`: Qt widgets and signal wiring.
-  - `backend.py`: business logic and processing.
+    - `frontend.py`: Qt widgets and signal wiring.
+    - `backend.py`: business logic and processing.
 - Keep Settings/Batch behavior aligned:
-  - Batch tab does not own profile load/save buttons.
-  - Settings tab is the UI entry point for saving/loading unified settings bundles.
-  - Batch runs persist `senoquant_settings.json` in the output root.
+    - Batch tab does not own profile load/save buttons.
+    - Settings tab is the UI entry point for saving/loading unified settings bundles.
+    - Batch runs persist `senoquant_settings.json` in the output root.
 - Keep imports absolute from `senoquant`.
 - Prefer `pathlib.Path` for filesystem code.
 - Use Python 3.11+ type hints.
@@ -71,12 +73,13 @@ mkdocs serve
 - Avoid top-level GUI-heavy imports in tests; rely on stubs/fixtures in `tests/conftest.py`.
 - For settings-related changes, include coverage for Settings-tab save/load and Batch config application.
 - For prediction-related changes, include/update tests under `tests/senoquant/tabs/prediction/`.
+- For SenNet Portal changes, include/update tests under `tests/senoquant/tabs/sennet_portal/` and related UI smoke coverage in `tests/senoquant/tabs/test_ui_smoke.py`.
 
 ## Safe edit boundaries
 - Avoid changing vendored/third-party code unless the task explicitly requires it:
-  - `_vendor/ufish/`
-  - `src/senoquant/tabs/segmentation/stardist_onnx_utils/_csbdeep/`
-  - large third-party code under `stardist_onnx_utils/_stardist/lib/external/`
+    - `_vendor/ufish/`
+    - `src/senoquant/tabs/segmentation/stardist_onnx_utils/_csbdeep/`
+    - large third-party code under `stardist_onnx_utils/_stardist/lib/external/`
 - Do not commit generated artifacts (`build/`, `dist/`, `coverage.xml`, `.coverage`) unless requested.
 
 ## Pre-handoff checklist

@@ -8,6 +8,14 @@ from typing import Iterable
 import shutil
 import tempfile
 
+from senoquant.utils.path_io import (
+    copy_local_to_target,
+    is_remote,
+    join,
+    mkdirs,
+    normalize_uri,
+)
+
 from .features import FeatureConfig
 
 
@@ -42,7 +50,7 @@ class QuantificationResult:
 
     Attributes
     ----------
-    output_root : Path
+    output_root : str
         Root output directory for the run.
     temp_root : Path
         Temporary root directory used during processing.
@@ -50,7 +58,7 @@ class QuantificationResult:
         Per-feature export metadata for the run.
     """
 
-    output_root: Path
+    output_root: str
     temp_root: Path
     feature_outputs: list[FeatureExportResult]
 
@@ -113,7 +121,7 @@ class QuantificationBackend:
         into the provided temporary directory.
         """
         output_root = self._resolve_output_root(output_path, output_name)
-        output_root.mkdir(parents=True, exist_ok=True)
+        mkdirs(output_root)
         temp_root = Path(tempfile.mkdtemp(prefix="senoquant-quant-"))
 
         feature_outputs: list[FeatureExportResult] = []
@@ -149,7 +157,7 @@ class QuantificationBackend:
             feature_outputs=feature_outputs,
         )
 
-    def _resolve_output_root(self, output_path: str, output_name: str) -> Path:
+    def _resolve_output_root(self, output_path: str, output_name: str) -> str:
         """Resolve the final output root directory.
 
         Parameters
@@ -161,24 +169,24 @@ class QuantificationBackend:
 
         Returns
         -------
-        Path
+        str
             Resolved output directory path.
         """
-        base = Path(output_path) if output_path else Path.cwd()
+        base = normalize_uri(output_path) if output_path else str(Path.cwd())
         if output_name:
-            return base / output_name
+            return join(base, output_name)
         return base
 
     def _route_feature_outputs(
         self,
-        output_root: Path,
+        output_root: str | Path,
         feature_outputs: Iterable[FeatureExportResult],
     ) -> None:
         """Move feature outputs from temp folders to the final location.
 
         Parameters
         ----------
-        output_root : Path
+        output_root : str or Path
             Destination root folder.
         feature_outputs : iterable of FeatureExportResult
             Export results to route.
@@ -191,17 +199,19 @@ class QuantificationBackend:
         moved as a safety net (for example, mask arrays not included in
         returned paths). Subdirectories are not traversed.
         """
+        root = normalize_uri(output_root)
+        remote_root = is_remote(root)
         for feature_output in feature_outputs:
-            feature_dir = output_root / self._feature_dir_name(feature_output)
-            feature_dir.mkdir(parents=True, exist_ok=True)
+            feature_dir = join(root, self._feature_dir_name(feature_output))
+            mkdirs(feature_dir)
             outputs = feature_output.outputs
             if outputs:
                 for path in outputs:
                     if path.exists():
-                        shutil.move(str(path), feature_dir / path.name)
+                        _transfer_temp_output(path, join(feature_dir, path.name), remote_root)
             for path in feature_output.temp_dir.glob("*"):
                 if path.is_file():
-                    shutil.move(str(path), feature_dir / path.name)
+                    _transfer_temp_output(path, join(feature_dir, path.name), remote_root)
 
     def _feature_dir_name(self, feature_output: FeatureExportResult) -> str:
         """Build a filesystem-friendly folder name for a feature.
@@ -227,3 +237,14 @@ class QuantificationBackend:
             char if char.isalnum() or char in "-_ " else "_" for char in name
         )
         return safe.replace(" ", "_").lower()
+
+
+def _transfer_temp_output(source: Path, destination: str, remote_root: bool) -> None:
+    """Transfer a temporary output file to destination."""
+    if not source.exists():
+        return
+    if remote_root:
+        copy_local_to_target(source, destination)
+        source.unlink(missing_ok=True)
+        return
+    shutil.move(str(source), destination)

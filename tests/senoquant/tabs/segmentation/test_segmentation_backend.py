@@ -137,3 +137,73 @@ def test_model_base_list_settings() -> None:
     
     # Should return a list of settings
     assert isinstance(settings, list)
+
+
+def test_segmentation_backend_preload_models() -> None:
+    """Test preloading all models.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    # preload_models should not raise
+    backend.preload_models()
+    # After preloading, models should be cached
+    assert backend._preloaded is True
+
+
+def test_segmentation_backend_get_preloaded_model() -> None:
+    """Test getting preloaded model.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    # Get a model that hasn't been loaded yet
+    model = backend.get_preloaded_model("default_2d")
+    assert model is not None
+    assert model.name == "default_2d"
+
+
+def test_segmentation_backend_load_model_class_not_exists() -> None:
+    """Test _load_model_class returns None when model.py doesn't exist.
+
+    Returns
+    -------
+    None
+    """
+    backend = SegmentationBackend()
+    # A model that doesn't exist should return None
+    result = backend._load_model_class("nonexistent_model_xyz")
+    assert result is None
+
+
+def test_segmentation_backend_list_model_names_empty_root(tmp_path: Path) -> None:
+    """Test list_model_names with non-existent root.
+
+    Returns
+    -------
+    None
+    """
+    non_existent = tmp_path / "nonexistent"
+    backend = SegmentationBackend(models_root=non_existent)
+    names = backend.list_model_names()
+    assert names == []
+
+
+def test_segmentation_backend_list_model_names_with_task(tmp_path: Path) -> None:
+    """Test list_model_names with task filter.
+
+    Returns
+    -------
+    None
+    """
+    _write_model(tmp_path, "model_nuclear", supported=True)
+    _write_model(tmp_path, "model_other", supported=False)
+
+    backend = SegmentationBackend(models_root=tmp_path)
+    # Filter by nuclear task
+    names = backend.list_model_names(task="nuclear")
+    assert "model_nuclear" in names

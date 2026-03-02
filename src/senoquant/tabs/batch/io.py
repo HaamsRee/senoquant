@@ -12,6 +12,7 @@ from typing import Iterable
 
 import numpy as np
 
+from senoquant.utils.path_io import is_remote, join, write_numpy
 from senoquant.reader import core as reader_core
 from .config import BatchChannelConfig
 
@@ -117,12 +118,12 @@ def safe_scene_dir(scene_id: str) -> str:
     return safe or "scene"
 
 
-def write_array(output_dir: Path, name: str, data: np.ndarray) -> Path:
+def write_array(output_dir: str | Path, name: str, data: np.ndarray) -> Path | str:
     """Write an array to disk as ``.npy``.
 
     Parameters
     ----------
-    output_dir : Path
+    output_dir : str or Path
         Destination folder.
     name : str
         Base name for the output file.
@@ -130,12 +131,14 @@ def write_array(output_dir: Path, name: str, data: np.ndarray) -> Path:
         Array data to serialize.
     Returns
     -------
-    Path
+    Path or str
         Path to the written file.
     """
-    path = output_dir / f"{name}.npy"
-    np.save(path, data)
-    return path
+    path = join(output_dir, f"{name}.npy")
+    written = write_numpy(path, data)
+    if is_remote(written):
+        return written
+    return Path(written)
 
 
 def resolve_channel_index(

@@ -83,6 +83,23 @@ if (!(Test-Path $pythonExe)) {
     }
 }
 
+# Ensure console-script entry points from the bundled environment are discoverable.
+$pathPrefixes = @()
+if (Test-Path $envDir) {
+    $pathPrefixes += $envDir
+}
+$envScriptsDir = Join-Path $envDir "Scripts"
+if (Test-Path $envScriptsDir) {
+    $pathPrefixes += $envScriptsDir
+}
+if ($pathPrefixes.Count -gt 0) {
+    $env:Path = (($pathPrefixes -join ";") + ";" + $env:Path)
+}
+
+# Set JAVA_HOME for BioFormats (Windows uses Library subfolder)
+$javaHomeDir = Split-Path $envDir -Parent
+$env:JAVA_HOME = "$javaHomeDir\Library"
+
 try {
     & $pythonExe -c "import napari" | Out-Null
 } catch {

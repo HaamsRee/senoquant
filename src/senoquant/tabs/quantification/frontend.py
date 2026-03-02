@@ -1,6 +1,7 @@
 """Frontend widget for the Quantification tab."""
 
 from dataclasses import dataclass
+import sys
 from qtpy.QtCore import QObject, QThread, Qt, QTimer, Signal
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
@@ -482,7 +483,7 @@ class QuantificationTab(QWidget):
         if hasattr(self, "_process_button"):
             self._start_background_run(
                 run_button=self._process_button,
-                run_text="Process",
+                run_text="Process and save",
                 run_callable=lambda: process(
                     features,
                     output_path,
@@ -616,6 +617,12 @@ class QuantificationTab(QWidget):
             show_console_notification(
                 Notification(message, severity=NotificationSeverity.WARNING)
             )
+            # Some launch contexts buffer stdout until process exit.
+            # Flush explicitly so notifications appear immediately.
+            try:
+                sys.stdout.flush()
+            except Exception:  # pragma: no cover - best-effort flush
+                pass
 
     def _feature_index(self, context: FeatureUIContext) -> int:
         """Return the 0-based index for a feature config.

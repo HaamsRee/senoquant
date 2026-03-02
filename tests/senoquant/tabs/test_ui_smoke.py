@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import dask.array as da
 import numpy as np
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QWidget
 
 from tests.conftest import DummyLayer, DummyViewer
 from senoquant._widget import SenoQuantWidget
 from senoquant.tabs.batch.frontend import BatchTab
 from senoquant.tabs.quantification.frontend import QuantificationTab
+from senoquant.tabs.sennet_portal.backend import SenNetDataset
+from senoquant.tabs.sennet_portal.frontend import SenNetPortalTab
 from senoquant.tabs.segmentation.frontend import SegmentationTab
 from senoquant.tabs.settings.frontend import SettingsTab
 from senoquant.tabs.spots.frontend import SpotsTab
@@ -102,6 +106,53 @@ class _DummySpotsBackend:
 
     def get_detector(self, _name: str) -> _DummyDetector:
         return self._detector
+
+
+class _DummySenNetPortalBackend:
+    """Minimal SenNet backend stub for portal UI smoke tests."""
+
+    ANTIBODY_DATASET_TYPES = ("PhenoCycler", "CODEX")
+
+    def globus_login_status(self) -> tuple[bool, str]:
+        return False, "Not logged in"
+
+    def gcp_installation_status(self) -> tuple[bool, str]:
+        return True, "endpoint-1"
+
+    def available_antibody_dataset_types(self, *, token=None, max_types: int = 200) -> list[str]:
+        return ["CODEX", "PhenoCycler"]
+
+    def search_datasets(self, **_kwargs) -> list[SenNetDataset]:
+        return []
+
+    def download_datasets(self, _datasets, _destination) -> dict[str, object]:
+        return {"dataset_count": 0, "file_count": 0, "destination": "", "task_ids": []}
+
+    def download_tasks_status(self, _task_ids) -> dict[str, object]:
+        return {
+            "task_count": 0,
+            "overall_status": "SUCCEEDED",
+            "all_complete": True,
+            "all_succeeded": True,
+            "any_failed": False,
+            "progress_percent": 100,
+            "files": 0,
+            "files_transferred": 0,
+            "subtasks_total": 0,
+            "subtasks_completed": 0,
+            "speed_bps": 0,
+            "bytes_transferred": 0,
+            "tasks": [],
+        }
+
+    def cancel_download_tasks(self, _task_ids) -> None:
+        return None
+
+    def login_globus(self) -> None:
+        return None
+
+    def logout_globus(self) -> None:
+        return None
 
 
 def test_settings_tab_instantiates() -> None:
@@ -361,6 +412,437 @@ def test_batch_tab_instantiates() -> None:
     assert hasattr(tab, "_backend")
 
 
+def test_sennet_portal_tab_instantiates() -> None:
+    """Instantiate the SenNet portal tab UI."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    assert hasattr(tab, "_dataset_table")
+    assert hasattr(tab, "_download_button")
+    assert hasattr(tab, "_cancel_download_button")
+    assert hasattr(tab, "_select_all_button")
+    assert hasattr(tab, "_clear_all_button")
+    assert hasattr(tab, "_gcp_status_label")
+    assert hasattr(tab, "_gcp_install_button")
+    assert hasattr(tab, "_gcp_check_again_button")
+    assert hasattr(tab, "_clear_filters_button")
+    assert tab._dataset_table.cellWidget(0, 1) is not None
+    assert tab._cancel_download_button.isEnabled() is False
+
+
+def test_sennet_portal_select_all_and_clear_all() -> None:
+    """Apply Select/Clear actions only to visible rows."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            ),
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                source_type="Mouse",
+                organ="Lung",
+            ),
+        ]
+    )
+
+    assert 0 not in tab._column_filter_combos
+    tab._column_filter_combos[3].setCurrentText("Human")
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._clear_all_datasets()
+    assert tab._column_filter_combos[3].currentText() == "Human"
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._select_all_datasets()
+    assert tab._column_filter_combos[3].currentText() == "Human"
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._clear_filters()
+    assert tab._column_filter_combos[3].currentText() == "All"
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is False
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+
+def test_sennet_portal_column_filter_hides_nonmatching_rows() -> None:
+    """Apply source/organ filters and hide plus uncheck excluded rows."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            ),
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                source_type="Mouse",
+                organ="Pancreas",
+            ),
+        ]
+    )
+
+    tab._column_filter_combos[3].setCurrentText("Human")
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is True
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._column_filter_combos[3].setCurrentText("All")
+    tab._column_filter_combos[4].setCurrentText("Pancreas")
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is False
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
+
+
+def test_sennet_portal_age_range_filter_hides_rows_outside_bounds() -> None:
+    """Apply age min/max range filter using the Age header row widget."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+                sample_age="30 years",
+                sample_age_value=30.0,
+                sample_age_unit="years",
+            ),
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                source_type="Human",
+                organ="Pancreas",
+                sample_age="70 years",
+                sample_age_value=70.0,
+                sample_age_unit="years",
+            ),
+        ]
+    )
+
+    tab._age_filter_min_input.setText("40")
+    tab._age_filter_max_input.setText("80")
+    assert tab._dataset_table.isRowHidden(1) is True
+    assert tab._dataset_table.isRowHidden(2) is False
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
+
+    tab._clear_filters()
+    assert tab._age_filter_min_input.text() == ""
+    assert tab._age_filter_max_input.text() == ""
+    assert tab._dataset_table.isRowHidden(1) is False
+    assert tab._dataset_table.isRowHidden(2) is False
+
+
+def test_sennet_portal_download_button_locked_until_task_completion() -> None:
+    """Disable download button while active transfer tasks are still running."""
+
+    class _ActiveTaskBackend(_DummySenNetPortalBackend):
+        def download_tasks_status(self, _task_ids) -> dict[str, object]:
+            return {
+                "task_count": 1,
+                "overall_status": "ACTIVE",
+                "all_complete": False,
+                "all_succeeded": False,
+                "any_failed": False,
+                "progress_percent": 25,
+                "files": 4,
+                "files_transferred": 1,
+                "subtasks_total": 8,
+                "subtasks_completed": 2,
+                "speed_bps": 1024,
+                "bytes_transferred": 2048,
+                "tasks": [],
+            }
+
+    tab = SenNetPortalTab(backend=_ActiveTaskBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            )
+        ]
+    )
+
+    tab._on_download_complete(
+        {
+            "dataset_count": 1,
+            "file_count": 4,
+            "destination": "/tmp/downloads",
+            "task_ids": ["5724a523-11aa-11f1-a049-0e5b09a3151b"],
+        }
+    )
+    assert tab._download_button.isEnabled() is False
+    assert tab._cancel_download_button.isEnabled() is True
+    assert tab._download_progress_bar._visible is True
+    assert "Transfer" in tab._download_speed_label.text()
+
+    tab._on_download_progress(
+        {
+            "task_count": 1,
+            "overall_status": "SUCCEEDED",
+            "all_complete": True,
+            "all_succeeded": True,
+            "any_failed": False,
+            "progress_percent": 100,
+            "files": 4,
+            "files_transferred": 4,
+            "subtasks_total": 8,
+            "subtasks_completed": 8,
+            "speed_bps": 0,
+            "bytes_transferred": 1234,
+            "tasks": [],
+        }
+    )
+    assert tab._download_button.isEnabled() is True
+    assert tab._cancel_download_button.isEnabled() is False
+
+
+def test_sennet_portal_progress_poll_error_keeps_pending_task_ids() -> None:
+    """Keep active task IDs after transient polling failures and allow retry."""
+
+    class _FlakyTaskBackend(_DummySenNetPortalBackend):
+        def __init__(self) -> None:
+            self.poll_calls = 0
+
+        def download_tasks_status(self, _task_ids) -> dict[str, object]:
+            self.poll_calls += 1
+            if self.poll_calls == 1:
+                raise RuntimeError("temporary monitoring error")
+            return {
+                "task_count": 1,
+                "overall_status": "SUCCEEDED",
+                "all_complete": True,
+                "all_succeeded": True,
+                "any_failed": False,
+                "progress_percent": 100,
+                "files": 4,
+                "files_transferred": 4,
+                "subtasks_total": 8,
+                "subtasks_completed": 8,
+                "speed_bps": 0,
+                "bytes_transferred": 1234,
+                "tasks": [],
+            }
+
+    tab = SenNetPortalTab(backend=_FlakyTaskBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            )
+        ]
+    )
+
+    task_id = "5724a523-11aa-11f1-a049-0e5b09a3151b"
+    tab._on_download_complete(
+        {
+            "dataset_count": 1,
+            "file_count": 4,
+            "destination": "/tmp/downloads",
+            "task_ids": [task_id],
+        }
+    )
+
+    assert tab._download_locked is True
+    assert tab._download_task_ids == [task_id]
+    assert tab._cancel_download_button.isEnabled() is True
+    assert "retry automatically" in tab._status_label.text().lower()
+
+    # QTimer is stubbed in tests, so manually trigger one retry poll.
+    tab._poll_download_tasks()
+    assert tab._download_locked is False
+    assert tab._download_task_ids == []
+    assert tab._cancel_download_button.isEnabled() is False
+
+
+def test_sennet_portal_progress_label_prefers_file_counts() -> None:
+    """Show file counters in the transfer status label when available."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._download_locked = True
+    tab._on_download_progress(
+        {
+            "task_count": 1,
+            "overall_status": "ACTIVE",
+            "all_complete": False,
+            "all_succeeded": False,
+            "any_failed": False,
+            "progress_percent": 40,
+            "files": 10,
+            "files_transferred": 4,
+            "subtasks_total": 80,
+            "subtasks_completed": 20,
+            "speed_bps": 1024,
+            "bytes_transferred": 4096,
+            "tasks": [],
+        }
+    )
+    assert "(4/10 files)" in tab._download_speed_label.text()
+
+
+def test_sennet_portal_cancel_download_resets_ui_status() -> None:
+    """Cancel active transfer and reset visible transfer status widgets."""
+    class _ActiveTaskBackend(_DummySenNetPortalBackend):
+        def download_tasks_status(self, _task_ids) -> dict[str, object]:
+            return {
+                "task_count": 1,
+                "overall_status": "ACTIVE",
+                "all_complete": False,
+                "all_succeeded": False,
+                "any_failed": False,
+                "progress_percent": 25,
+                "files": 4,
+                "files_transferred": 1,
+                "subtasks_total": 8,
+                "subtasks_completed": 2,
+                "speed_bps": 1024,
+                "bytes_transferred": 2048,
+                "tasks": [],
+            }
+
+    tab = SenNetPortalTab(backend=_ActiveTaskBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            )
+        ]
+    )
+
+    tab._on_download_complete(
+        {
+            "dataset_count": 1,
+            "file_count": 4,
+            "destination": "/tmp/downloads",
+            "task_ids": ["5724a523-11aa-11f1-a049-0e5b09a3151b"],
+        }
+    )
+    tab.cancel_active_downloads()
+
+    assert tab._download_button.isEnabled() is True
+    assert tab._cancel_download_button.isEnabled() is False
+    assert tab._download_progress_bar._visible is False
+    assert tab._download_speed_label._visible is False
+    assert tab._download_progress_bar._value == 0
+    assert tab._download_speed_label.text() == ""
+    assert tab._status_label.text() == "Download canceled."
+
+
+def test_sennet_portal_header_sort_preserves_check_states() -> None:
+    """Sort table by heading and preserve include checkboxes per dataset."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT2",
+                dataset_type="CODEX",
+                status="Published",
+                access_level="public",
+                title="Dataset 2",
+                compatible_paths=["/raw/b.ome.tif"],
+                compatible_extensions=[".ome.tif"],
+                source_type="Mouse",
+                organ="Pancreas",
+            ),
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/raw/a.qptiff"],
+                compatible_extensions=[".qptiff"],
+                source_type="Human",
+                organ="Pancreas",
+            ),
+        ]
+    )
+
+    tab._dataset_table.item(1, 0).setCheckState(Qt.Unchecked)
+    tab._on_table_header_clicked(1)
+    assert tab._dataset_table.item(1, 1).text() == "SNT1"
+    assert tab._dataset_table.item(2, 1).text() == "SNT2"
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+    tab._on_table_header_clicked(1)
+    assert tab._dataset_table.item(1, 1).text() == "SNT2"
+    assert tab._dataset_table.item(2, 1).text() == "SNT1"
+    assert tab._dataset_table.item(1, 0).checkState() == Qt.Unchecked
+    assert tab._dataset_table.item(2, 0).checkState() == Qt.Checked
+
+
 def test_main_widget_instantiates(monkeypatch) -> None:
     """Instantiate the main SenoQuant widget.
 
@@ -372,6 +854,145 @@ def test_main_widget_instantiates(monkeypatch) -> None:
         "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
         lambda self: None,
     )
+    monkeypatch.setattr(
+        "senoquant._widget.SenNetPortalTab",
+        lambda napari_viewer=None: SenNetPortalTab(
+            backend=_DummySenNetPortalBackend(),
+            napari_viewer=napari_viewer,
+        ),
+    )
     viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
     widget = SenoQuantWidget(viewer)
     assert widget is not None
+
+
+def test_main_widget_puts_sennet_portal_first(monkeypatch) -> None:
+    """Add SenNet Portal before segmentation in the main tab order."""
+    monkeypatch.setattr(
+        "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
+        lambda self: None,
+    )
+    monkeypatch.setattr(
+        "senoquant._widget.SenNetPortalTab",
+        lambda napari_viewer=None: SenNetPortalTab(
+            backend=_DummySenNetPortalBackend(),
+            napari_viewer=napari_viewer,
+        ),
+    )
+
+    captured: dict[str, list[str]] = {"labels": []}
+
+    class _RecordingTabWidget:
+        def __init__(self, *_args, **_kwargs) -> None:
+            captured["labels"] = []
+
+        def addTab(self, _widget, label: str) -> None:
+            captured["labels"].append(label)
+
+    monkeypatch.setattr("senoquant._widget.QTabWidget", _RecordingTabWidget)
+
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    SenoQuantWidget(viewer)
+    assert captured["labels"][0] == "SenNet Portal"
+    assert captured["labels"][1] == "Segmentation"
+
+
+def test_main_widget_help_button_opens_active_tab_docs(monkeypatch) -> None:
+    """Open tab-specific user guide links from the shared help button."""
+    monkeypatch.setattr(
+        "senoquant.tabs.segmentation.backend.SegmentationBackend.preload_models",
+        lambda self: None,
+    )
+    monkeypatch.setattr(
+        "senoquant._widget.SenNetPortalTab",
+        lambda napari_viewer=None: SenNetPortalTab(
+            backend=_DummySenNetPortalBackend(),
+            napari_viewer=napari_viewer,
+        ),
+    )
+    opened_urls: list[tuple[str, int]] = []
+
+    def _open(url: str, new: int = 0, autoraise: bool = True) -> bool:
+        del autoraise
+        opened_urls.append((url, new))
+        return True
+
+    monkeypatch.setattr("senoquant._widget.webbrowser.open", _open)
+
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    widget = SenoQuantWidget(viewer)
+
+    expected_urls = [
+        "https://haamsree.github.io/senoquant/user/sennet-portal/",
+        "https://haamsree.github.io/senoquant/user/segmentation/",
+        "https://haamsree.github.io/senoquant/user/spots/",
+        "https://haamsree.github.io/senoquant/user/prediction/",
+        "https://haamsree.github.io/senoquant/user/quantification/",
+        "https://haamsree.github.io/senoquant/user/visualization/",
+        "https://haamsree.github.io/senoquant/user/batch/",
+        "https://haamsree.github.io/senoquant/user/settings/",
+    ]
+    for index, expected_url in enumerate(expected_urls):
+        widget._tab_widget.setCurrentIndex(index)
+        widget._help_button.clicked.emit()
+        assert opened_urls[-1] == (expected_url, 2)
+
+    assert widget._tab_widget.cornerWidget() is widget._help_button
+
+
+def test_main_widget_runs_shutdown_on_qt_application_quit(monkeypatch) -> None:
+    """Run global shutdown hooks from QApplication close/quit signals once."""
+
+    class _TrackingTab(QWidget):
+        def __init__(self, *_args, **_kwargs) -> None:
+            super().__init__()
+            self.shutdown_calls = 0
+
+        def shutdown(self) -> None:
+            self.shutdown_calls += 1
+
+    monkeypatch.setattr("senoquant._widget.SegmentationTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.SpotsTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.PredictionTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.QuantificationTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.VisualizationTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.BatchTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.SettingsTab", _TrackingTab)
+    monkeypatch.setattr("senoquant._widget.SenNetPortalTab", _TrackingTab)
+
+    class _Signal:
+        def __init__(self) -> None:
+            self._callbacks = []
+
+        def connect(self, callback) -> None:
+            self._callbacks.append(callback)
+
+        def emit(self) -> None:
+            for callback in list(self._callbacks):
+                callback()
+
+    class _QApplication:
+        _instance = None
+
+        @classmethod
+        def instance(cls):
+            return cls._instance
+
+    _QApplication._instance = type(
+        "_App",
+        (),
+        {"lastWindowClosed": _Signal(), "aboutToQuit": _Signal()},
+    )()
+    monkeypatch.setattr("senoquant._widget.QtWidgets.QApplication", _QApplication, raising=False)
+
+    viewer = DummyViewer([DummyLayer(np.zeros((4, 4)), "img")])
+    widget = SenoQuantWidget(viewer)
+    portal = widget._sennet_portal_tab
+    assert isinstance(portal, _TrackingTab)
+
+    _QApplication._instance.lastWindowClosed.emit()
+    assert portal.shutdown_calls == 1
+
+    # Widget close is a second shutdown path; hooks should still run once.
+    widget.closeEvent(object())
+    assert portal.shutdown_calls == 1

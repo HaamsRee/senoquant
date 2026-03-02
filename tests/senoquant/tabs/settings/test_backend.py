@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+
+import pytest
+
 from senoquant.tabs.settings.backend import SettingsBackend
 
 
@@ -36,3 +40,29 @@ def test_settings_backend_save_and_load_bundle(tmp_path) -> None:
     assert loaded["schema"] == "senoquant.settings"
     assert loaded["tab_settings"]["segmentation"]["cytoplasmic"]["model"] == "nuclear_dilation"
     assert loaded["tab_settings"]["spots"]["detector"] == "ufish"
+
+
+def test_settings_backend_save_and_load_bundle_memory_filesystem() -> None:
+    """Round-trip settings bundle payloads through memory:// paths."""
+    fsspec = pytest.importorskip("fsspec")
+    fs = fsspec.filesystem("memory")
+    backend = SettingsBackend()
+    source = backend.build_bundle(
+        segmentation={"nuclear": {"model": "default_2d"}},
+        spots={"detector": "ufish"},
+        batch_job={"input_path": "/input"},
+    )
+
+    output_path = "memory://settings-tests/senoquant_settings.json"
+    saved = backend.save_bundle(output_path, source)
+    assert saved == output_path
+    assert fs.exists("settings-tests/senoquant_settings.json") or fs.exists(
+        "/settings-tests/senoquant_settings.json"
+    )
+
+    loaded = backend.load_bundle(output_path)
+    assert loaded["schema"] == "senoquant.settings"
+    assert loaded["batch_job"]["input_path"] == "/input"
+    raw = fs.cat("settings-tests/senoquant_settings.json")
+    parsed = json.loads(raw.decode("utf-8"))
+    assert parsed["schema"] == "senoquant.settings"

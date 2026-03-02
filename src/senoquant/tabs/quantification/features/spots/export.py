@@ -36,6 +36,8 @@ from .morphology import add_morphology_columns
 if TYPE_CHECKING:
     from ..roi import ROIConfig
 
+OVERLAP_PAIR_CHUNK_SIZE = 8_000_000
+
 
 def export_spots(
     feature: FeatureConfig,
@@ -116,7 +118,10 @@ def export_spots(
     if not channels:
         return []
 
-    cross_map = _build_cell_cross_segmentation_map(viewer, data.segmentations)
+    if len(data.segmentations) > 1:
+        cross_map = _build_cell_cross_segmentation_map(viewer, data.segmentations)
+    else:
+        cross_map = {}
 
     # --- Resolve a reference channel for physical pixel sizes ---
     first_channel_layer = None
@@ -420,7 +425,7 @@ def _build_cell_cross_segmentation_map(
         labels = layer_data_asarray(labels_layer)
         if labels.size == 0:
             continue
-        label_ids, _centroids = _compute_centroids(labels)
+        label_ids = _nonzero_label_ids(labels)
         if label_ids.size == 0:
             continue
         all_segmentations[label_name] = (labels, label_ids)
@@ -466,13 +471,9 @@ def _build_cross_segmentation_map(
                 )
                 continue
 
-            mask = (labels_a > 0) & (labels_b > 0)
-            if not np.any(mask):
-                continue
-
-            overlap_pairs = np.column_stack((labels_a[mask], labels_b[mask]))
-            unique_pairs = np.unique(overlap_pairs, axis=0)
-            for label_id_a, label_id_b in unique_pairs:
+            for label_id_a, label_id_b in _unique_overlap_pairs(
+                labels_a, labels_b, chunk_size=OVERLAP_PAIR_CHUNK_SIZE
+            ):
                 id_a = int(label_id_a)
                 id_b = int(label_id_b)
                 if (
@@ -805,12 +806,9 @@ def _build_colocalization_adjacency(
         labels_a = entry_a["spots_labels"]
         for idx_b in range(idx_a + 1, len(channel_entries)):
             labels_b = channel_entries[idx_b]["spots_labels"]
-            mask = (labels_a > 0) & (labels_b > 0)
-            if not np.any(mask):
-                continue
-            pairs = np.column_stack((labels_a[mask], labels_b[mask]))
-            unique_pairs = np.unique(pairs, axis=0)
-            for spot_a, spot_b in unique_pairs:
+            for spot_a, spot_b in _unique_overlap_pairs(
+                labels_a, labels_b, chunk_size=OVERLAP_PAIR_CHUNK_SIZE
+            ):
                 key_a = (idx_a, int(spot_a))
                 key_b = (idx_b, int(spot_b))
                 adjacency.setdefault(key_a, set()).add(key_b)
@@ -985,10 +983,63 @@ def _intensity_sum(
         Raw integrated intensities for each provided label id.
     """
     labels_flat = labels.ravel()
-    image_flat = np.nan_to_num(image.ravel(), nan=0.0)
+    image_flat = image.ravel()
+    if np.isfinite(image_flat).all():
+        weights = image_flat
+    else:
+        weights = np.nan_to_num(image_flat, nan=0.0)
     max_label = int(labels_flat.max()) if labels_flat.size else 0
-    sums = np.bincount(labels_flat, weights=image_flat, minlength=max_label + 1)
+    sums = np.bincount(labels_flat, weights=weights, minlength=max_label + 1)
     return sums[label_ids]
+
+
+def _nonzero_label_ids(labels: np.ndarray) -> np.ndarray:
+    """Return sorted non-zero label ids present in ``labels``."""
+    unique = np.unique(labels)
+    return unique[unique > 0].astype(int, copy=False)
+
+
+def _unique_overlap_pairs(
+    labels_a: np.ndarray,
+    labels_b: np.ndarray,
+    *,
+    chunk_size: int,
+) -> list[tuple[int, int]]:
+    """Return unique non-zero overlap pairs between two labels arrays.
+
+    Uses chunked uint64 bit-packing to reduce peak memory usage on large
+    arrays. Falls back to full-array pair extraction when label ids exceed
+    uint32 bounds.
+    """
+    max_u32 = np.iinfo(np.uint32).max
+    max_label_a = int(labels_a.max()) if labels_a.size else 0
+    max_label_b = int(labels_b.max()) if labels_b.size else 0
+    if max_label_a > max_u32 or max_label_b > max_u32:
+        mask = (labels_a > 0) & (labels_b > 0)
+        if not np.any(mask):
+            return []
+        pairs = np.column_stack((labels_a[mask], labels_b[mask]))
+        unique_pairs = np.unique(pairs, axis=0)
+        return [(int(label_a), int(label_b)) for label_a, label_b in unique_pairs]
+
+    flat_a = labels_a.ravel()
+    flat_b = labels_b.ravel()
+    encoded_pairs: set[int] = set()
+    for start in range(0, flat_a.size, chunk_size):
+        chunk_a = flat_a[start : start + chunk_size]
+        chunk_b = flat_b[start : start + chunk_size]
+        mask = (chunk_a > 0) & (chunk_b > 0)
+        if not np.any(mask):
+            continue
+        keys = (
+            chunk_a[mask].astype(np.uint64) << np.uint64(32)
+        ) | chunk_b[mask].astype(np.uint64)
+        encoded_pairs.update(int(key) for key in np.unique(keys))
+
+    return [
+        (int((key >> 32) & max_u32), int(key & max_u32))
+        for key in sorted(encoded_pairs)
+    ]
 
 
 def _safe_float(value) -> float | None:

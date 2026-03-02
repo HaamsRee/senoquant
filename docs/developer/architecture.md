@@ -12,11 +12,12 @@ tab modules.
 
 ## UI structure
 
-The main widget (`SenoQuantWidget`) composes seven tabs:
+The main widget (`SenoQuantWidget`) composes eight tabs:
 
 - Segmentation (`src/senoquant/tabs/segmentation`).
 - Spots (`src/senoquant/tabs/spots`).
 - Prediction (`src/senoquant/tabs/prediction`).
+- SenNet Portal (`src/senoquant/tabs/sennet_portal`).
 - Quantification (`src/senoquant/tabs/quantification`).
 - Visualization (`src/senoquant/tabs/visualization`).
 - Batch (`src/senoquant/tabs/batch`).
@@ -38,11 +39,15 @@ Prediction-specific note:
 ## Reader pipeline
 
 The reader implementation lives in `src/senoquant/reader/core.py` and
-relies on BioIO to open files. The reader:
+uses a hybrid BioIO strategy. The reader:
 
-- Validates the file via `BioImage.determine_plugin`.
+- Prefers fast format-specific BioIO plugins for pixel loading.
+- Uses bioio-bioformats for metadata extraction when available.
+- Falls back to the data reader for metadata when BioFormats metadata open fails.
+- Uses `dask_tiles=True` when BioFormats is used for pixel loading.
+- Extracts channel colors from OME metadata when available.
+- Falls back to a default colormap cycle when all channels have the same color.
 - Iterates scenes and channels to create napari layers.
-- Applies a fixed colormap cycle for channel display.
 
 ## Batch pipeline
 

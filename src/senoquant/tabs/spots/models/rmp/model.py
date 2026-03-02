@@ -47,7 +47,7 @@ EPS = 1e-6
 # Larger NOISE_FLOOR_SIGMA suppresses more low-level background.
 NOISE_FLOOR_SIGMA = 1.5
 # Lower bound on dynamic-range scaling relative to estimated noise.
-MIN_SCALE_SIGMA = 5.0
+MIN_SCALE_SIGMA = 4.5
 # High percentile used to set bright-signal scale for [0, 1] normalization.
 SIGNAL_SCALE_QUANTILE = 99.9
 
@@ -56,19 +56,22 @@ USE_LAPLACE_FOR_PEAKS = False
 
 # Peak quality gates before watershed seeding.
 # Relative to robust high-intensity scale; higher => fewer weak peaks.
-PEAK_RELATIVE_INTENSITY_MIN = 0.45
+PEAK_RELATIVE_INTENSITY_MIN = 0.1
 # Relative local prominence (vs 3x3 local minimum); higher => fewer plateau peaks.
-PEAK_RELATIVE_PROMINENCE_MIN = 0.35
+PEAK_RELATIVE_PROMINENCE_MIN = 0.1
 # Center-bias multiplier in distance-weighted response.
 # Higher => prefer component-center peaks over boundary peaks.
 PEAK_COMPONENT_DISTANCE_WEIGHT = 1.0
 # Hard center-distance gate (0..1 in each component).
 # Higher => keep only deeper interior peaks.
-PEAK_MIN_COMPONENT_DISTANCE_RATIO = 0.55
+PEAK_MIN_COMPONENT_DISTANCE_RATIO = 0.4
 
 # Fixed sigma passed to BayesShrink wavelet denoising.
 # Set to None for automatic sigma estimation.
 WAVELET_SIGMA = None
+
+# Tile size used by tiled top-hat execution.
+RMP_TILE_CHUNK_SIZE: tuple[int, int] = (512, 512)
 
 # Anisotropy detection and correction knobs (3D only).
 # Peak sampling percentile for candidate spots used in anisotropy estimation.
@@ -716,6 +719,31 @@ def _recommended_overlap(config: "RMPSettings") -> int:
     return max(1, config.extraction_se_length * 2)
 
 
+def _pad_xy_to_chunk_multiple(
+    image: np.ndarray,
+    *,
+    chunk_size: tuple[int, int],
+) -> tuple[np.ndarray, tuple[slice, ...]]:
+    """Pad trailing Y/X axes so tiled execution avoids tiny edge chunks."""
+    data = np.asarray(image, dtype=np.float32)
+    if data.ndim not in (2, 3):
+        raise ValueError("Expected a 2D image or 3D stack for tiled padding.")
+
+    chunk_y = max(1, int(chunk_size[0]))
+    chunk_x = max(1, int(chunk_size[1]))
+    pad_y = (-int(data.shape[-2])) % chunk_y
+    pad_x = (-int(data.shape[-1])) % chunk_x
+    crop_slices = tuple(slice(0, int(size)) for size in data.shape)
+    if pad_y == 0 and pad_x == 0:
+        return data, crop_slices
+
+    pad_width = [(0, 0)] * data.ndim
+    pad_width[-2] = (0, pad_y)
+    pad_width[-1] = (0, pad_x)
+    padded = np.pad(data, pad_width=tuple(pad_width), mode="reflect")
+    return padded.astype(np.float32, copy=False), crop_slices
+
+
 @contextmanager
 def _cluster_client():
     """Yield a connected Dask client backed by a local cluster."""
@@ -833,7 +861,7 @@ def _postprocess_top_hat(
 def _rmp_top_hat_tiled(
     image: np.ndarray,
     config: "RMPSettings",
-    chunk_size: tuple[int, int] = (512, 512),
+    chunk_size: tuple[int, int] = RMP_TILE_CHUNK_SIZE,
     overlap: int | None = None,
     distributed: bool = False,
     client: "Client | None" = None,
@@ -932,9 +960,16 @@ class RMPDetector(SenoQuantSpotDetector):
 
         use_distributed = _distributed_available()
         use_tiled = _dask_available()
+        top_hat_input = denoised
+        top_hat_crop_slices: tuple[slice, ...] | None = None
+        if use_tiled:
+            top_hat_input, top_hat_crop_slices = _pad_xy_to_chunk_multiple(
+                denoised,
+                chunk_size=RMP_TILE_CHUNK_SIZE,
+            )
         try:
             top_hat = _compute_top_hat_nd(
-                denoised,
+                top_hat_input,
                 config,
                 use_tiled=use_tiled,
                 use_distributed=use_distributed,
@@ -947,11 +982,13 @@ class RMPDetector(SenoQuantSpotDetector):
                 exc_info=False,
             )
             top_hat = _compute_top_hat_nd(
-                denoised,
+                top_hat_input,
                 config,
                 use_tiled=use_tiled,
                 use_distributed=False,
             )
+        if top_hat_crop_slices is not None:
+            top_hat = np.asarray(top_hat[top_hat_crop_slices], dtype=np.float32)
         denoised_top_hat = wavelet_denoise_input(
             top_hat,
             enabled=config.enable_denoising,

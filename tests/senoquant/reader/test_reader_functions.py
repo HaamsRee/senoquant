@@ -1,0 +1,613 @@
+"""Tests for reader core functions."""
+
+import io
+import logging
+from collections import OrderedDict
+from pathlib import Path
+import sys
+import types
+
+import pytest
+
+from senoquant.reader import core
+import senoquant.reader.supported_extensions as supported_extensions
+
+
+def test_colormap_cycle_returns_iterator():
+    """Test that _colormap_cycle returns an iterator."""
+    cycle = core._colormap_cycle()
+    assert hasattr(cycle, "__iter__")
+    assert hasattr(cycle, "__next__")
+
+
+def test_colormap_cycle_cycles_through_colors():
+    """Test that _colormap_cycle cycles through the expected colors."""
+    cycle = core._colormap_cycle()
+    expected = ["blue", "green", "red", "yellow", "cyan", "bop blue", "bop orange", "bop purple"]
+    for color in expected:
+        assert next(cycle) == color
+    # After 8, it should cycle back to blue
+    assert next(cycle) == "blue"
+
+
+def test_all_channels_same_color_same():
+    """Test _all_channels_same_color returns True when all colors are the same."""
+    channel_colors = [
+        {"colors": [[0, 0, 0, 1], [1, 1, 1, 1]], "name": "channel_0_white"},
+        {"colors": [[0, 0, 0, 1], [1, 1, 1, 1]], "name": "channel_1_white"},
+    ]
+    assert core._all_channels_same_color(channel_colors) is True
+
+
+def test_all_channels_same_color_different():
+    """Test _all_channels_same_color returns False when colors differ."""
+    channel_colors = [
+        {"colors": [[0, 0, 0, 1], [1, 0, 0, 1]], "name": "channel_0_red"},
+        {"colors": [[0, 0, 0, 1], [0, 1, 0, 1]], "name": "channel_1_green"},
+    ]
+    assert core._all_channels_same_color(channel_colors) is False
+
+
+def test_all_channels_same_color_empty():
+    """Test _all_channels_same_color returns False for empty list."""
+    assert core._all_channels_same_color([]) is False
+
+
+def test_all_channels_same_color_all_none():
+    """Test _all_channels_same_color returns False when all are None."""
+    assert core._all_channels_same_color([None, None]) is False
+
+
+def test_all_channels_same_color_mixed():
+    """Test _all_channels_same_color with mix of None and valid colors."""
+    # With one None and one valid, there's only one valid color to compare
+    # so it returns True (vacuously all same)
+    channel_colors = [
+        None,
+        {"colors": [[0, 0, 0, 1], [1, 0, 0, 1]], "name": "channel_0_red"},
+    ]
+    assert core._all_channels_same_color(channel_colors) is True
+
+
+def test_get_channel_colors_from_ome_no_ome():
+    """Test _get_channel_colors_from_ome returns empty when no OME metadata."""
+    # Create a mock image without OME metadata
+    class MockImage:
+        def __init__(self):
+            self._ome_metadata = None
+
+        @property
+        def ome_metadata(self):
+            return self._ome_metadata
+
+    image = MockImage()
+    result = core._get_channel_colors_from_ome(image)
+    assert result == []
+
+
+def test_get_channel_colors_from_ome_no_images():
+    """Test _get_channel_colors_from_ome returns empty when no images in OME."""
+    class MockOME:
+        images = None
+
+    class MockImage:
+        def __init__(self):
+            self._ome_metadata = MockOME()
+
+        @property
+        def ome_metadata(self):
+            return self._ome_metadata
+
+    image = MockImage()
+    result = core._get_channel_colors_from_ome(image)
+    assert result == []
+
+
+def test_get_channel_colors_from_ome_no_pixels():
+    """Test _get_channel_colors_from_ome returns empty when no pixels."""
+    class MockPixelsImage:
+        images = []
+
+    class MockImage:
+        def __init__(self):
+            self._ome_metadata = MockPixelsImage()
+
+        @property
+        def ome_metadata(self):
+            return self._ome_metadata
+
+    image = MockImage()
+    result = core._get_channel_colors_from_ome(image)
+    assert result == []
+
+
+def test_get_reader_logs_plugin_detection_failures(monkeypatch, tmp_path, caplog) -> None:
+    """Log plugin determination failures before returning None."""
+
+    class _BrokenBioImage:
+        @staticmethod
+        def determine_plugin(_path: str):
+            raise RuntimeError("plugin probe failed")
+
+    fake_bioio = types.SimpleNamespace(BioImage=_BrokenBioImage)
+    monkeypatch.setitem(sys.modules, "bioio", fake_bioio)
+
+    sample_path = tmp_path / "sample.tif"
+    sample_path.write_bytes(b"test")
+
+    caplog.set_level(logging.WARNING, logger=core.__name__)
+    assert core.get_reader(str(sample_path)) is None
+    assert "failed to determine a BioIO plugin" in caplog.text
+
+
+def test_supported_image_extensions_discovers_bioio_plugin_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Collect and normalize extension keys from BioIO plugin registry."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".OME.TIF": [],
+                    "qptiff": [],
+                    ".eps ": [],
+                }
+            )
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+
+    extensions = supported_extensions.supported_image_extensions()
+    assert ".ome.tif" in extensions
+    assert ".qptiff" in extensions
+    assert ".eps" in extensions
+    # Fallback extensions are always merged.
+    assert ".jpeg" in extensions
+
+
+def test_supported_image_extensions_falls_back_when_plugin_probe_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Return fallback extensions when BioIO plugin introspection fails."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            raise RuntimeError("boom")
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+
+    extensions = supported_extensions.supported_image_extensions()
+    assert ".ome.tif" in extensions
+    assert ".qptiff" in extensions
+    assert ".jpeg" in extensions
+
+
+def test_get_reader_uses_resolved_path_for_plugin_probe(monkeypatch, tmp_path) -> None:
+    """Probe plugin support using the resolved local path."""
+
+    resolved_path = tmp_path / "staged.czi"
+    resolved_path.write_bytes(b"data")
+    probed_path: dict[str, str] = {}
+
+    class _BioImage:
+        @staticmethod
+        def determine_plugin(path: str):
+            probed_path["value"] = path
+            return object()
+
+    monkeypatch.setattr(core, "_resolve_reader_path", lambda _path: str(resolved_path))
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(BioImage=_BioImage))
+
+    assert core.get_reader("smb://server/share/image.czi") is core._read_senoquant
+    assert probed_path["value"] == str(resolved_path)
+
+
+def test_open_bioimage_prefers_fast_reader_over_bioformats(monkeypatch) -> None:
+    """Prefer a non-BioFormats reader for pixel loading when available."""
+
+    class _BioFormatsReader:
+        pass
+
+    _BioFormatsReader.__module__ = "bioio_bioformats"
+
+    class _FastReader:
+        pass
+
+    _FastReader.__module__ = "bioio_czi"
+
+    opened: list[tuple[object | None, dict]] = []
+
+    class _BioImage:
+        @staticmethod
+        def determine_plugin(_path: str):
+            return _BioFormatsReader
+
+        def __init__(self, _path: str, reader=None, **kwargs):
+            opened.append((reader, kwargs))
+            self.reader = reader
+
+    monkeypatch.setattr(core, "_ensure_java_truststore", lambda: None)
+    monkeypatch.setattr(core, "_candidate_fast_reader_classes", lambda _path: (_FastReader,))
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(BioImage=_BioImage))
+
+    image = core._open_bioimage("sample.czi")
+    assert image.reader is _FastReader
+    assert opened[0][0] is _FastReader
+
+
+def test_reader_module_priority_for_path_uses_bioio_plugin_registry(monkeypatch) -> None:
+    """Discover reader modules from ``bioio.plugins.get_plugins`` entries."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".czi": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_czi")
+                        ),
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_bioformats")
+                        ),
+                    ],
+                    ".tif": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_tifffile")
+                        ),
+                    ],
+                }
+            )
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+    modules = core._reader_module_priority_for_path("sample.czi")
+    assert modules == ("bioio_czi", "bioio_bioformats")
+
+
+def test_reader_module_priority_for_path_skips_disallowed_modules(monkeypatch) -> None:
+    """Ignore modules explicitly disallowed for data reading."""
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".tif": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_tiff_glob")
+                        ),
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_tifffile")
+                        ),
+                    ]
+                }
+            )
+
+    monkeypatch.setitem(sys.modules, "bioio", types.SimpleNamespace(plugins=_Plugins()))
+    modules = core._reader_module_priority_for_path("sample.tif")
+    assert modules == ("bioio_tifffile",)
+
+
+def test_open_metadata_bioimage_prefers_bioformats_reader(monkeypatch) -> None:
+    """Open metadata with BioFormats when data reader is non-BioFormats."""
+
+    class _FastReader:
+        pass
+
+    _FastReader.__module__ = "bioio_czi"
+
+    class _BioFormatsReader:
+        pass
+
+    _BioFormatsReader.__module__ = "bioio_bioformats"
+
+    class _BioImage:
+        def __init__(self, _path: str, reader=None, **_kwargs):
+            self.reader = reader
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".czi": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_bioformats")
+                        )
+                    ]
+                }
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio_bioformats",
+        types.SimpleNamespace(Reader=_BioFormatsReader),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio",
+        types.SimpleNamespace(BioImage=_BioImage, plugins=_Plugins()),
+    )
+
+    data_image = types.SimpleNamespace(reader=_FastReader)
+    metadata_image = core._open_metadata_bioimage("sample.czi", fallback_image=data_image)
+    assert metadata_image.reader is _BioFormatsReader
+
+
+def test_open_metadata_bioimage_falls_back_when_bioformats_fails(monkeypatch) -> None:
+    """Use data reader metadata when BioFormats metadata open fails."""
+
+    class _FastReader:
+        pass
+
+    _FastReader.__module__ = "bioio_czi"
+
+    class _BioFormatsReader:
+        pass
+
+    _BioFormatsReader.__module__ = "bioio_bioformats"
+
+    class _BioImage:
+        def __init__(self, _path: str, reader=None, **_kwargs):
+            if reader is _BioFormatsReader:
+                raise RuntimeError("bioformats unavailable")
+            self.reader = reader
+
+    class _Plugins:
+        @staticmethod
+        def get_plugins(*, use_cache: bool):
+            assert use_cache is True
+            return OrderedDict(
+                {
+                    ".czi": [
+                        types.SimpleNamespace(
+                            entrypoint=types.SimpleNamespace(value="bioio_bioformats")
+                        )
+                    ]
+                }
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio_bioformats",
+        types.SimpleNamespace(Reader=_BioFormatsReader),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "bioio",
+        types.SimpleNamespace(BioImage=_BioImage, plugins=_Plugins()),
+    )
+
+    data_image = types.SimpleNamespace(reader=_FastReader)
+    metadata_image = core._open_metadata_bioimage("sample.czi", fallback_image=data_image)
+    assert metadata_image is data_image
+
+
+def test_iter_channel_layers_prefers_metadata_image_for_metadata(monkeypatch) -> None:
+    """Populate layer metadata from metadata-image source when provided."""
+    dims = types.SimpleNamespace(order="YX")
+    data_image = types.SimpleNamespace(dims=dims, metadata={"source": "data"})
+    metadata_image = types.SimpleNamespace(dims=dims, metadata={"source": "metadata"})
+
+    monkeypatch.setattr(
+        core,
+        "_get_dask_data",
+        lambda *_args, **_kwargs: [[1, 2], [3, 4]],
+    )
+
+    def _fake_sizes(image):
+        if image is metadata_image:
+            return {"Z": 1.0, "Y": 2.0, "X": 3.0}
+        return {"Z": 9.0, "Y": 9.0, "X": 9.0}
+
+    monkeypatch.setattr(core, "_physical_pixel_sizes", _fake_sizes)
+
+    layers = core._iter_channel_layers(
+        data_image,
+        base_name="sample.czi",
+        scene_id="Scene 0",
+        scene_idx=0,
+        total_scenes=1,
+        path="sample.czi",
+        metadata_image=metadata_image,
+        data_reader_name="bioio_czi.Reader",
+        metadata_reader_name="bioio_bioformats.Reader",
+    )
+
+    assert len(layers) == 1
+    layer_metadata = layers[0][1]["metadata"]
+    assert layer_metadata["bioio_metadata"] == {"source": "metadata"}
+    assert layer_metadata["physical_pixel_sizes"] == {"Z": 1.0, "Y": 2.0, "X": 3.0}
+    assert layer_metadata["data_reader"] == "bioio_czi.Reader"
+    assert layer_metadata["metadata_reader"] == "bioio_bioformats.Reader"
+
+
+def test_stage_network_path_downloads_once_and_reuses_cache(monkeypatch, tmp_path) -> None:
+    """Download a network image to temp once and reuse cached local path."""
+    monkeypatch.setattr(core, "_NETWORK_STAGE_ROOT", tmp_path)
+    monkeypatch.setattr(core, "_STAGED_NETWORK_PATHS", {})
+
+    calls: list[tuple[str, str]] = []
+
+    class _OpenContext:
+        def __init__(self, data: bytes) -> None:
+            self._buffer = io.BytesIO(data)
+
+        def __enter__(self):
+            return self._buffer
+
+        def __exit__(self, *_args) -> None:
+            self._buffer.close()
+
+    def _fake_open(path: str, mode: str = "rb"):
+        calls.append((path, mode))
+        return _OpenContext(b"network-bytes")
+
+    monkeypatch.setitem(sys.modules, "fsspec", types.SimpleNamespace(open=_fake_open))
+
+    original = "smb://server/share/image.czi"
+    staged_first = core._stage_network_path(original)
+    staged_second = core._stage_network_path(original)
+    assert staged_first == staged_second
+    assert Path(staged_first).read_bytes() == b"network-bytes"
+    assert calls == [(original, "rb")]
+
+
+def test_path_display_name_handles_unc_url_and_local_paths() -> None:
+    """Return stable display names for path variants."""
+    assert core._path_display_name(r"\\server\share\folder\image.czi") == "image.czi"
+    assert core._path_display_name("smb://server/share/folder/image.czi") == "image.czi"
+    assert core._path_display_name("/tmp/local-image.czi") == "local-image.czi"
+
+
+def test_network_download_source_converts_unc_and_rejects_invalid_unc() -> None:
+    """Convert UNC to smb URL and reject malformed UNC inputs."""
+    assert (
+        core._network_download_source(r"\\server\share\folder\image.czi")
+        == "smb://server/share/folder/image.czi"
+    )
+    assert (
+        core._network_download_source(r"\\server\share\images examples\spots 2d\76 cxcl1.lif")
+        == "smb://server/share/images examples/spots 2d/76 cxcl1.lif"
+    )
+    with pytest.raises(ValueError, match="Unsupported UNC path format"):
+        core._network_download_source(r"\\server")
+
+
+def test_resolve_reader_path_prefers_network_staging_for_unc(monkeypatch, tmp_path) -> None:
+    """Stage UNC paths before any local Path.is_file probing."""
+    staged = str(tmp_path / "staged.czi")
+    is_file_calls: list[str] = []
+
+    def _unexpected_is_file(_self):
+        is_file_calls.append("called")
+        return True
+
+    monkeypatch.setattr(core.Path, "is_file", _unexpected_is_file)
+    monkeypatch.setattr(core, "_stage_network_path", lambda _path: staged)
+
+    resolved = core._resolve_reader_path(r"\\server\share\image.czi")
+    assert resolved == staged
+    assert is_file_calls == []
+
+
+def test_stage_network_path_cleans_partial_file_on_copy_failure(
+    monkeypatch, tmp_path
+) -> None:
+    """Remove partial staged file when network copy fails."""
+    monkeypatch.setattr(core, "_NETWORK_STAGE_ROOT", tmp_path)
+    monkeypatch.setattr(core, "_STAGED_NETWORK_PATHS", {})
+
+    class _BrokenReader:
+        def read(self, *_args, **_kwargs):
+            raise OSError("network read failed")
+
+    class _BrokenContext:
+        def __enter__(self):
+            return _BrokenReader()
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "fsspec",
+        types.SimpleNamespace(open=lambda *_args, **_kwargs: _BrokenContext()),
+    )
+
+    with pytest.raises(OSError, match="network read failed"):
+        core._stage_network_path("smb://server/share/image.czi")
+
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_ensure_java_truststore_sets_env_on_windows(monkeypatch) -> None:
+    """Set Java/Maven truststore flags on Windows when missing."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Windows")
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS", raising=False)
+    monkeypatch.delenv("MAVEN_OPTS", raising=False)
+
+    core._ensure_java_truststore()
+
+    java_opts = core.os.environ["JAVA_TOOL_OPTIONS"]
+    maven_opts = core.os.environ["MAVEN_OPTS"]
+    assert core._WINDOWS_TRUSTSTORE_TYPE_FLAG in java_opts
+    assert core._WINDOWS_TRUSTSTORE_PROVIDER_FLAG in java_opts
+    assert core._WINDOWS_TRUSTSTORE_TYPE_FLAG in maven_opts
+    assert core._WINDOWS_TRUSTSTORE_PROVIDER_FLAG in maven_opts
+
+
+def test_ensure_java_truststore_preserves_existing_options_on_windows(
+    monkeypatch,
+) -> None:
+    """Preserve existing options and avoid duplicate truststore flags."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Windows")
+    monkeypatch.setenv("JAVA_TOOL_OPTIONS", "-Xmx1g")
+    monkeypatch.setenv(
+        "MAVEN_OPTS",
+        f"-Dfoo=bar {core._WINDOWS_TRUSTSTORE_TYPE_FLAG}",
+    )
+
+    core._ensure_java_truststore()
+    core._ensure_java_truststore()
+
+    java_opts = core.os.environ["JAVA_TOOL_OPTIONS"]
+    maven_opts = core.os.environ["MAVEN_OPTS"]
+    assert "-Xmx1g" in java_opts
+    assert java_opts.count("javax.net.ssl.trustStoreType") == 1
+    assert java_opts.count("javax.net.ssl.trustStoreProvider") == 1
+    assert "-Dfoo=bar" in maven_opts
+    assert maven_opts.count("javax.net.ssl.trustStoreType") == 1
+    assert maven_opts.count("javax.net.ssl.trustStoreProvider") == 1
+
+
+def test_ensure_java_truststore_sets_macos_keychain_flags(monkeypatch) -> None:
+    """Set macOS Java truststore flags when missing."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Darwin")
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS", raising=False)
+    monkeypatch.delenv("MAVEN_OPTS", raising=False)
+
+    core._ensure_java_truststore()
+
+    assert core._MACOS_TRUSTSTORE_TYPE_FLAG in core.os.environ["JAVA_TOOL_OPTIONS"]
+    assert core._MACOS_TRUSTSTORE_TYPE_FLAG in core.os.environ["MAVEN_OPTS"]
+
+
+def test_ensure_java_truststore_sets_linux_cacerts_flags(monkeypatch) -> None:
+    """Set Linux Java truststore flags when a system cacerts file is available."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        core,
+        "_linux_java_truststore_path",
+        lambda: "/etc/ssl/certs/java/cacerts",
+    )
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS", raising=False)
+    monkeypatch.delenv("MAVEN_OPTS", raising=False)
+
+    core._ensure_java_truststore()
+
+    expected_store = "-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
+    expected_password = "-Djavax.net.ssl.trustStorePassword=changeit"
+    assert expected_store in core.os.environ["JAVA_TOOL_OPTIONS"]
+    assert expected_password in core.os.environ["JAVA_TOOL_OPTIONS"]
+    assert expected_store in core.os.environ["MAVEN_OPTS"]
+    assert expected_password in core.os.environ["MAVEN_OPTS"]
+
+
+def test_ensure_java_truststore_noop_when_disabled(monkeypatch) -> None:
+    """Allow disabling automatic truststore setup through environment."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Windows")
+    monkeypatch.setenv("SENOQUANT_JAVA_TRUSTSTORE_SETUP", "off")
+    monkeypatch.setenv("JAVA_TOOL_OPTIONS", "-Xmx2g")
+    monkeypatch.setenv("MAVEN_OPTS", "-Dfoo=bar")
+
+    core._ensure_java_truststore()
+
+    assert core.os.environ["JAVA_TOOL_OPTIONS"] == "-Xmx2g"
+    assert core.os.environ["MAVEN_OPTS"] == "-Dfoo=bar"
