@@ -183,7 +183,7 @@ class SpatialPlot(SenoQuantPlot):
                         assigned[take] = True
 
                 label_series = pd.Series(labels, index=df.index, dtype="object")
-                category_order = marker_names + ["Other"]
+                category_order = ["Other"] + marker_names
                 colors = plt.cm.get_cmap("tab20", len(category_order))
 
                 for color_idx, category in enumerate(category_order):
