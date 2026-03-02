@@ -190,12 +190,13 @@ class SpatialPlot(SenoQuantPlot):
                     mask = label_series == category
                     if not mask.any():
                         continue
+                    point_color = "lightgray" if category == "Other" else colors(color_idx)
                     ax.scatter(
                         x[mask.to_numpy()],
                         y[mask.to_numpy()],
                         alpha=0.75,
                         s=20,
-                        color=colors(color_idx),
+                        color=point_color,
                         label=category,
                     )
                 ax.legend(loc="best", frameon=False, title="Assigned marker")
