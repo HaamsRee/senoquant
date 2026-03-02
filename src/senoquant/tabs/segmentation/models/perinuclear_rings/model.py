@@ -8,7 +8,10 @@ import numpy as np
 from scipy import ndimage as ndi
 
 from senoquant.tabs.segmentation.models.base import SenoQuantSegmentationModel
-from senoquant.tabs.segmentation.models.morphology import iter_label_regions
+from senoquant.tabs.segmentation.models.morphology import (
+    expand_labels_nearest,
+    iter_label_regions,
+)
 from senoquant.utils import layer_data_asarray
 
 if TYPE_CHECKING:
@@ -101,32 +104,23 @@ class PerinuclearRingsModel(SenoQuantSegmentationModel):
         erosion_px = max(int(settings_dict.get("erosion_px", 2)), 1)
         dilation_px = max(int(settings_dict.get("dilation_px", 5)), 0)
 
-        ring_labels = np.zeros_like(nuclear_data)
-        crop_pad = max(erosion_px, dilation_px)
+        expanded_labels = expand_labels_nearest(
+            nuclear_data,
+            distance=dilation_px,
+        )
+        ring_labels = expanded_labels.copy()
 
-        # Process each nucleus independently to preserve label identity.
+        # Remove eroded nuclear cores to keep perinuclear shells.
         for label_id, region_slices, nucleus_mask in iter_label_regions(
             nuclear_data,
-            pad=crop_pad,
+            pad=0,
         ):
             # Erode inward (minimum 1 px to maintain overlap).
             eroded_mask = ndi.binary_erosion(
                 nucleus_mask,
                 iterations=erosion_px,
             )
-
-            if dilation_px == 0:
-                # Zero outward dilation means keep the original boundary.
-                dilated_mask = nucleus_mask
-            else:
-                dilated_mask = ndi.binary_dilation(
-                    nucleus_mask,
-                    iterations=dilation_px,
-                )
-
-            # Ring is the difference: dilated - eroded.
-            ring_mask = dilated_mask & ~eroded_mask
             output_region = ring_labels[region_slices]
-            output_region[ring_mask] = label_id
+            output_region[eroded_mask & (output_region == label_id)] = 0
 
         return {"masks": ring_labels}

@@ -94,3 +94,36 @@ def iter_label_regions(
         padded_slices = _pad_slices(slices, labels.shape, pad)
         region = labels[padded_slices]
         yield label_id, padded_slices, region == label_id
+
+
+def expand_labels_nearest(labels: np.ndarray, *, distance: int) -> np.ndarray:
+    """Expand labels into background by nearest-label assignment.
+
+    Parameters
+    ----------
+    labels : numpy.ndarray
+        Input label image where ``0`` represents background.
+    distance : int
+        Expansion radius in pixels/voxels.
+
+    Returns
+    -------
+    numpy.ndarray
+        Label image expanded by nearest-label assignment up to ``distance``.
+    """
+    if distance <= 0:
+        return labels.copy()
+    if not np.any(labels):
+        return np.zeros_like(labels)
+
+    background_mask = labels == 0
+    distances, nearest_indices = ndi.distance_transform_edt(
+        background_mask,
+        return_indices=True,
+    )
+    nearest_labels = labels[tuple(nearest_indices)]
+
+    expanded = labels.copy()
+    within_radius = background_mask & (distances <= float(distance))
+    expanded[within_radius] = nearest_labels[within_radius]
+    return expanded

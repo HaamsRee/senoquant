@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy import ndimage as ndi
 
 from senoquant.tabs.segmentation.models.base import SenoQuantSegmentationModel
-from senoquant.tabs.segmentation.models.morphology import iter_label_regions
+from senoquant.tabs.segmentation.models.morphology import expand_labels_nearest
 from senoquant.utils import layer_data_asarray
 
 if TYPE_CHECKING:
@@ -86,16 +85,9 @@ class NuclearDilationModel(SenoQuantSegmentationModel):
             1,
         )
 
-        dilated_labels = np.zeros_like(nuclear_data)
-        for label_id, region_slices, mask in iter_label_regions(
+        dilated_labels = expand_labels_nearest(
             nuclear_data,
-            pad=dilation_px,
-        ):
-            dilated_mask = ndi.binary_dilation(
-                mask,
-                iterations=dilation_px,
-            )
-            output_region = dilated_labels[region_slices]
-            output_region[dilated_mask] = label_id
+            distance=dilation_px,
+        )
 
         return {"masks": dilated_labels}

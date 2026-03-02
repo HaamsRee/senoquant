@@ -24,8 +24,22 @@ def _reference_perinuclear_rings(
     erosion_px: int,
     dilation_px: int,
 ) -> np.ndarray:
-    """Reference implementation matching perinuclear ring semantics."""
-    output = np.zeros_like(labels)
+    """Reference implementation matching nearest-label ring semantics."""
+    if dilation_px <= 0:
+        output = labels.copy()
+    elif not np.any(labels):
+        output = np.zeros_like(labels)
+    else:
+        background_mask = labels == 0
+        distances, nearest_indices = ndi.distance_transform_edt(
+            background_mask,
+            return_indices=True,
+        )
+        nearest_labels = labels[tuple(nearest_indices)]
+        output = labels.copy()
+        within_radius = background_mask & (distances <= float(dilation_px))
+        output[within_radius] = nearest_labels[within_radius]
+
     for label_id in np.unique(labels):
         if label_id == 0:
             continue
@@ -34,15 +48,7 @@ def _reference_perinuclear_rings(
             nucleus_mask,
             iterations=erosion_px,
         )
-        if dilation_px == 0:
-            dilated_mask = nucleus_mask
-        else:
-            dilated_mask = ndi.binary_dilation(
-                nucleus_mask,
-                iterations=dilation_px,
-            )
-        ring_mask = dilated_mask & ~eroded_mask
-        output[ring_mask] = label_id
+        output[eroded_mask & (output == label_id)] = 0
     return output
 
 
@@ -218,7 +224,7 @@ def test_perinuclear_rings_overlap_guarantee() -> None:
 
 
 def test_perinuclear_rings_matches_reference_for_sparse_label_ids() -> None:
-    """Match legacy full-frame behavior for sparse/non-sequential labels."""
+    """Match nearest-label reference for sparse/non-sequential labels."""
     model = PerinuclearRingsModel()
 
     nuclear_data = np.zeros((90, 90), dtype=np.uint32)
@@ -264,3 +270,23 @@ def test_perinuclear_rings_zero_dilation_has_no_outward_growth() -> None:
 
     outside_original = (masks > 0) & (nuclear_data == 0)
     assert not np.any(outside_original)
+
+
+def test_perinuclear_rings_assigns_overlap_by_nearest_nucleus() -> None:
+    """Resolve outward overlap by nearest nucleus rather than write order."""
+    model = PerinuclearRingsModel()
+
+    nuclear_data = np.zeros((40, 40), dtype=np.uint32)
+    nuclear_data[16:21, 10:15] = 1
+    nuclear_data[16:21, 19:24] = 2
+
+    result = model.run(
+        task="cytoplasmic",
+        nuclear_layer=MockLayer(nuclear_data),
+        settings={"erosion_px": 1, "dilation_px": 5},
+    )
+    masks = result["masks"]
+
+    # Columns 16 and 17 are in the overlap zone; each should map to nearest label.
+    assert masks[18, 16] == 1
+    assert masks[18, 17] == 2

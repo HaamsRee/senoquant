@@ -25,17 +25,18 @@ class MockLayer:
 
 
 def _reference_nuclear_dilation(labels: np.ndarray, iterations: int) -> np.ndarray:
-    """Reference implementation using full-frame per-label morphology."""
-    output = np.zeros_like(labels)
-    for label_id in np.unique(labels):
-        if label_id == 0:
-            continue
-        mask = labels == label_id
-        dilated_mask = ndi.binary_dilation(
-            mask,
-            iterations=iterations,
-        )
-        output[dilated_mask] = label_id
+    """Reference implementation using nearest-label assignment in radius."""
+    if not np.any(labels):
+        return np.zeros_like(labels)
+    background_mask = labels == 0
+    distances, nearest_indices = ndi.distance_transform_edt(
+        background_mask,
+        return_indices=True,
+    )
+    nearest_labels = labels[tuple(nearest_indices)]
+    output = labels.copy()
+    within_radius = background_mask & (distances <= float(iterations))
+    output[within_radius] = nearest_labels[within_radius]
     return output
 
 
@@ -242,7 +243,7 @@ def test_run_raises_error_when_nuclear_layer_is_none() -> None:
 
 
 def test_nuclear_dilation_matches_reference_for_sparse_label_ids() -> None:
-    """Match legacy full-frame behavior for sparse/non-sequential labels."""
+    """Match nearest-label reference for sparse/non-sequential labels."""
     model = NuclearDilationModel(models_root=None)
 
     nuclear_mask = np.zeros((80, 80), dtype=np.uint32)
@@ -258,3 +259,23 @@ def test_nuclear_dilation_matches_reference_for_sparse_label_ids() -> None:
 
     expected = _reference_nuclear_dilation(nuclear_mask, iterations=4)
     assert np.array_equal(result["masks"], expected)
+
+
+def test_nuclear_dilation_assigns_overlap_by_nearest_nucleus() -> None:
+    """Resolve overlap by nearest nucleus rather than write order."""
+    model = NuclearDilationModel(models_root=None)
+
+    nuclear_mask = np.zeros((21, 21), dtype=np.uint32)
+    nuclear_mask[10, 8] = 1
+    nuclear_mask[10, 13] = 2
+
+    result = model.run(
+        task="cytoplasmic",
+        nuclear_layer=MockLayer(nuclear_mask),
+        settings={"dilation_px": 3},
+    )
+    dilated = result["masks"]
+
+    # x=10 is closer to label 1, x=11 is closer to label 2.
+    assert dilated[10, 10] == 1
+    assert dilated[10, 11] == 2
