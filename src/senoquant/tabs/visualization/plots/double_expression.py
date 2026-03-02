@@ -161,8 +161,12 @@ class DoubleExpressionPlot(SenoQuantPlot):
                 _notify_error(msg)
                 return []
 
-            # Plotting
-            fig, ax = plt.subplots(figsize=(10, 10))
+            # Plotting in two columns: main plot + dedicated legend column.
+            fig, (ax, legend_ax) = plt.subplots(
+                ncols=2,
+                figsize=(12, 10),
+                gridspec_kw={"width_ratios": [1.0, 0.30], "wspace": 0.03},
+            )
             
             # 1. Background (All cells - Negative appearance)
             ax.scatter(df[x_col], df[y_col], c="#f0f0f0", s=1, label="Negative")
@@ -187,8 +191,19 @@ class DoubleExpressionPlot(SenoQuantPlot):
             ax.set_xlabel(x_col)
             ax.set_ylabel(y_col)
 
-            # Custom Legend
-            ax.legend(markerscale=4, loc='upper right', frameon=False)
+            ax.invert_yaxis()
+
+            handles, labels = ax.get_legend_handles_labels()
+            legend_ax.axis("off")
+            legend_ax.legend(
+                handles,
+                labels,
+                loc="upper left",
+                frameon=True,
+                facecolor="white",
+                edgecolor="0.7",
+                markerscale=4,
+            )
 
             # Print Counts
             print(f"[DoubleExpressionPlot] {m1}+ only: {len(m1_only)}")

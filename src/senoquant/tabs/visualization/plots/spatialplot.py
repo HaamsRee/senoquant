@@ -143,12 +143,17 @@ class SpatialPlot(SenoQuantPlot):
             x = df[x_col].values
             y = df[y_col].values
 
-            # Create plot as categorical marker assignment (not intensity-based).
-            fig, ax = plt.subplots(figsize=(8, 6))
+            # Create a two-column layout: main plot + dedicated legend column.
+            fig, (ax, legend_ax) = plt.subplots(
+                ncols=2,
+                figsize=(10, 6),
+                gridspec_kw={"width_ratios": [1.0, 0.30], "wspace": 0.03},
+            )
 
             # Fallback mode: if no markers selected, draw all points with one color.
             if not markers:
                 ax.scatter(x, y, alpha=0.7, s=20, color="tab:blue", label="Cells")
+                legend_title: str | None = None
             else:
                 # Resolve selected marker columns in order, preserving the UI order.
                 marker_names: list[str] = []
@@ -199,7 +204,19 @@ class SpatialPlot(SenoQuantPlot):
                         color=point_color,
                         label=category,
                     )
-                ax.legend(loc="best", frameon=False, title="Assigned marker")
+                legend_title = "Assigned marker"
+
+            handles, labels = ax.get_legend_handles_labels()
+            legend_ax.axis("off")
+            legend_ax.legend(
+                handles,
+                labels,
+                loc="upper left",
+                frameon=True,
+                facecolor="white",
+                edgecolor="0.7",
+                title=legend_title,
+            )
 
             ax.set_xlabel(x_col)
             ax.set_ylabel(y_col)
