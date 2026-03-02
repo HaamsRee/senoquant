@@ -69,6 +69,57 @@ def test_all_channels_same_color_mixed():
     assert core._all_channels_same_color(channel_colors) is True
 
 
+def test_is_generic_channel_name_matches_placeholders() -> None:
+    """Detect placeholder channel names from BioFormats-style metadata."""
+    assert core._is_generic_channel_name("") is True
+    assert core._is_generic_channel_name("  ") is True
+    assert core._is_generic_channel_name("Channel:0:0") is True
+    assert core._is_generic_channel_name("channel:0:1:2") is True
+    assert core._is_generic_channel_name("Channel 0") is True
+    assert core._is_generic_channel_name("channel 15") is True
+
+    assert core._is_generic_channel_name("DAPI") is False
+    assert core._is_generic_channel_name("Blue--FLUO--DAPI") is False
+    assert core._is_generic_channel_name("Channel-0") is False
+    assert core._is_generic_channel_name("Channel0") is False
+
+
+def test_resolve_channel_names_prefers_non_generic_metadata_names() -> None:
+    """Keep metadata-reader names when they are already non-generic."""
+    metadata_image = types.SimpleNamespace(channel_names=["DAPI", "TXR"])
+    data_image = types.SimpleNamespace(channel_names=["Blue--FLUO--DAPI", "Red--FLUO--TXR"])
+
+    resolved = core._resolve_channel_names(metadata_image, data_image, c_size=2)
+    assert resolved == ["DAPI", "TXR"]
+
+
+def test_resolve_channel_names_uses_data_names_for_generic_metadata() -> None:
+    """Fall back to data-reader names when metadata names are generic."""
+    metadata_image = types.SimpleNamespace(channel_names=["Channel:0:0", "Channel:0:1"])
+    data_image = types.SimpleNamespace(channel_names=["Blue--FLUO--DAPI", "Red--FLUO--TXR"])
+
+    resolved = core._resolve_channel_names(metadata_image, data_image, c_size=2)
+    assert resolved == ["Blue--FLUO--DAPI", "Red--FLUO--TXR"]
+
+
+def test_resolve_channel_names_keeps_generic_when_data_names_match() -> None:
+    """Keep metadata names when fallback reader does not add better names."""
+    metadata_image = types.SimpleNamespace(channel_names=["Channel:0:0", "Channel:0:1"])
+    data_image = types.SimpleNamespace(channel_names=["Channel:0:0", "Channel:0:1"])
+
+    resolved = core._resolve_channel_names(metadata_image, data_image, c_size=2)
+    assert resolved == ["Channel:0:0", "Channel:0:1"]
+
+
+def test_resolve_channel_names_pads_missing_or_blank_entries() -> None:
+    """Pad missing channel names with ``Channel {index}`` fallback values."""
+    metadata_image = types.SimpleNamespace(channel_names=["DAPI", "", None])
+    data_image = types.SimpleNamespace(channel_names=[])
+
+    resolved = core._resolve_channel_names(metadata_image, data_image, c_size=4)
+    assert resolved == ["DAPI", "Channel 1", "Channel 2", "Channel 3"]
+
+
 def test_get_channel_colors_from_ome_no_ome():
     """Test _get_channel_colors_from_ome returns empty when no OME metadata."""
     # Create a mock image without OME metadata
@@ -392,8 +443,16 @@ def test_open_metadata_bioimage_falls_back_when_bioformats_fails(monkeypatch) ->
 def test_iter_channel_layers_prefers_metadata_image_for_metadata(monkeypatch) -> None:
     """Populate layer metadata from metadata-image source when provided."""
     dims = types.SimpleNamespace(order="YX")
-    data_image = types.SimpleNamespace(dims=dims, metadata={"source": "data"})
-    metadata_image = types.SimpleNamespace(dims=dims, metadata={"source": "metadata"})
+    data_image = types.SimpleNamespace(
+        dims=dims,
+        metadata={"source": "data"},
+        channel_names=["Blue--FLUO--DAPI"],
+    )
+    metadata_image = types.SimpleNamespace(
+        dims=dims,
+        metadata={"source": "metadata"},
+        channel_names=["DAPI"],
+    )
 
     monkeypatch.setattr(
         core,
@@ -421,11 +480,55 @@ def test_iter_channel_layers_prefers_metadata_image_for_metadata(monkeypatch) ->
     )
 
     assert len(layers) == 1
+    assert layers[0][1]["name"] == "sample.czi - DAPI"
     layer_metadata = layers[0][1]["metadata"]
     assert layer_metadata["bioio_metadata"] == {"source": "metadata"}
+    assert layer_metadata["channel_names"] == ["DAPI"]
     assert layer_metadata["physical_pixel_sizes"] == {"Z": 1.0, "Y": 2.0, "X": 3.0}
     assert layer_metadata["data_reader"] == "bioio_czi.Reader"
     assert layer_metadata["metadata_reader"] == "bioio_bioformats.Reader"
+
+
+def test_iter_channel_layers_falls_back_to_data_channel_names(monkeypatch) -> None:
+    """Use data-reader channel names when metadata-reader names are generic."""
+    dims = types.SimpleNamespace(order="CYX", C=2)
+    data_image = types.SimpleNamespace(
+        dims=dims,
+        metadata={"source": "data"},
+        channel_names=["Blue--FLUO--DAPI", "Red--FLUO--TXR"],
+    )
+    metadata_image = types.SimpleNamespace(
+        dims=dims,
+        metadata={"source": "metadata"},
+        channel_names=["Channel:0:0", "Channel:0:1"],
+    )
+
+    monkeypatch.setattr(
+        core,
+        "_get_dask_data",
+        lambda *_args, **_kwargs: [[1, 2], [3, 4]],
+    )
+    monkeypatch.setattr(core, "_physical_pixel_sizes", lambda _image: {"Z": 1.0, "Y": 2.0, "X": 3.0})
+
+    layers = core._iter_channel_layers(
+        data_image,
+        base_name="sample.czi",
+        scene_id="Scene 0",
+        scene_idx=0,
+        total_scenes=2,
+        path="sample.czi",
+        metadata_image=metadata_image,
+        data_reader_name="bioio_czi.Reader",
+        metadata_reader_name="bioio_bioformats.Reader",
+    )
+
+    assert len(layers) == 2
+    assert layers[0][1]["name"] == "sample.czi - Scene 0 - Blue--FLUO--DAPI"
+    assert layers[1][1]["name"] == "sample.czi - Scene 0 - Red--FLUO--TXR"
+    assert layers[0][1]["metadata"]["channel_index"] == 0
+    assert layers[1][1]["metadata"]["channel_index"] == 1
+    assert layers[0][1]["metadata"]["channel_names"] == ["Blue--FLUO--DAPI", "Red--FLUO--TXR"]
+    assert layers[1][1]["metadata"]["channel_names"] == ["Blue--FLUO--DAPI", "Red--FLUO--TXR"]
 
 
 def test_stage_network_path_downloads_once_and_reuses_cache(monkeypatch, tmp_path) -> None:
