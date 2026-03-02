@@ -19,6 +19,9 @@ from typing import Iterable, Sequence, TYPE_CHECKING
 import numpy as np
 from skimage.measure import regionprops_table
 
+from senoquant.tabs.quantification.features.roi_membership import (
+    membership_from_layer,
+)
 from senoquant.utils.settings_bundle import build_settings_bundle
 from senoquant.utils import layer_data_asarray
 from .config import MarkerFeatureData
@@ -137,7 +140,7 @@ def export_marker(
                 if pixel_sizes is not None:
                     break
         rows = _initialize_rows(label_ids, centroids, pixel_sizes)
-        _add_roi_columns(rows, labels, label_ids, viewer, data.rois, label_name)
+        _add_roi_columns(rows, centroids, viewer, data.rois, label_name)
         _morph_columns = add_morphology_columns(
             rows, labels, label_ids, pixel_sizes
         )
@@ -506,8 +509,7 @@ def _pixel_sizes_from_metadata(
 
 def _add_roi_columns(
     rows: list[dict[str, float]],
-    labels: np.ndarray,
-    label_ids: np.ndarray,
+    centroids: np.ndarray,
     viewer: object | None,
     rois: Sequence["ROIConfig"],
     label_name: str,
@@ -518,10 +520,8 @@ def _add_roi_columns(
     ----------
     rows : list of dict
         Output row dictionaries to update in-place.
-    labels : numpy.ndarray
-        Label image used to compute ROI intersections.
-    label_ids : numpy.ndarray
-        Label ids corresponding to the output rows.
+    centroids : numpy.ndarray
+        Label centroid coordinates in pixel units.
     viewer : object or None
         napari viewer used to resolve shapes layers.
     rois : sequence of ROIConfig
@@ -529,10 +529,8 @@ def _add_roi_columns(
     label_name : str
         Name of the labels layer (for warnings).
     """
-    if viewer is None or not rois or not rows:
+    if viewer is None or not rois or not rows or centroids.size == 0:
         return
-    labels_flat = labels.ravel()
-    max_label = int(labels_flat.max()) if labels_flat.size else 0
     for index, roi in enumerate(rois, start=0):
         layer_name = getattr(roi, "layer", "")
         if not layer_name:
@@ -544,17 +542,13 @@ def _add_roi_columns(
                 RuntimeWarning,
             )
             continue
-        mask = _shapes_layer_mask(shapes_layer, labels.shape)
-        if mask is None:
+        included = membership_from_layer(shapes_layer, centroids)
+        if included is None:
             warnings.warn(
-                f"ROI layer '{layer_name}' could not be rasterized.",
+                f"ROI layer '{layer_name}' could not be evaluated.",
                 RuntimeWarning,
             )
             continue
-        intersect_counts = np.bincount(
-            labels_flat[mask.ravel()], minlength=max_label + 1
-        )
-        included = intersect_counts[label_ids] > 0
         roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
@@ -564,50 +558,6 @@ def _add_roi_columns(
         column = f"{prefix}_{_sanitize_name(roi_name)}"
         for row, value in zip(rows, included):
             row[column] = int(value)
-
-
-def _shapes_layer_mask(
-    layer: object, shape: tuple[int, ...]
-) -> np.ndarray | None:
-    """Render a shapes layer into a boolean mask.
-
-    Parameters
-    ----------
-    layer : object
-        napari shapes layer instance.
-    shape : tuple of int
-        Target mask shape matching the labels array.
-
-    Returns
-    -------
-    numpy.ndarray or None
-        Boolean mask array when rendering succeeds.
-    """
-    masks_array = _shape_masks_array(layer, shape)
-    if masks_array is None:
-        return None
-    if masks_array.ndim == len(shape):
-        combined = masks_array
-    else:
-        combined = np.any(masks_array, axis=0)
-    combined = np.asarray(combined)
-    combined = np.squeeze(combined)
-    if combined.shape != shape:
-        return None
-    return combined.astype(bool)
-
-
-def _shape_masks_array(
-    layer: object, shape: tuple[int, ...]
-) -> np.ndarray | None:
-    """Return the raw masks array from a shapes layer."""
-    to_masks = getattr(layer, "to_masks", None)
-    if callable(to_masks):
-        try:
-            return np.asarray(to_masks(mask_shape=shape))
-        except Exception:
-            return None
-    return None
 
 
 def _axis_names(ndim: int) -> list[str]:

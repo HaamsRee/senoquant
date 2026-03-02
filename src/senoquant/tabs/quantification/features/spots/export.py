@@ -27,6 +27,12 @@ from typing import Iterable, Sequence, TYPE_CHECKING
 import numpy as np
 from skimage.measure import regionprops_table
 
+from senoquant.tabs.quantification.features.roi_membership import (
+    ROIGeometry,
+    build_layer_geometries,
+    membership_from_geometries,
+    membership_from_layer,
+)
 from senoquant.utils.settings_bundle import build_settings_bundle
 from senoquant.utils import layer_data_asarray
 from .config import SpotsFeatureData
@@ -254,8 +260,7 @@ def export_spots(
             )
             _add_roi_columns(
                 cell_rows,
-                cell_labels,
-                cell_ids,
+                cell_centroids,
                 viewer,
                 data.rois,
                 label_name,
@@ -323,7 +328,7 @@ def export_spots(
             viewer,
             data.rois,
             label_name or "all_spots",
-            spot_shape,
+            len(spot_shape),
         )
 
         adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
@@ -658,7 +663,7 @@ def _append_channel_exports(
     spot_header: list[str],
     spot_lookup: dict[tuple[int, int], dict[str, object]],
     spot_table_pixel_sizes: np.ndarray | None,
-    spot_roi_columns: list[tuple[str, np.ndarray]],
+    spot_roi_columns: list[tuple[str, list[ROIGeometry]]],
     file_path: str,
 ) -> None:
     """Compute and append per-channel cell/spot metrics.
@@ -687,7 +692,7 @@ def _append_channel_exports(
     spot_table_pixel_sizes : numpy.ndarray or None
         Pixel sizes to use for spot physical units.
     spot_roi_columns : list of tuple
-        ROI masks for spot ROI membership columns.
+        ROI geometry evaluators for spot ROI membership columns.
     file_path : str
         Source image path copied to exported spot rows.
 
@@ -1188,8 +1193,7 @@ def _initialize_rows(
 
 def _add_roi_columns(
     rows: list[dict[str, float]],
-    labels: np.ndarray,
-    label_ids: np.ndarray,
+    centroids: np.ndarray,
     viewer: object | None,
     rois: Sequence["ROIConfig"],
     label_name: str,
@@ -1200,10 +1204,8 @@ def _add_roi_columns(
     ----------
     rows : list of dict
         Output rows to update in-place.
-    labels : numpy.ndarray
-        Label image used to compute ROI intersections.
-    label_ids : numpy.ndarray
-        Label ids corresponding to the output rows.
+    centroids : numpy.ndarray
+        Label centroid coordinates in pixel units.
     viewer : object or None
         napari viewer used to resolve shapes layers.
     rois : sequence of ROIConfig
@@ -1211,10 +1213,8 @@ def _add_roi_columns(
     label_name : str
         Name of the labels layer, used in warning messages.
     """
-    if viewer is None or not rois or not rows:
+    if viewer is None or not rois or not rows or centroids.size == 0:
         return
-    labels_flat = labels.ravel()
-    max_label = int(labels_flat.max()) if labels_flat.size else 0
     for index, roi in enumerate(rois, start=0):
         layer_name = getattr(roi, "layer", "")
         if not layer_name:
@@ -1226,17 +1226,13 @@ def _add_roi_columns(
                 RuntimeWarning,
             )
             continue
-        mask = _shapes_layer_mask(shapes_layer, labels.shape)
-        if mask is None:
+        included = membership_from_layer(shapes_layer, centroids)
+        if included is None:
             warnings.warn(
-                f"ROI layer '{layer_name}' could not be rasterized.",
+                f"ROI layer '{layer_name}' could not be evaluated.",
                 RuntimeWarning,
             )
             continue
-        intersect_counts = np.bincount(
-            labels_flat[mask.ravel()], minlength=max_label + 1
-        )
-        included = intersect_counts[label_ids] > 0
         roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
@@ -1246,63 +1242,6 @@ def _add_roi_columns(
         column = f"{prefix}_{_sanitize_name(roi_name)}"
         for row, value in zip(rows, included):
             row[column] = int(value)
-
-
-def _shapes_layer_mask(
-    layer: object, shape: tuple[int, ...]
-) -> np.ndarray | None:
-    """Render a shapes layer into a boolean mask.
-
-    Parameters
-    ----------
-    layer : object
-        napari shapes layer instance.
-    shape : tuple of int
-        Target mask shape matching the labels array.
-
-    Returns
-    -------
-    numpy.ndarray or None
-        Boolean mask array when rendering succeeds.
-    """
-    masks_array = _shape_masks_array(layer, shape)
-    if masks_array is None:
-        return None
-    if masks_array.ndim == len(shape):
-        combined = masks_array
-    else:
-        combined = np.any(masks_array, axis=0)
-    combined = np.asarray(combined)
-    combined = np.squeeze(combined)
-    if combined.shape != shape:
-        return None
-    return combined.astype(bool)
-
-
-def _shape_masks_array(
-    layer: object, shape: tuple[int, ...]
-) -> np.ndarray | None:
-    """Return the raw masks array from a shapes layer.
-
-    Parameters
-    ----------
-    layer : object
-        napari shapes layer instance.
-    shape : tuple of int
-        Target mask shape.
-
-    Returns
-    -------
-    numpy.ndarray or None
-        Raw masks array, or ``None`` if rendering fails.
-    """
-    to_masks = getattr(layer, "to_masks", None)
-    if callable(to_masks):
-        try:
-            return np.asarray(to_masks(mask_shape=shape))
-        except Exception:
-            return None
-    return None
 
 
 def _spot_cell_ids_from_centroids(
@@ -1397,7 +1336,7 @@ def _spot_rows(
     mean_intensity: np.ndarray,
     channel_label: str,
     pixel_sizes: np.ndarray | None,
-    roi_columns: list[tuple[str, np.ndarray]],
+    roi_columns: list[tuple[str, list[ROIGeometry]]],
     file_path: str,
     within_segmentation: np.ndarray | None = None,
 ) -> list[dict[str, object]]:
@@ -1421,7 +1360,7 @@ def _spot_rows(
         Per-axis pixel sizes in micrometers. When provided, physical
         centroid coordinates and area/volume are included.
     roi_columns : list of tuple
-        Precomputed ROI column names and boolean masks.
+        Precomputed ROI column names and geometry evaluators.
     file_path : str
         Source image path to include on each row.
     within_segmentation : numpy.ndarray or None, optional
@@ -1502,8 +1441,8 @@ def _spot_roi_columns(
     viewer: object | None,
     rois: Sequence["ROIConfig"],
     label_name: str,
-    shape: tuple[int, ...],
-) -> list[tuple[str, np.ndarray]]:
+    ndim: int,
+) -> list[tuple[str, list[ROIGeometry]]]:
     """Prepare ROI mask columns for spots export.
 
     Parameters
@@ -1514,17 +1453,17 @@ def _spot_roi_columns(
         ROI configuration entries to evaluate.
     label_name : str
         Name of the labels layer, used in warning messages.
-    shape : tuple of int
-        Target mask shape matching the labels array.
+    ndim : int
+        Number of spatial dimensions for centroid coordinates.
 
     Returns
     -------
     list of tuple
-        List of ``(column_name, mask)`` entries for ROI membership.
+        List of ``(column_name, geometries)`` entries for ROI membership.
     """
     if viewer is None or not rois:
         return []
-    columns: list[tuple[str, np.ndarray]] = []
+    columns: list[tuple[str, list[ROIGeometry]]] = []
     for index, roi in enumerate(rois, start=0):
         layer_name = getattr(roi, "layer", "")
         if not layer_name:
@@ -1536,10 +1475,10 @@ def _spot_roi_columns(
                 RuntimeWarning,
             )
             continue
-        mask = _shapes_layer_mask(shapes_layer, shape)
-        if mask is None:
+        geometries = build_layer_geometries(shapes_layer, ndim)
+        if geometries is None:
             warnings.warn(
-                f"ROI layer '{layer_name}' could not be rasterized.",
+                f"ROI layer '{layer_name}' could not be evaluated.",
                 RuntimeWarning,
             )
             continue
@@ -1550,12 +1489,13 @@ def _spot_roi_columns(
         else:
             prefix = "included_in_roi"
         column = f"{prefix}_{_sanitize_name(roi_name)}"
-        columns.append((column, mask))
+        columns.append((column, geometries))
     return columns
 
 
 def _spot_roi_values(
-    centroids: np.ndarray, roi_columns: list[tuple[str, np.ndarray]]
+    centroids: np.ndarray,
+    roi_columns: list[tuple[str, list[ROIGeometry]]],
 ) -> list[tuple[str, np.ndarray]]:
     """Return ROI membership values for each spot centroid.
 
@@ -1573,15 +1513,12 @@ def _spot_roi_values(
     """
     if not roi_columns or centroids.size == 0:
         return []
-    coords = np.round(centroids).astype(int)
     roi_values: list[tuple[str, np.ndarray]] = []
-    for column, mask in roi_columns:
-        max_indices = np.asarray(mask.shape) - 1
-        clipped = np.clip(coords, 0, max_indices)
-        indices = tuple(
-            clipped[:, axis] for axis in range(clipped.shape[1])
-        )
-        values = mask[indices].astype(int)
+    for column, geometries in roi_columns:
+        values = membership_from_geometries(
+            centroids,
+            geometries,
+        ).astype(int)
         roi_values.append((column, values))
     return roi_values
 
@@ -1589,7 +1526,7 @@ def _spot_roi_values(
 def _spot_header(
     ndim: int,
     pixel_sizes: np.ndarray | None,
-    roi_columns: list[tuple[str, np.ndarray]],
+    roi_columns: list[tuple[str, list[ROIGeometry]]],
     *,
     include_within_segmentation: bool = False,
 ) -> list[str]:

@@ -23,25 +23,20 @@ class DummyROI:
 
 
 class Shapes:
-    """Shapes layer stub for ROI masks."""
+    """Shapes layer stub for ROI geometry."""
 
-    def __init__(self, name: str, mask: np.ndarray) -> None:
+    def __init__(
+        self,
+        name: str,
+        data: np.ndarray | list[np.ndarray],
+        shape_type: str = "polygon",
+    ) -> None:
         self.name = name
-        self._mask = np.asarray(mask)
-
-    def to_masks(self, mask_shape=None):
-        """Return a stored mask regardless of shape."""
-        return self._mask
-
-
-class BrokenShapes:
-    """Shapes layer stub that raises during mask rendering."""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    def to_masks(self, mask_shape=None):
-        raise RuntimeError("boom")
+        if isinstance(data, list):
+            self.data = [np.asarray(item, dtype=float) for item in data]
+        else:
+            self.data = [np.asarray(data, dtype=float)]
+        self.shape_type = [shape_type] * len(self.data)
 
 
 def test_pixel_sizes_missing_metadata() -> None:
@@ -98,11 +93,19 @@ def test_add_roi_columns_and_masks() -> None:
     labels = np.array([[0, 1], [0, 0]], dtype=np.int32)
     label_ids, centroids = marker_export._compute_centroids(labels)
     rows = marker_export._initialize_rows(label_ids, centroids, None)
-    mask = np.array([[False, True], [False, False]])
-    viewer = DummyViewer([Shapes("roi", mask)])
+    polygon = np.array(
+        [
+            [-0.5, 0.5],
+            [-0.5, 1.5],
+            [0.5, 1.5],
+            [0.5, 0.5],
+        ],
+        dtype=float,
+    )
+    viewer = DummyViewer([Shapes("roi", polygon)])
     rois = [DummyROI("My ROI", "roi", roi_type="Exclude")]
 
-    marker_export._add_roi_columns(rows, labels, label_ids, viewer, rois, "cells")
+    marker_export._add_roi_columns(rows, centroids, viewer, rois, "cells")
     assert rows[0]["excluded_from_roi_my_roi"] == 1
 
 
@@ -116,19 +119,16 @@ def test_add_roi_columns_warns_on_missing_mask() -> None:
     labels = np.array([[0, 1], [0, 0]], dtype=np.int32)
     label_ids, centroids = marker_export._compute_centroids(labels)
     rows = marker_export._initialize_rows(label_ids, centroids, None)
-    def _raise(*_args, **_kwargs):
-        raise RuntimeError("boom")
-
-    broken_layer = type("Shapes", (), {"name": "roi", "to_masks": _raise})()
+    broken_layer = type("Shapes", (), {"name": "roi", "data": None})()
     viewer = DummyViewer([broken_layer])
     rois = [DummyROI("Bad", "roi", roi_type="Include")]
 
     with warnings.catch_warnings(record=True) as captured:
         warnings.simplefilter("always")
         marker_export._add_roi_columns(
-            rows, labels, label_ids, viewer, rois, "cells"
+            rows, centroids, viewer, rois, "cells"
         )
-    assert any("could not be rasterized" in str(item.message) for item in captured)
+    assert any("could not be evaluated" in str(item.message) for item in captured)
 
 
 def test_write_table_csv(tmp_path: Path) -> None:
@@ -145,13 +145,30 @@ def test_write_table_csv(tmp_path: Path) -> None:
     assert output.exists()
 
 
-def test_shape_masks_array_handles_errors() -> None:
-    """Return None when mask rendering fails.
+def test_add_roi_columns_3d_xy_roi_propagates_along_z() -> None:
+    """Propagate an XY ROI across Z for 3D centroid membership.
 
     Returns
     -------
     None
     """
-    layer = BrokenShapes("roi")
-    assert marker_export._shape_masks_array(layer, (2, 2)) is None
-    assert marker_export._shapes_layer_mask(layer, (2, 2)) is None
+    labels = np.zeros((3, 3, 3), dtype=np.int32)
+    labels[0, 1, 1] = 1
+    labels[2, 1, 1] = 2
+    label_ids, centroids = marker_export._compute_centroids(labels)
+    rows = marker_export._initialize_rows(label_ids, centroids, None)
+    xy_polygon = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 2.0],
+            [1.0, 2.0, 2.0],
+            [1.0, 2.0, 0.0],
+        ],
+        dtype=float,
+    )
+    viewer = DummyViewer([Shapes("roi", xy_polygon)])
+    rois = [DummyROI("All Z", "roi", roi_type="Include")]
+
+    marker_export._add_roi_columns(rows, centroids, viewer, rois, "cells")
+    assert rows[0]["included_in_roi_all_z"] == 1
+    assert rows[1]["included_in_roi_all_z"] == 1

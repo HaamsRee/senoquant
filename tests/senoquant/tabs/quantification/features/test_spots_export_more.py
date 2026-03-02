@@ -31,15 +31,20 @@ class DummyROI:
 
 
 class Shapes:
-    """Shapes layer stub for ROI masks."""
+    """Shapes layer stub for ROI geometry."""
 
-    def __init__(self, name: str, mask: np.ndarray) -> None:
+    def __init__(
+        self,
+        name: str,
+        data: np.ndarray | list[np.ndarray],
+        shape_type: str = "polygon",
+    ) -> None:
         self.name = name
-        self._mask = np.asarray(mask)
-
-    def to_masks(self, mask_shape=None):
-        """Return a stored mask regardless of shape."""
-        return self._mask
+        if isinstance(data, list):
+            self.data = [np.asarray(item, dtype=float) for item in data]
+        else:
+            self.data = [np.asarray(data, dtype=float)]
+        self.shape_type = [shape_type] * len(self.data)
 
 
 def test_build_channel_entries_filters_channels() -> None:
@@ -207,10 +212,18 @@ def test_spot_roi_columns_and_values() -> None:
     -------
     None
     """
-    mask = np.array([[True, False], [False, True]])
-    viewer = DummyViewer([Shapes("roi", mask)])
+    polygon = np.array(
+        [
+            [-0.5, -0.5],
+            [-0.5, 1.5],
+            [1.5, 1.5],
+            [1.5, -0.5],
+        ],
+        dtype=float,
+    )
+    viewer = DummyViewer([Shapes("roi", polygon)])
     rois = [DummyROI("My ROI", "roi", roi_type="Exclude")]
-    columns = spots_export._spot_roi_columns(viewer, rois, "cells", mask.shape)
+    columns = spots_export._spot_roi_columns(viewer, rois, "cells", 2)
     assert columns[0][0] == "excluded_from_roi_my_roi"
     centroids = np.array([[0, 0], [1, 1]], dtype=float)
     values = spots_export._spot_roi_values(centroids, columns)
@@ -224,8 +237,7 @@ def test_spot_header_and_rows(tmp_path: Path) -> None:
     -------
     None
     """
-    mask = np.array([[True, False], [False, True]])
-    roi_columns = [("included_in_roi_r1", mask)]
+    roi_columns = [("included_in_roi_r1", [])]
     pixel_sizes = np.array([2.0, 3.0], dtype=float)
     header = spots_export._spot_header(2, pixel_sizes, roi_columns)
     assert "centroid_y_um" in header
