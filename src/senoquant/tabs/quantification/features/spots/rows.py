@@ -104,6 +104,8 @@ class SpotsSegmentationRow(QGroupBox):
             Value to assign to the field.
         """
         setattr(self.data, key, value)
+        if hasattr(self._dialog, "_update_auto_populate_enabled"):
+            self._dialog._update_auto_populate_enabled()
 
     def _restore_state(self) -> None:
         """Restore UI state from stored segmentation data.
@@ -114,7 +116,9 @@ class SpotsSegmentationRow(QGroupBox):
         """
         label_name = self.data.label
         if label_name:
+            self._labels_combo.blockSignals(True)
             self._labels_combo.setCurrentText(label_name)
+            self._labels_combo.blockSignals(False)
         return
 
 
@@ -221,6 +225,8 @@ class SpotsChannelRow(QGroupBox):
             New value to store.
         """
         setattr(self.data, key, value)
+        if key == "channel" and hasattr(self._dialog, "_update_auto_populate_enabled"):
+            self._dialog._update_auto_populate_enabled()
 
     def _restore_state(self) -> None:
         """Restore UI state from stored channel data.
@@ -235,7 +241,11 @@ class SpotsChannelRow(QGroupBox):
             self._name_input.setText(channel_label)
         channel_name = self.data.channel
         if channel_name:
+            self._channel_combo.blockSignals(True)
             self._channel_combo.setCurrentText(channel_name)
+            self._channel_combo.blockSignals(False)
         segmentation_name = self.data.spots_segmentation
         if segmentation_name:
+            self._segmentation_combo.blockSignals(True)
             self._segmentation_combo.setCurrentText(segmentation_name)
+            self._segmentation_combo.blockSignals(False)

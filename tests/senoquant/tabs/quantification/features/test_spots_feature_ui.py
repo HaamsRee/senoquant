@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import types
 
+import pytest
 from qtpy.QtWidgets import QComboBox
 
-from tests.conftest import DummyLayout, DummyViewer, Labels
-from senoquant.tabs.quantification.features.base import FeatureConfig
+from tests.conftest import DummyLayout, DummyViewer, Image, Labels
+from senoquant.tabs.quantification.features.base import FeatureConfig, RefreshingComboBox
 from senoquant.tabs.quantification.features.spots.config import (
     SpotsChannelConfig,
     SpotsFeatureData,
@@ -46,14 +47,14 @@ def test_spots_feature_build_and_toggle() -> None:
 
     feature._update_channels_button_label()
     button = feature._ui["channels_button"]
-    assert button.text() == "Add channels"
+    assert button.text() == "Add channel(s)"
 
     data.channels.append(
         SpotsChannelConfig(name="Ch1", channel="img", spots_segmentation="spots")
     )
     data.segmentations.append(SpotsSegmentationConfig(label="cells"))
     feature._update_channels_button_label()
-    assert button.text() == "Edit channels"
+    assert button.text() == "Edit channel(s)"
 
 
 def test_spots_feature_opens_dialog() -> None:
@@ -98,3 +99,319 @@ def test_spots_dialog_filters_labels_by_metadata_with_suffix_fallback() -> None:
     assert "spot_from_metadata" in spots_combo._items
     assert "legacy_spot_labels" in spots_combo._items
     assert "misleading_spot_labels" not in spots_combo._items
+
+
+def test_spots_dialog_auto_populate_button_enablement() -> None:
+    """Enable auto-populate only when channel/segmentation is configured."""
+    data = SpotsFeatureData()
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer([Image([[1.0]], "img_a")])
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    assert dialog._auto_populate_button.isEnabled() is False
+
+    dialog._add_channel()
+    row = dialog._rows[-1]
+    row._channel_combo.setCurrentText("img_a")
+    assert dialog._auto_populate_button.isEnabled() is True
+
+    row._channel_combo.setCurrentText("")
+    assert dialog._auto_populate_button.isEnabled() is False
+
+    dialog._add_segmentation()
+    seg_row = dialog._segmentation_rows[-1]
+    seg_row._labels_combo.setCurrentText("cells")
+    assert dialog._auto_populate_button.isEnabled() is True
+
+
+def test_spots_dialog_auto_populate_asserts_when_channel_row_missing() -> None:
+    """Fail fast when channel configs and rows diverge."""
+    data = SpotsFeatureData(
+        channels=[SpotsChannelConfig(name="", channel="img_a", spots_segmentation="")]
+    )
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer([Image([[1.0]], "img_a"), Image([[2.0]], "img_b")])
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    data.channels.append(
+        SpotsChannelConfig(name="", channel="img_b", spots_segmentation="")
+    )
+
+    with pytest.raises(AssertionError, match="Invariant violated"):
+        dialog._auto_populate_channels()
+
+
+def test_spots_dialog_adds_distinct_blank_rows_to_state() -> None:
+    """Keep multiple blank channel/segmentation rows in persisted state."""
+    data = SpotsFeatureData()
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer(
+        [
+            Image([[1.0]], "img_a"),
+            Labels([[1]], "cells_nuc_labels"),
+            Labels([[1]], "img_a_spot_labels", metadata={"task": "spots"}),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    dialog._add_channel()
+    dialog._add_channel()
+    assert len(dialog._rows) == 2
+    assert len(data.channels) == 2
+    assert data.channels[0] is dialog._rows[0].data
+    assert data.channels[1] is dialog._rows[1].data
+    assert data.channels[0] is not data.channels[1]
+
+    dialog._rows[1]._name_input.setText("Second")
+    assert data.channels[1].name == "Second"
+
+    dialog._add_segmentation()
+    dialog._add_segmentation()
+    assert len(dialog._segmentation_rows) == 2
+    assert len(data.segmentations) == 2
+    assert data.segmentations[0] is dialog._segmentation_rows[0].data
+    assert data.segmentations[1] is dialog._segmentation_rows[1].data
+    assert data.segmentations[0] is not data.segmentations[1]
+
+    dialog._segmentation_rows[1]._labels_combo.setCurrentText("cells_nuc_labels")
+    assert data.segmentations[1].label == "cells_nuc_labels"
+
+
+def test_spots_dialog_auto_populates_channels_and_spot_layer_matches() -> None:
+    """Auto-populate resolves names and matching spot-label layers."""
+    data = SpotsFeatureData()
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer(
+        [
+            Image(
+                [[1.0]],
+                "img_a",
+                metadata={
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 0,
+                    "channel_names": ["DAPI", "TXR"],
+                },
+            ),
+            Image(
+                [[2.0]],
+                "img_b",
+                metadata={
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 1,
+                    "channel_names": ["DAPI", "TXR"],
+                },
+            ),
+            Labels(
+                [[1]],
+                "img_a_spot_labels",
+                metadata={
+                    "task": "spots",
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 0,
+                },
+            ),
+            Labels(
+                [[1]],
+                "img_b_spot_labels",
+                metadata={
+                    "task": "spots",
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 1,
+                },
+            ),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    dialog._auto_populate_channels()
+
+    channels_by_layer = {channel.channel: channel for channel in data.channels}
+    assert set(channels_by_layer) == {"img_a", "img_b"}
+    assert channels_by_layer["img_a"].name == "DAPI"
+    assert channels_by_layer["img_a"].spots_segmentation == "img_a_spot_labels"
+    assert channels_by_layer["img_b"].name == "TXR"
+    assert channels_by_layer["img_b"].spots_segmentation == "img_b_spot_labels"
+
+    dialog._auto_populate_channels()
+    channels_by_layer = {channel.channel: channel for channel in data.channels}
+    assert len(channels_by_layer) == 2
+
+
+def test_spots_dialog_auto_populates_channels_without_spot_labels() -> None:
+    """Auto-populate still adds channels/names when no spots labels exist."""
+    data = SpotsFeatureData(segmentations=[SpotsSegmentationConfig(label="cells")])
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer(
+        [
+            Image(
+                [[1.0]],
+                "img_a",
+                metadata={"channel_names": ["DAPI", "TXR"], "channel_index": 0},
+            ),
+            Image(
+                [[2.0]],
+                "img_b",
+                metadata={"channel_names": ["DAPI", "TXR"], "channel_index": 1},
+            ),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    assert dialog._auto_populate_button.isEnabled() is True
+    dialog._auto_populate_channels()
+
+    channels_by_layer = {channel.channel: channel for channel in data.channels}
+    assert set(channels_by_layer) == {"img_a", "img_b"}
+    assert channels_by_layer["img_a"].name == "DAPI"
+    assert channels_by_layer["img_a"].spots_segmentation == ""
+    assert channels_by_layer["img_b"].name == "TXR"
+    assert channels_by_layer["img_b"].spots_segmentation == ""
+
+
+def test_spots_dialog_auto_populates_existing_empty_channel_combo() -> None:
+    """Auto-populate assigns channel combo selection for existing empty rows."""
+    data = SpotsFeatureData(
+        segmentations=[SpotsSegmentationConfig(label="cells")],
+        channels=[SpotsChannelConfig(name="", channel="", spots_segmentation="")],
+    )
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer(
+        [
+            Image(
+                [[1.0]],
+                "img_a",
+                metadata={
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 0,
+                    "channel_names": ["DAPI", "TXR"],
+                },
+            ),
+            Image(
+                [[2.0]],
+                "img_b",
+                metadata={
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 1,
+                    "channel_names": ["DAPI", "TXR"],
+                },
+            ),
+            Labels(
+                [[1]],
+                "img_a_spot_labels",
+                metadata={
+                    "task": "spots",
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 0,
+                },
+            ),
+            Labels(
+                [[1]],
+                "img_b_spot_labels",
+                metadata={
+                    "task": "spots",
+                    "path": "/tmp/test.lif",
+                    "scene_info": {"scene_index": 0},
+                    "channel_index": 1,
+                },
+            ),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    assert data.channels[0].channel == ""
+    dialog._auto_populate_channels()
+
+    assert data.channels[0].channel == "img_a"
+    assert dialog._rows[0]._channel_combo.currentText() == "img_a"
+    assert dialog._rows[0]._channel_combo.findText("img_a") != -1
+    assert data.channels[0].name == "DAPI"
+    assert data.channels[0].spots_segmentation == "img_a_spot_labels"
+    assert dialog._rows[0]._segmentation_combo.findText("img_a_spot_labels") != -1
+    channels_by_layer = {channel.channel: channel for channel in data.channels}
+    assert set(channels_by_layer) == {"img_a", "img_b"}
+
+
+def test_spots_dialog_preserves_channel_when_combo_rejects_unknown_text(
+    monkeypatch,
+) -> None:
+    """Do not wipe stored channel during row init before combo items exist."""
+    original_set_current_text = RefreshingComboBox.setCurrentText
+
+    def strict_set_current_text(self, text: str) -> None:
+        if text in getattr(self, "_items", []):
+            original_set_current_text(self, text)
+            return
+        self._current_text = ""
+        self.currentTextChanged.emit("")
+
+    monkeypatch.setattr(
+        RefreshingComboBox, "setCurrentText", strict_set_current_text
+    )
+
+    data = SpotsFeatureData(
+        channels=[
+            SpotsChannelConfig(
+                name="DAPI", channel="img_a", spots_segmentation="img_a_spot_labels"
+            )
+        ]
+    )
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer(
+        [
+            Image([[1.0]], "img_a"),
+            Labels([[1]], "img_a_spot_labels", metadata={"task": "spots"}),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    assert data.channels[0].channel == "img_a"
+    assert dialog._rows[0]._channel_combo.currentText() == "img_a"

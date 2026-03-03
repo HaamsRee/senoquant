@@ -131,7 +131,7 @@ To add a feature:
 
 #### Configure a Markers feature
 
-1. Click **Add channels**.
+1. Click **Add channel(s)**.
 2. In the popup:
 
     - In the top **Segmentations** box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer.
@@ -146,7 +146,7 @@ To add a feature:
 
 #### Configure a Spots feature
 
-1. Click **Add channels**.
+1. Click **Add channel(s)**.
 2. In the popup:
 
     - (Optional) In the top box, click **Add segmentation** → Add a nuclear/cytoplasmic labels layer if you want per-cell spot summaries.
