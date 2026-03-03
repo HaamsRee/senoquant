@@ -175,7 +175,7 @@ class SpotsChannelsDialog(QDialog):
 
         add_button = QPushButton("Add channel")
         add_button.clicked.connect(self._add_channel)
-        auto_populate_button = QPushButton("Auto populate channels")
+        auto_populate_button = QPushButton("Auto populate channel(s)")
         auto_populate_button.clicked.connect(self._auto_populate_channels)
 
         controls_layout = QHBoxLayout()
@@ -494,14 +494,14 @@ class SpotsChannelsDialog(QDialog):
             if not isinstance(channel_data, SpotsChannelConfig):
                 continue
             row = self._channel_row_for_data(channel_data)
+            assert (
+                row is not None
+            ), "Invariant violated: each spots channel config must have a row widget."
             channel_name = str(channel_data.channel).strip()
             if not channel_name and available_image_names:
                 channel_name = available_image_names.pop(0)
-                if row is None:
-                    channel_data.channel = channel_name
-                else:
-                    self._refresh_image_combo(row._channel_combo)
-                    row._channel_combo.setCurrentText(channel_name)
+                self._refresh_image_combo(row._channel_combo)
+                row._channel_combo.setCurrentText(channel_name)
                 configured_channels.add(channel_name)
             if not channel_name:
                 continue
@@ -511,10 +511,7 @@ class SpotsChannelsDialog(QDialog):
 
             if not str(channel_data.name).strip():
                 suggested_name = self._suggest_channel_name(image_layer, used_names)
-                if row is None:
-                    channel_data.name = suggested_name
-                else:
-                    row._name_input.setText(suggested_name)
+                row._name_input.setText(suggested_name)
 
             if str(channel_data.spots_segmentation).strip():
                 continue
@@ -530,11 +527,8 @@ class SpotsChannelsDialog(QDialog):
             if not spot_name:
                 continue
             used_spot_names.add(spot_name)
-            if row is None:
-                channel_data.spots_segmentation = spot_name
-            else:
-                self._refresh_labels_combo(row._segmentation_combo, filter_type="spots")
-                row._segmentation_combo.setCurrentText(spot_name)
+            self._refresh_labels_combo(row._segmentation_combo, filter_type="spots")
+            row._segmentation_combo.setCurrentText(spot_name)
 
         for image_name in available_image_names:
             image_layer = image_by_name.get(image_name)

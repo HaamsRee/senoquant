@@ -44,7 +44,7 @@ class MarkerFeature(SenoQuantFeature):
     def _build_channels_section(self) -> None:
         """Build the channels button that opens the popup dialog."""
         left_dynamic_layout = self._context.left_dynamic_layout
-        button = QPushButton("Add channels")
+        button = QPushButton("Add channel(s)")
         button.clicked.connect(self._open_channels_dialog)
         left_dynamic_layout.addWidget(button)
         self._ui["channels_button"] = button
@@ -70,9 +70,9 @@ class MarkerFeature(SenoQuantFeature):
         if isinstance(data, MarkerFeatureData) and (
             data.channels or data.segmentations
         ):
-            button.setText("Edit channels")
+            button.setText("Edit channel(s)")
         else:
-            button.setText("Add channels")
+            button.setText("Add channel(s)")
 
     def _get_image_layer_by_name(self, name: str):
         """Return the image layer with the provided name.

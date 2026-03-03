@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import types
 
+import pytest
 from qtpy.QtWidgets import QComboBox
 
 from tests.conftest import DummyLayout, DummyViewer, Image, Labels
@@ -43,12 +44,12 @@ def test_marker_feature_build_and_label_updates() -> None:
 
     feature._update_channels_button_label()
     button = feature._ui["channels_button"]
-    assert button.text() == "Add channels"
+    assert button.text() == "Add channel(s)"
 
     data.channels.append(MarkerChannelConfig(name="Ch", channel="img"))
     data.segmentations.append(MarkerSegmentationConfig(label="cells"))
     feature._update_channels_button_label()
-    assert button.text() == "Edit channels"
+    assert button.text() == "Edit channel(s)"
     assert feature._get_image_layer_by_name("img") is not None
 
 
@@ -118,6 +119,26 @@ def test_marker_dialog_auto_populate_button_enablement() -> None:
     seg_row = dialog._segmentation_rows[-1]
     seg_row._labels_combo.setCurrentText("cells")
     assert dialog._auto_populate_button.isEnabled() is True
+
+
+def test_marker_dialog_auto_populate_asserts_when_channel_row_missing() -> None:
+    """Fail fast when channel configs and rows diverge."""
+    data = MarkerFeatureData(channels=[MarkerChannelConfig(name="", channel="img_a")])
+    state = FeatureConfig(name="Markers", type_name="Markers", data=data)
+    viewer = DummyViewer([Image([[1.0]], "img_a"), Image([[2.0]], "img_b")])
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _enable_thresholds=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = MarkerFeature(tab, DummyContext(state))
+    dialog = MarkerChannelsDialog(feature)
+
+    data.channels.append(MarkerChannelConfig(name="", channel="img_b"))
+
+    with pytest.raises(AssertionError, match="Invariant violated"):
+        dialog._auto_populate_channels()
 
 
 def test_marker_dialog_adds_distinct_blank_rows_to_state() -> None:

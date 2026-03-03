@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import types
 
+import pytest
 from qtpy.QtWidgets import QComboBox
 
 from tests.conftest import DummyLayout, DummyViewer, Image, Labels
@@ -46,14 +47,14 @@ def test_spots_feature_build_and_toggle() -> None:
 
     feature._update_channels_button_label()
     button = feature._ui["channels_button"]
-    assert button.text() == "Add channels"
+    assert button.text() == "Add channel(s)"
 
     data.channels.append(
         SpotsChannelConfig(name="Ch1", channel="img", spots_segmentation="spots")
     )
     data.segmentations.append(SpotsSegmentationConfig(label="cells"))
     feature._update_channels_button_label()
-    assert button.text() == "Edit channels"
+    assert button.text() == "Edit channel(s)"
 
 
 def test_spots_feature_opens_dialog() -> None:
@@ -127,6 +128,29 @@ def test_spots_dialog_auto_populate_button_enablement() -> None:
     seg_row = dialog._segmentation_rows[-1]
     seg_row._labels_combo.setCurrentText("cells")
     assert dialog._auto_populate_button.isEnabled() is True
+
+
+def test_spots_dialog_auto_populate_asserts_when_channel_row_missing() -> None:
+    """Fail fast when channel configs and rows diverge."""
+    data = SpotsFeatureData(
+        channels=[SpotsChannelConfig(name="", channel="img_a", spots_segmentation="")]
+    )
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer([Image([[1.0]], "img_a"), Image([[2.0]], "img_b")])
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = SpotsFeature(tab, DummyContext(state))
+    dialog = SpotsChannelsDialog(feature)
+
+    data.channels.append(
+        SpotsChannelConfig(name="", channel="img_b", spots_segmentation="")
+    )
+
+    with pytest.raises(AssertionError, match="Invariant violated"):
+        dialog._auto_populate_channels()
 
 
 def test_spots_dialog_adds_distinct_blank_rows_to_state() -> None:
