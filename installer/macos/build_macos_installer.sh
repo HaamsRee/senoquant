@@ -192,12 +192,15 @@ fi
 # Remove old PKG artifacts if they exist
 rm -f "${PKG_PATH}" "${COMPONENT_PKG}" "${COMPONENT_PLIST}" "${DIST_DISTRIBUTION}"
 rm -rf "${STAGING_DIR}"
+mkdir -p "${STAGING_DIR}"
 
 # Prepare staging root with SenoQuant.app.
 # Combined with --install-location "/Applications", this installs to
 # ~/Applications/SenoQuant.app in CurrentUserHomeDirectory mode.
-cp -R "${APP_DIR}" "${STAGING_DIR}/" 2>/dev/null || \
-ditto "${APP_DIR}" "${STAGING_DIR}/SenoQuant.app"
+if ! ditto "${APP_DIR}" "${STAGING_DIR}/SenoQuant.app"; then
+    echo "[SenoQuant] ERROR: Failed to copy app bundle into staging."
+    exit 1
+fi
 if [ ! -d "${STAGING_DIR}/SenoQuant.app" ]; then
     echo "[SenoQuant] ERROR: App bundle missing from staging. Aborting."
     exit 1
