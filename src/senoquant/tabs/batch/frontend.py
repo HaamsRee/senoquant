@@ -43,6 +43,7 @@ except Exception:  # pragma: no cover - optional import for runtime
     NotificationSeverity = None
 
 from .backend import BatchBackend
+from . import io as batch_io
 from .config import (
     BatchChannelConfig,
     BatchCytoplasmicConfig,
@@ -55,6 +56,7 @@ from .layers import BatchViewer, Image, Labels
 from ..quantification.frontend import QuantificationTab
 from ..segmentation.backend import SegmentationBackend
 from ..spots.backend import SpotsBackend
+from senoquant.reader import core as reader_core
 from senoquant.utils.setting_tooltips import build_setting_tooltip
 
 
@@ -181,6 +183,9 @@ class BatchTab(QWidget):
 
         self._input_path = QLineEdit()
         self._input_path.setPlaceholderText("Folder with images")
+        self._input_path.textChanged.connect(
+            self._update_auto_populate_channels_enabled
+        )
         browse_button = QPushButton("Browse")
         browse_button.clicked.connect(self._select_input_path)
         input_row = QHBoxLayout()
@@ -222,13 +227,22 @@ class BatchTab(QWidget):
 
         add_button = QPushButton("Add channel")
         add_button.clicked.connect(self._add_channel_row)
+        auto_populate_button = QPushButton("Auto populate channel(s)")
+        auto_populate_button.clicked.connect(self._auto_populate_channels)
+        self._auto_populate_channels_button = auto_populate_button
+
+        button_row = QHBoxLayout()
+        button_row.setContentsMargins(0, 0, 0, 0)
+        button_row.addWidget(add_button, 3)
+        button_row.addWidget(auto_populate_button, 1)
 
         section_layout.addWidget(self._channels_container)
-        section_layout.addWidget(add_button)
+        section_layout.addLayout(button_row)
         section.setLayout(section_layout)
 
         if not self._channel_rows:
             self._add_channel_row()
+        self._update_auto_populate_channels_enabled()
         return section
 
     def _make_segmentation_section(self) -> QGroupBox:
@@ -405,6 +419,81 @@ class BatchTab(QWidget):
         path = QFileDialog.getExistingDirectory(self, "Select input folder")
         if path:
             self._input_path.setText(path)
+
+    def _input_folder_path(self) -> Path | None:
+        """Return validated input folder path from the UI."""
+        raw_path = self._input_path.text().strip()
+        if not raw_path:
+            return None
+        folder = Path(raw_path).expanduser()
+        if not folder.is_dir():
+            return None
+        return folder
+
+    def _update_auto_populate_channels_enabled(self, *_args) -> None:
+        """Enable auto-populate only when a valid input folder is set."""
+        button = getattr(self, "_auto_populate_channels_button", None)
+        if button is None:
+            return
+        button.setEnabled(self._input_folder_path() is not None)
+
+    def _auto_populate_channels(self) -> None:
+        """Populate channel rows from the first image in the input folder."""
+        input_root = self._input_folder_path()
+        if input_root is None:
+            self._notify("Select a valid input folder first.")
+            self._update_auto_populate_channels_enabled()
+            return
+
+        extensions = [
+            ext.strip()
+            for ext in self._extensions.text().split(",")
+            if ext.strip()
+        ]
+        normalized_exts = batch_io.normalize_extensions(extensions)
+        input_files = sorted(
+            batch_io.iter_input_files(
+                input_root,
+                normalized_exts,
+                self._include_subfolders.isChecked(),
+            )
+        )
+        if not input_files:
+            self._notify("No input images found in the selected folder.")
+            return
+
+        first_image_path = input_files[0]
+        data_image = None
+        metadata_image = None
+        resolved_names: list[str] = []
+        try:
+            data_image = reader_core._open_bioimage(str(first_image_path))
+            metadata_image = reader_core._open_metadata_bioimage(
+                str(first_image_path),
+                fallback_image=data_image,
+            )
+            axes_present = reader_core._axes_present(data_image)
+            dims = getattr(data_image, "dims", None)
+            c_size = getattr(dims, "C", 1) if "C" in axes_present else 1
+            c_size = max(int(c_size), 1)
+            resolved_names = reader_core._resolve_channel_names(
+                metadata_image,
+                data_image,
+                c_size,
+            )
+        except Exception as exc:
+            self._notify(
+                f"Failed to auto-populate channels from {first_image_path.name}: {exc}"
+            )
+            return
+
+        self._clear_channel_rows()
+        for index, channel_name in enumerate(resolved_names):
+            self._add_channel_row(
+                BatchChannelConfig(name=str(channel_name).strip(), index=index)
+            )
+        if not self._channel_rows:
+            self._add_channel_row()
 
     def _select_output_path(self) -> None:
         """Open a folder picker for the output path."""
