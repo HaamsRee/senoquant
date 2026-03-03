@@ -196,8 +196,11 @@ In the SenoQuant dock widget, select **Batch**.
 
 Add channel names and indices so they appear in all dropdowns:
 
+- Click **Auto populate channel(s)** to load channel names/indices from the first matching input image in the selected folder.
 - **Name**: `DAPI`, `FITC`, `Cy3`, etc.
 - **Index**: zero-based channel index
+
+> The **Auto populate channel(s)** button is enabled only after a valid **Input folder** is selected.
 
 ### 4. Enable processing steps
 

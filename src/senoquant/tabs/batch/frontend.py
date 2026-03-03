@@ -1445,19 +1445,7 @@ def _spot_label_names(rows: list[dict], detector_name: str = "") -> list[str]:
         if not name:
             continue
         if detector_name:
-            labels.append(f"{_sanitize_label(name)}_{detector_name}_spot_labels")
+            labels.append(f"{name}_{detector_name}_spot_labels")
         else:
-            labels.append(f"{_sanitize_label(name)}_spot_labels")
+            labels.append(f"{name}_spot_labels")
     return labels
-
-
-def _sanitize_label(name: str) -> str:
-    """Sanitize a label name for display and export."""
-    safe = []
-    for char in name.strip():
-        if char.isalnum():
-            safe.append(char)
-        else:
-            safe.append("_")
-    result = "".join(safe).strip("_")
-    return result or "spots"

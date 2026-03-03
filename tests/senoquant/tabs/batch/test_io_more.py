@@ -11,28 +11,6 @@ from senoquant.tabs.batch import io as batch_io
 from senoquant.tabs.batch.config import BatchChannelConfig
 
 
-def test_sanitize_label_strips_symbols() -> None:
-    """Sanitize label strings for filesystem use.
-
-    Returns
-    -------
-    None
-    """
-    assert batch_io.sanitize_label(" A/B ") == "A_B"
-    assert batch_io.sanitize_label("***") == "spots"
-
-
-def test_spot_label_name_numeric_string() -> None:
-    """Test removed - spot_label_name function no longer used.
-
-    Returns
-    -------
-    None
-    """
-    # spot_label_name function removed in favor of inline naming
-    pass
-
-
 def test_load_channel_data_raises_on_bad_index(monkeypatch, tmp_path) -> None:
     """Raise when channel index is out of range.
 

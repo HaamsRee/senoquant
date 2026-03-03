@@ -28,6 +28,7 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 **Controls:**
 
 - **Add channel** (button): Add a new channel row.
+- **Auto populate channel(s)** (button): Populate channel rows from the first discovered input image.
 - **Name** (text field): Channel display name (for example, `DAPI`).
 - **Index** (spin box): Zero-based channel index in the source image.
 - **Delete** (button): Remove that mapping row.
@@ -35,6 +36,8 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 **Behavior notes:**
 
 - If **Name** is left blank, Batch uses the index as the name (for example, `0`).
+- **Auto populate channel(s)** is enabled only when a valid **Input folder** is set.
+- Auto-populate uses the first matching image from the selected input folder (respecting **Extensions** and **Include subfolders**) and fills channel names/indices from reader metadata.
 - Channel names from this section drive nuclear/cytoplasmic/spot channel selectors and quantification layer choices.
 
 ### Segmentation section
@@ -82,6 +85,7 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 - Internally, `min_size` and `max_size` are interpreted as diameter thresholds in pixels and converted to effective area (2D) or volume (3D) before filtering labels.
 - If spot detection is enabled, at least one spot channel must be selected before run.
 - Batch spot-settings dialogs mirror Spots-tab detector settings.
+- Spot label names in Batch preview/quantification follow `<channel>_<detector>_spot_labels`, matching Segmentation/Spots naming style used for channel resolution.
 - Detector behaviors fixed internally and not shown as controls:
   - RMP angle spacing is fixed to `5` and denoising is always enabled.
   - UFISH denoising is always enabled.

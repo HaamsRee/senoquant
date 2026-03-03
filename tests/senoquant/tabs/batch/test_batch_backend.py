@@ -141,6 +141,49 @@ def test_process_folder_runs_detection(tmp_path: Path, monkeypatch) -> None:
     assert "Channel 0_ufish_spot_labels" in outputs or "0_ufish_spot_labels" in outputs
 
 
+def test_process_folder_sanitizes_main_output_mask_filenames(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Write sanitized mask stems while keeping raw label keys for viewer use."""
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_file = input_dir / "sample.tif"
+    input_file.write_text("data")
+    output_dir = tmp_path / "output"
+
+    written_names: list[str] = []
+
+    def fake_iter_input_files(_root, _exts, _include):
+        yield input_file
+
+    def fake_load_channel_data(_path, _index, _scene_id):
+        return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
+
+    def fake_write_array(_out_dir, name, data):
+        written_names.append(name)
+        return Path(f"{name}.npy")
+
+    monkeypatch.setattr(batch_backend, "iter_input_files", fake_iter_input_files)
+    monkeypatch.setattr(batch_backend, "load_channel_data", fake_load_channel_data)
+    monkeypatch.setattr(batch_backend, "write_array", fake_write_array)
+
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+    summary = backend.process_folder(
+        input_path=str(input_dir),
+        output_path=str(output_dir),
+        nuclear_model="Nuclear Model",
+        nuclear_channel="DAPI/Ch 0",
+        channel_map=[BatchChannelConfig(name="DAPI/Ch 0", index=0)],
+    )
+
+    assert summary.processed == 1
+    assert written_names == ["dapi_ch_0_nuclear_model_nuc_labels"]
+    assert "DAPI/Ch 0_Nuclear Model_nuc_labels" in summary.results[0].outputs
+
+
 def test_process_folder_writes_root_settings_bundle(tmp_path: Path, monkeypatch) -> None:
     """Persist batch config bundle at the output root."""
     input_dir = tmp_path / "input"
