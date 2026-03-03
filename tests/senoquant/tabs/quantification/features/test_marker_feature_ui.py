@@ -120,6 +120,48 @@ def test_marker_dialog_auto_populate_button_enablement() -> None:
     assert dialog._auto_populate_button.isEnabled() is True
 
 
+def test_marker_dialog_adds_distinct_blank_rows_to_state() -> None:
+    """Keep multiple blank channel/segmentation rows in persisted state."""
+    data = MarkerFeatureData()
+    state = FeatureConfig(name="Markers", type_name="Markers", data=data)
+    viewer = DummyViewer(
+        [
+            Image([[1.0]], "img_a"),
+            Labels([[1]], "cells_nuc_labels"),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _enable_thresholds=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = MarkerFeature(tab, DummyContext(state))
+    dialog = MarkerChannelsDialog(feature)
+
+    dialog._add_channel()
+    dialog._add_channel()
+    assert len(dialog._rows) == 2
+    assert len(data.channels) == 2
+    assert data.channels[0] is dialog._rows[0].data
+    assert data.channels[1] is dialog._rows[1].data
+    assert data.channels[0] is not data.channels[1]
+
+    dialog._rows[1]._name_input.setText("Second")
+    assert data.channels[1].name == "Second"
+
+    dialog._add_segmentation()
+    dialog._add_segmentation()
+    assert len(dialog._segmentation_rows) == 2
+    assert len(data.segmentations) == 2
+    assert data.segmentations[0] is dialog._segmentation_rows[0].data
+    assert data.segmentations[1] is dialog._segmentation_rows[1].data
+    assert data.segmentations[0] is not data.segmentations[1]
+
+    dialog._segmentation_rows[1]._labels_combo.setCurrentText("cells_nuc_labels")
+    assert data.segmentations[1].label == "cells_nuc_labels"
+
+
 def test_marker_dialog_auto_populates_names_and_missing_rows() -> None:
     """Auto-populate fills names and adds missing channel rows."""
     data = MarkerFeatureData(

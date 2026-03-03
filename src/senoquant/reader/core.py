@@ -1049,9 +1049,9 @@ def _resolve_channel_names(metadata_image, data_image, c_size: int) -> list[str]
     """Resolve channel names with metadata-reader-first fallback to data reader."""
     resolved = _extract_channel_names(metadata_image)
 
-    if _all_channel_names_generic(resolved):
+    if not resolved or _all_channel_names_generic(resolved):
         data_names = _extract_channel_names(data_image)
-        if data_names and data_names != resolved:
+        if data_names and (not resolved or data_names != resolved):
             resolved = data_names
 
     final_names: list[str] = []

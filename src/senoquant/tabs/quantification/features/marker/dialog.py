@@ -410,7 +410,7 @@ class MarkerChannelsDialog(QDialog):
             channel_data = None
         if not isinstance(channel_data, MarkerChannelConfig):
             channel_data = MarkerChannelConfig()
-        if channel_data not in self._channels:
+        if not any(existing is channel_data for existing in self._channels):
             self._channels.append(channel_data)
         initial_channel_name = str(channel_data.channel).strip()
         row = MarkerChannelRow(self, channel_data)
@@ -463,7 +463,7 @@ class MarkerChannelsDialog(QDialog):
             segmentation_data = None
         if not isinstance(segmentation_data, MarkerSegmentationConfig):
             segmentation_data = MarkerSegmentationConfig()
-        if segmentation_data not in self._segmentations:
+        if not any(existing is segmentation_data for existing in self._segmentations):
             self._segmentations.append(segmentation_data)
         initial_label_name = str(segmentation_data.label).strip()
         row = MarkerSegmentationRow(self, segmentation_data)

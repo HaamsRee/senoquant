@@ -102,6 +102,15 @@ def test_resolve_channel_names_uses_data_names_for_generic_metadata() -> None:
     assert resolved == ["Blue--FLUO--DAPI", "Red--FLUO--TXR"]
 
 
+def test_resolve_channel_names_uses_data_names_when_metadata_missing() -> None:
+    """Fall back to data-reader names when metadata names are unavailable."""
+    metadata_image = types.SimpleNamespace(channel_names=None)
+    data_image = types.SimpleNamespace(channel_names=["Blue--FLUO--DAPI", "Red--FLUO--TXR"])
+
+    resolved = core._resolve_channel_names(metadata_image, data_image, c_size=2)
+    assert resolved == ["Blue--FLUO--DAPI", "Red--FLUO--TXR"]
+
+
 def test_resolve_channel_names_keeps_generic_when_data_names_match() -> None:
     """Keep metadata names when fallback reader does not add better names."""
     metadata_image = types.SimpleNamespace(channel_names=["Channel:0:0", "Channel:0:1"])
