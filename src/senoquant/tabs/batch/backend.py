@@ -376,9 +376,10 @@ class BatchBackend:
                                 nuclear_channel, normalized_channels
                             )
                             label_name = f"{channel_name}_{nuclear_model}_nuc_labels"
+                            output_stem = _sanitize_output_stem(label_name)
                             out_path = write_array(
                                 output_dir,
-                                label_name,
+                                output_stem,
                                 masks,
                             )
                             labels_data[label_name] = masks
@@ -456,9 +457,10 @@ class BatchBackend:
                                 cyto_channel, normalized_channels
                             )
                             label_name = f"{channel_name}_{cyto_model}_cyto_labels"
+                            output_stem = _sanitize_output_stem(label_name)
                             out_path = write_array(
                                 output_dir,
-                                label_name,
+                                output_stem,
                                 masks,
                             )
                             labels_data[label_name] = masks
@@ -507,9 +509,10 @@ class BatchBackend:
                                 channel_choice, normalized_channels
                             )
                             label_name = f"{channel_name}_{spot_detector}_spot_labels"
+                            output_stem = _sanitize_output_stem(label_name)
                             out_path = write_array(
                                 output_dir,
-                                label_name,
+                                output_stem,
                                 mask,
                             )
                             labels_data[label_name] = mask
@@ -658,6 +661,15 @@ def _resolve_output_dir(
         return None
     mkdirs(output_dir)
     return output_dir
+
+
+def _sanitize_output_stem(value: str) -> str:
+    """Normalize output stems for filesystem-safe mask filenames."""
+    cleaned = "".join(
+        char if char.isalnum() or char in "-_ " else "_" for char in value
+    )
+    stem = cleaned.strip().replace(" ", "_").lower()
+    return stem or "output"
 
 
 def _with_task_metadata(

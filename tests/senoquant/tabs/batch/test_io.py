@@ -124,17 +124,6 @@ def test_resolve_channel_index() -> None:
         batch_io.resolve_channel_index("", channel_map)
 
 
-def test_spot_label_name() -> None:
-    """Build spot label names from channels.
-
-    Returns
-    -------
-    None
-    """
-    # spot_label_name function removed in favor of inline naming
-    pass
-
-
 def test_load_channel_data(monkeypatch) -> None:
     """Load a single channel from a mocked BioIO image.
 
@@ -233,27 +222,6 @@ def test_resolve_channel_index_by_name() -> None:
     # Named channel should resolve to its index
     idx = batch_io.resolve_channel_index("GFP", channel_map)
     assert idx == 1
-
-
-def test_spot_label_name_generation() -> None:
-    """Generate consistent spot label names.
-
-    Returns
-    -------
-    None
-    """
-    channel_map = [
-        BatchChannelConfig(name="GFP", index=0),
-        BatchChannelConfig(name="DAPI", index=1),
-    ]
-    
-    # Test with channel name
-    name = batch_io.spot_label_name("GFP", channel_map)
-    assert name == "spot_labels_GFP"
-    
-    # Test with numeric index
-    name = batch_io.spot_label_name(0, channel_map)
-    assert name == "spot_labels_0"
 
 
 def test_normalize_extensions_none() -> None:

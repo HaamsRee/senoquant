@@ -179,49 +179,6 @@ def resolve_channel_index(
     raise ValueError(f"Unknown channel selection: {text}.")
 
 
-def spot_label_name(
-    choice: str | int,
-    channel_map: list[BatchChannelConfig],
-) -> str:
-    """Build the output label name for a spot channel.
-
-    Parameters
-    ----------
-    choice : str or int
-        Channel selection.
-    channel_map : list of BatchChannelConfig
-        Channel mapping list for name lookup.
-
-    Returns
-    -------
-    str
-        Standardized spot label name.
-    """
-    if isinstance(choice, int):
-        name = str(choice)
-    else:
-        name = str(choice).strip()
-        if name.isdigit():
-            return f"spot_labels_{name}"
-        for channel in channel_map:
-            if channel.name == name:
-                name = channel.name
-                break
-    return f"spot_labels_{sanitize_label(name)}"
-
-
-def sanitize_label(name: str) -> str:
-    """Sanitize a label name for filesystem use."""
-    safe = []
-    for char in name.strip():
-        if char.isalnum():
-            safe.append(char)
-        else:
-            safe.append("_")
-    result = "".join(safe).strip("_")
-    return result or "spots"
-
-
 def load_channel_data(
     path: Path,
     channel_index: int,
