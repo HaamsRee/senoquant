@@ -47,6 +47,7 @@ Measures channel intensity and morphological properties within segmentation labe
 **Channels section:**
 
 - **Add channel**: Add an image channel.
+- **Auto populate channels**: Add one row per image layer and fill channel names automatically from reader metadata when available.
 - **Channel** (dropdown per row): Select an image layer to measure intensities from.
 - **Set threshold** (checkbox per row): Enable intensity thresholding.
 
@@ -65,6 +66,8 @@ Measures channel intensity and morphological properties within segmentation labe
     - **Delete** (per row): Remove this channel.
 
 > Closing the popup or clicking **Save** will save the settings.
+>
+> The **Auto populate channels** button is enabled only after at least one channel or one segmentation is configured in the popup.
 
 <u>**ROI section:**</u>
 
@@ -150,6 +153,7 @@ with optional cell-segmentation context.
 **Channels section:**
 
 - **Add channel**: Add a spot channel row.
+- **Auto populate channels**: Add one row per image layer, fill channel names from metadata when available, and auto-select matching spot-label layers when they can be resolved.
 - **Name** (text): Custom channel label for output columns and colocalization labels.
 - **Channel** (dropdown per row): Select the image layer used for spot intensity.
 - **Spots segmentation** (dropdown per row): Select the labels layer containing spot instances for this channel.
@@ -166,6 +170,8 @@ with optional cell-segmentation context.
 > Spot labels are assigned to cells by centroid position when a segmentation is present. Spots outside segmentation are still exported and marked with `within_segmentation = 0`.
 >
 > Closing the popup or clicking **Save** will save the settings.
+>
+> The **Auto populate channels** button is enabled only after at least one channel or one segmentation is configured in the popup.
 
 <u>**ROI section:**</u>
 
