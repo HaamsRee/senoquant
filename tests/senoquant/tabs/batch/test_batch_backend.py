@@ -184,6 +184,106 @@ def test_process_folder_sanitizes_main_output_mask_filenames(
     assert "DAPI/Ch 0_Nuclear Model_nuc_labels" in summary.results[0].outputs
 
 
+def test_process_folder_deduplicates_colliding_output_dirs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Keep distinct files separate when their sanitized basenames collide."""
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    file_a = input_dir / "sample-1.tif"
+    file_b = input_dir / "sample 1.tif"
+    file_a.write_text("a")
+    file_b.write_text("b")
+    output_dir = tmp_path / "output"
+
+    def fake_iter_input_files(_root, _exts, _include):
+        yield file_a
+        yield file_b
+
+    def fake_load_channel_data(_path, _index, _scene_id):
+        return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
+
+    def fake_write_array(out_dir, name, data):
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        path = out_path / f"{name}.npy"
+        np.save(path, data)
+        return path
+
+    monkeypatch.setattr(batch_backend, "iter_input_files", fake_iter_input_files)
+    monkeypatch.setattr(batch_backend, "load_channel_data", fake_load_channel_data)
+    monkeypatch.setattr(batch_backend, "write_array", fake_write_array)
+
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+    summary = backend.process_folder(
+        input_path=str(input_dir),
+        output_path=str(output_dir),
+        nuclear_model="nuclear",
+        nuclear_channel=0,
+        channel_map=[BatchChannelConfig(name="Channel 0", index=0)],
+    )
+
+    assert summary.processed == 2
+    assert summary.failed == 0
+    assert sorted(path.name for path in output_dir.iterdir() if path.is_dir()) == [
+        "sample_1",
+        "sample_1__2",
+    ]
+
+
+def test_process_folder_deduplicates_colliding_spot_mask_stems(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Give sibling spot channels unique mask stems after sanitization."""
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_file = input_dir / "sample.tif"
+    input_file.write_text("data")
+    output_dir = tmp_path / "output"
+
+    written_names: list[str] = []
+
+    def fake_iter_input_files(_root, _exts, _include):
+        yield input_file
+
+    def fake_load_channel_data(_path, _index, _scene_id):
+        return np.ones((2, 2), dtype=np.float32), {"path": "sample.tif"}
+
+    def fake_write_array(_out_dir, name, data):
+        written_names.append(name)
+        return Path(f"{name}.npy")
+
+    monkeypatch.setattr(batch_backend, "iter_input_files", fake_iter_input_files)
+    monkeypatch.setattr(batch_backend, "load_channel_data", fake_load_channel_data)
+    monkeypatch.setattr(batch_backend, "write_array", fake_write_array)
+
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+    summary = backend.process_folder(
+        input_path=str(input_dir),
+        output_path=str(output_dir),
+        spot_detector="ufish",
+        spot_channels=["Ch 1", "Ch-1"],
+        channel_map=[
+            BatchChannelConfig(name="Ch 1", index=0),
+            BatchChannelConfig(name="Ch-1", index=1),
+        ],
+    )
+
+    assert summary.processed == 1
+    assert written_names == [
+        "Ch_1_ufish_spot_labels",
+        "Ch_1__2_ufish_spot_labels",
+    ]
+    assert "Ch 1_ufish_spot_labels" in summary.results[0].outputs
+    assert "Ch-1_ufish_spot_labels" in summary.results[0].outputs
+
+
 def test_process_folder_writes_root_settings_bundle(tmp_path: Path, monkeypatch) -> None:
     """Persist batch config bundle at the output root."""
     input_dir = tmp_path / "input"

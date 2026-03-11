@@ -327,9 +327,14 @@ class BatchBackend:
         )
         _write_batch_settings_bundle(output_root, payload)
 
+        file_dir_names = assign_unique_name_tokens(
+            [basename_for_path(path) for path in files],
+            fallback="image",
+        )
+
         # Iterate over files and (optionally) scene variants.
         current_item = 0
-        for path in files:
+        for path, file_dir_name in zip(files, file_dir_names, strict=True):
             scenes = self._iter_scenes(path, process_all_scenes)
             scene_dir_names = assign_unique_name_tokens(
                 [scene_id for scene_id in scenes if scene_id],
@@ -352,7 +357,7 @@ class BatchBackend:
                     scene_dir_name = next(scene_dir_lookup) if scene_id else None
                     output_dir = _resolve_output_dir(
                         output_root,
-                        path,
+                        file_dir_name,
                         scene_dir_name,
                         overwrite,
                     )
@@ -497,7 +502,23 @@ class BatchBackend:
                             "max_size": int(spot_max_size),
                         }
                         resolved_spot_channels = list(spot_channels or [])
-                        for channel_choice in resolved_spot_channels:
+                        spot_label_names = [
+                            (
+                                f"{_resolve_channel_name(channel_choice, normalized_channels)}_"
+                                f"{spot_detector}_spot_labels"
+                            )
+                            for channel_choice in resolved_spot_channels
+                        ]
+                        spot_output_stems = assign_unique_name_tokens(
+                            spot_label_names,
+                            fallback="output",
+                        )
+                        for channel_choice, label_name, output_stem in zip(
+                            resolved_spot_channels,
+                            spot_label_names,
+                            spot_output_stems,
+                            strict=True,
+                        ):
                             channel_idx = resolve_channel_index(
                                 channel_choice, normalized_channels
                             )
@@ -522,14 +543,6 @@ class BatchBackend:
                             # Apply size filtering if enabled
                             if spot_min_size > 0 or spot_max_size > 0:
                                 mask = _filter_labels_by_size(mask, spot_min_size, spot_max_size)
-                            channel_name = _resolve_channel_name(
-                                channel_choice, normalized_channels
-                            )
-                            label_name = f"{channel_name}_{spot_detector}_spot_labels"
-                            output_stem = sanitize_name_token(
-                                label_name,
-                                fallback="output",
-                            )
                             out_path = write_array(
                                 output_dir,
                                 output_stem,
@@ -651,7 +664,7 @@ def _resolve_channel_name(
 
 def _resolve_output_dir(
     output_root: str | Path,
-    path: Path,
+    file_dir_name: str,
     scene_dir_name: str | None,
     overwrite: bool,
 ) -> str | None:
@@ -661,8 +674,8 @@ def _resolve_output_dir(
     ----------
     output_root : str or Path
         Root output folder.
-    path : Path
-        Input file path.
+    file_dir_name : str
+        Unique sanitized directory name for the input file.
     scene_dir_name : str or None
         Optional sanitized scene directory name.
     overwrite : bool
@@ -673,8 +686,7 @@ def _resolve_output_dir(
     str or None
         Output directory path, or None when skipped.
     """
-    base_name = sanitize_name_token(basename_for_path(path), fallback="image")
-    output_dir = join(output_root, base_name)
+    output_dir = join(output_root, file_dir_name)
     if scene_dir_name:
         output_dir = join(output_dir, scene_dir_name)
     if exists(output_dir) and not overwrite:

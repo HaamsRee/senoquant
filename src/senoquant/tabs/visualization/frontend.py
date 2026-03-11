@@ -26,7 +26,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from senoquant.utils.naming import sanitize_name_token
+from senoquant.utils.naming import assign_unique_name_tokens, sanitize_name_token
 from .backend import VisualizationBackend
 from .plots import PlotConfig, build_plot_data, get_plot_registry
 from .plots.base import RefreshingComboBox
@@ -274,12 +274,20 @@ class VisualizationTab(QWidget):
             
             # Handle SenoQuant export format (dict with "channels" list)
             if isinstance(data, dict) and "channels" in data and isinstance(data["channels"], list):
-                for ch in data["channels"]:
-                    name = ch.get("name") or ch.get("channel")
-                    if not name:
-                        continue
-
-                    safe_name = sanitize_name_token(name, fallback="marker")
+                channel_entries = [
+                    (ch, name)
+                    for ch in data["channels"]
+                    if (name := ch.get("name") or ch.get("channel"))
+                ]
+                channel_tokens = assign_unique_name_tokens(
+                    [name for _ch, name in channel_entries],
+                    fallback="marker",
+                )
+                for (ch, name), safe_name in zip(
+                    channel_entries,
+                    channel_tokens,
+                    strict=True,
+                ):
 
                     # Prefer threshold_min
                     val = ch.get("threshold_min")
@@ -288,6 +296,7 @@ class VisualizationTab(QWidget):
                     
                     if val is not None:
                         thresholds_map[safe_name] = val
+                        thresholds_map[name] = val
             
             # Handle simple key-value format
             elif isinstance(data, dict):
