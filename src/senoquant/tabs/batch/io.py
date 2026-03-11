@@ -12,6 +12,8 @@ from typing import Iterable
 
 import numpy as np
 
+from senoquant.utils.naming import sanitize_name_token
+
 from senoquant.utils.path_io import is_remote, join, write_numpy
 from senoquant.reader import core as reader_core
 from .config import BatchChannelConfig
@@ -114,8 +116,7 @@ def safe_scene_dir(scene_id: str) -> str:
     str
         Filesystem-safe scene folder name.
     """
-    safe = scene_id.strip().replace("/", "_").replace("\\", "_")
-    return safe or "scene"
+    return sanitize_name_token(scene_id, fallback="scene")
 
 
 def write_array(output_dir: str | Path, name: str, data: np.ndarray) -> Path | str:

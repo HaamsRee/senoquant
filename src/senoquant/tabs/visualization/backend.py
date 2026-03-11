@@ -8,6 +8,7 @@ from typing import Iterable
 import shutil
 import tempfile
 
+from senoquant.utils.naming import assign_unique_name_tokens, sanitize_name_token
 from .plots import PlotConfig
 
 
@@ -224,7 +225,7 @@ class VisualizationBackend:
             # Default to repository root (current working directory)
             base = Path.cwd()
         if output_name and output_name.strip():
-            return base / output_name
+            return base / sanitize_name_token(output_name, fallback="output")
         return base
 
     def _route_plot_outputs(
@@ -248,7 +249,15 @@ class VisualizationBackend:
         in the temporary directory are routed instead. Subdirectories are
         not traversed.
         """
-        for plot_output in plot_outputs:
+        plot_outputs = list(plot_outputs)
+        plot_type_tokens = assign_unique_name_tokens(
+            [plot_output.plot_type for plot_output in plot_outputs],
+            fallback="plot",
+        )
+        used_dest_names: set[str] = set()
+        for plot_output, plot_type_token in zip(
+            plot_outputs, plot_type_tokens, strict=True
+        ):
             print(f"[Backend] Routing {plot_output.plot_type} to {output_root}")
             final_paths: list[Path] = []
             outputs = plot_output.outputs
@@ -270,15 +279,19 @@ class VisualizationBackend:
                 src = Path(src)
                 ext = src.suffix
                 if output_name and output_name.strip():
+                    safe_output_name = sanitize_name_token(
+                        output_name,
+                        fallback="plot",
+                    )
                     # If multiple files, append an index to avoid collisions.
                     if len(source_files) == 1:
-                        dest_name = f"{output_name}{ext}"
+                        dest_name = f"{safe_output_name}{ext}"
                     else:
-                        dest_name = f"{output_name}_{idx+1}{ext}"
+                        dest_name = f"{safe_output_name}_{idx+1}{ext}"
                 else:
                     # Fallback: prefix with plot type for clarity
-                    safe_type = plot_output.plot_type.replace(' ', '_')
-                    dest_name = f"{safe_type}_{src.name}"
+                    dest_name = f"{plot_type_token}_{src.name}"
+                dest_name = _dedupe_dest_name(dest_name, used_dest_names)
                 dest = output_root / dest_name
                 print(f"[Backend]   Copying {src} -> {dest}")
                 try:
@@ -308,7 +321,18 @@ class VisualizationBackend:
         Non-alphanumeric characters are replaced to avoid filesystem issues.
         """
         name = plot_output.plot_type.strip()
-        safe = "".join(
-            char if char.isalnum() or char in "-_ " else "_" for char in name
-        )
-        return safe.replace(" ", "_").lower()
+        return sanitize_name_token(name, fallback="plot")
+
+
+def _dedupe_dest_name(name: str, used_names: set[str]) -> str:
+    """Return a unique destination filename within the current routing pass."""
+
+    stem = Path(name).stem
+    suffix = Path(name).suffix
+    candidate = name
+    index = 2
+    while candidate in used_names:
+        candidate = f"{stem}__{index}{suffix}"
+        index += 1
+    used_names.add(candidate)
+    return candidate

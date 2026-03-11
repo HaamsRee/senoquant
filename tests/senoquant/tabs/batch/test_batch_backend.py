@@ -180,7 +180,7 @@ def test_process_folder_sanitizes_main_output_mask_filenames(
     )
 
     assert summary.processed == 1
-    assert written_names == ["dapi_ch_0_nuclear_model_nuc_labels"]
+    assert written_names == ["DAPI_Ch_0_Nuclear_Model_nuc_labels"]
     assert "DAPI/Ch 0_Nuclear Model_nuc_labels" in summary.results[0].outputs
 
 

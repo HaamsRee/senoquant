@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 from typing import Iterable
 
+from senoquant.utils.naming import sanitize_name_token
+
 try:
     from napari.utils.notifications import show_error
 except Exception:  # pragma: no cover - optional runtime dependency
@@ -211,8 +213,10 @@ class DoubleExpressionPlot(SenoQuantPlot):
             print(f"[DoubleExpressionPlot] Double + : {len(both_pos)}")
 
             # Save
-            safe_name = f"{m1}_{m2}_double_expression"
-            safe_name = "".join(c if c.isalnum() else "_" for c in safe_name)
+            safe_name = sanitize_name_token(
+                f"{m1}_{m2}_double_expression",
+                fallback="double_expression",
+            )
             output_file = temp_dir / f"{safe_name}.{export_format}"
             fig.savefig(str(output_file), dpi=150, bbox_inches="tight")
             plt.close(fig)

@@ -102,6 +102,6 @@ def test_process_routes_outputs_to_memory_filesystem() -> None:
     )
 
     assert result.output_root == f"{output_root}/run"
-    assert fs.exists(f"{root_name}/run/remote_feature/remote.csv") or fs.exists(
-        f"/{root_name}/run/remote_feature/remote.csv"
+    assert fs.exists(f"{root_name}/run/Remote_Feature/remote.csv") or fs.exists(
+        f"/{root_name}/run/Remote_Feature/remote.csv"
     )

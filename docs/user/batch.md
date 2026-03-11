@@ -190,7 +190,7 @@ Within each feature folder:
   - Without segmentation: `all_spots.<format>`.
 - Shared feature metadata: `feature_settings.json`.
 
-Feature folder names are normalized to lowercase and spaces become underscores.
+Feature folder names are normalized into safe underscore-separated tokens while preserving case.
 
 ### Example layout
 

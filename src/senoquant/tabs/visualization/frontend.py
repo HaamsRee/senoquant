@@ -26,6 +26,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from senoquant.utils.naming import sanitize_name_token
 from .backend import VisualizationBackend
 from .plots import PlotConfig, build_plot_data, get_plot_registry
 from .plots.base import RefreshingComboBox
@@ -277,12 +278,9 @@ class VisualizationTab(QWidget):
                     name = ch.get("name") or ch.get("channel")
                     if not name:
                         continue
-                    
-                    # Replicate sanitization to match CSV headers
-                    safe_name = "".join(
-                        c if c.isalnum() or c in "-_ " else "_" for c in name
-                    ).strip().replace(" ", "_").lower()
-                    
+
+                    safe_name = sanitize_name_token(name, fallback="marker")
+
                     # Prefer threshold_min
                     val = ch.get("threshold_min")
                     if val is None:
@@ -290,7 +288,6 @@ class VisualizationTab(QWidget):
                     
                     if val is not None:
                         thresholds_map[safe_name] = val
-                        thresholds_map[name] = val
             
             # Handle simple key-value format
             elif isinstance(data, dict):
@@ -867,11 +864,7 @@ class VisualizationTab(QWidget):
     def _plot_dir_name(self, plot_output: object) -> str:
         """Build filesystem-friendly folder name for a plot (matches backend)."""
         plot_type = getattr(plot_output, "plot_type", "unknown")
-        name = plot_type.strip()
-        safe = "".join(
-            c if c.isalnum() or c in " -_" else "_" for c in name
-        )
-        return safe
+        return sanitize_name_token(plot_type, fallback="plot")
 
     def _save_plots(self) -> None:
         """Save the current plot results to the output directory."""
