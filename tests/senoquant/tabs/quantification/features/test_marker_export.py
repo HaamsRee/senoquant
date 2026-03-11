@@ -94,6 +94,10 @@ def test_export_marker_writes_settings_and_masks(tmp_path: Path) -> None:
     payload = json.loads(settings_paths[0].read_text(encoding="utf-8"))
     assert payload["schema"] == "senoquant.settings"
     assert payload["feature_settings"]["feature_type"] == "Markers"
+    assert (
+        payload["feature_settings"]["config"]["merge_tables_across_segmentations"]
+        is True
+    )
     assert payload["segmentation_runs"]
     assert payload["segmentation_runs"][0]["layer_name"] == "cells"
     assert payload["segmentation_runs"][0]["run_history"][0]["runner_name"] == "default_2d"

@@ -312,6 +312,8 @@ class MarkerChannelsDialog(QDialog):
             for segmentation in self._segmentations
         )
         button.setEnabled(has_channel_config or has_segmentation_config)
+        if hasattr(self._feature, "_update_merge_checkbox_state"):
+            self._feature._update_merge_checkbox_state()
 
     def _auto_populate_channels(self) -> None:
         """Auto-create channel rows and channel names from image layers."""

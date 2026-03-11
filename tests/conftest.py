@@ -191,6 +191,13 @@ class DummyLayout:
         """
         self.items.append(layout)
 
+    def removeWidget(self, widget) -> None:
+        """Remove a previously added widget when present."""
+        try:
+            self.items.remove(widget)
+        except ValueError:
+            pass
+
     def addRow(self, *_args, **_kwargs) -> None:
         """Record row.
 
@@ -343,6 +350,7 @@ class QWidget:
     def __init__(self, *_args, **_kwargs) -> None:
         self._layout = None
         self._visible = True
+        self._enabled = True
         self._width = 640
         self._height = 480
 
@@ -386,8 +394,11 @@ class QWidget:
     def setBackgroundRole(self, *_args, **_kwargs) -> None:
         return None
 
-    def setEnabled(self, *_args, **_kwargs) -> None:
-        return None
+    def setEnabled(self, enabled: bool) -> None:
+        self._enabled = bool(enabled)
+
+    def isEnabled(self) -> bool:
+        return bool(self._enabled)
 
     def blockSignals(self, *_args, **_kwargs) -> None:
         return None

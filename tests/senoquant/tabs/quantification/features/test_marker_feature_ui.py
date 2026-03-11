@@ -41,16 +41,85 @@ def test_marker_feature_build_and_label_updates() -> None:
 
     feature.build()
     assert "channels_button" in feature._ui
+    assert "merge_tables_checkbox" in feature._ui
 
     feature._update_channels_button_label()
     button = feature._ui["channels_button"]
+    merge_checkbox = feature._ui["merge_tables_checkbox"]
     assert button.text() == "Add channel(s)"
+    assert merge_checkbox.isChecked() is True
+    assert merge_checkbox.isEnabled() is False
 
     data.channels.append(MarkerChannelConfig(name="Ch", channel="img"))
     data.segmentations.append(MarkerSegmentationConfig(label="cells"))
     feature._update_channels_button_label()
+    feature._update_merge_checkbox_state()
     assert button.text() == "Edit channel(s)"
+    assert merge_checkbox.isEnabled() is False
     assert feature._get_image_layer_by_name("img") is not None
+
+
+def test_marker_feature_merge_checkbox_updates_from_dialog_segmentations() -> None:
+    """Enable merged marker export only with multiple saved segmentations."""
+    data = MarkerFeatureData()
+    state = FeatureConfig(name="Markers", type_name="Markers", data=data)
+    viewer = DummyViewer(
+        [
+            Labels([[1]], "cells_a"),
+            Labels([[1]], "cells_b"),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _enable_thresholds=False,
+        _configure_combo=lambda _combo: None,
+    )
+    feature = MarkerFeature(tab, DummyContext(state))
+
+    feature.build()
+    merge_checkbox = feature._ui["merge_tables_checkbox"]
+    assert merge_checkbox.isEnabled() is False
+
+    feature._open_channels_dialog()
+    dialog = feature._ui["channels_dialog"]
+    dialog._add_segmentation()
+    dialog._segmentation_rows[0]._labels_combo.setCurrentText("cells_a")
+    assert merge_checkbox.isEnabled() is False
+
+    dialog._add_segmentation()
+    dialog._segmentation_rows[1]._labels_combo.setCurrentText("cells_b")
+    assert merge_checkbox.isEnabled() is True
+
+    dialog._remove_segmentation(dialog._segmentation_rows[1])
+    assert merge_checkbox.isEnabled() is False
+
+
+def test_marker_feature_merge_checkbox_toggles_state() -> None:
+    """Persist merge checkbox state on MarkerFeatureData."""
+    data = MarkerFeatureData(
+        segmentations=[
+            MarkerSegmentationConfig(label="cells_a"),
+            MarkerSegmentationConfig(label="cells_b"),
+        ]
+    )
+    state = FeatureConfig(name="Markers", type_name="Markers", data=data)
+    viewer = DummyViewer(
+        [
+            Labels([[1]], "cells_a"),
+            Labels([[1]], "cells_b"),
+        ]
+    )
+    tab = types.SimpleNamespace(_viewer=viewer, _enable_rois=False)
+    feature = MarkerFeature(tab, DummyContext(state))
+
+    feature.build()
+    checkbox = feature._ui["merge_tables_checkbox"]
+    assert checkbox.isEnabled() is True
+    assert data.merge_tables_across_segmentations is True
+
+    checkbox.setChecked(False)
+    assert data.merge_tables_across_segmentations is False
 
 
 def test_marker_feature_opens_dialog() -> None:
