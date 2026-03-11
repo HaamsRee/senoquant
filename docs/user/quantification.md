@@ -121,6 +121,12 @@ Measures channel intensity and morphological properties within segmentation labe
 
 > Thresholding will zero the `_thresholded` fields of cells with **mean** intensities outside the thresholding bounds.
 
+**Merge option:**
+
+- `Merge tables across segmentations` - Enabled by default when two or more segmentations are configured.
+- When enabled, SenoQuant keeps the normal per-segmentation tables and also writes `merged_wide.<format>` if every selected segmentation has strict 1:1 correspondence by `label_id` and `overlaps_with`.
+- If strict correspondence fails, SenoQuant keeps only the separate tables and logs a non-blocking console message.
+
 **Reference columns:**
 
 - `label_id` - Unique ID of the segmentation instance (a nucleus or a cytoplasm).
@@ -225,6 +231,7 @@ Each feature creates its own subfolder containing:
   - With segmentation(s): two files per segmentation (`*_cells` and `*_spots`).
   - Without segmentation: one file (`all_spots`).
 - `feature_settings.json` (feature configuration snapshot and run metadata).
+- For Markers with successful strict merge: `merged_wide.<format>`.
 
 **File naming:**
 - Markers: `<segmentation_label>.<format>`.

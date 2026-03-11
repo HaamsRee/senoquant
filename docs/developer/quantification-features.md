@@ -129,6 +129,8 @@ This section replaces the old standalone marker cross-reference document.
 `src/senoquant/tabs/quantification/features/marker/export.py` currently writes:
 
 - One table per selected segmentation: `<segmentation>.csv|xlsx`.
+- Marker feature postprocessing may also add `merged_wide.csv|xlsx` when
+  strict 1:1 correspondence exists across all exported segmentation tables.
 - Shared feature metadata bundle: `feature_settings.json`.
   - Uses top-level `feature_settings` + `segmentation_runs` keys from the
     `senoquant.settings` envelope.
