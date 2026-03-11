@@ -126,7 +126,7 @@ Measures channel intensity and morphological properties within segmentation labe
 - `label_id` - Unique ID of the segmentation instance (a nucleus or a cytoplasm).
 - `file_path` - Full source path.
 - `segmentation_type` - "nuclear" or "cytoplasmic".
-- `overlaps_with` - Semicolon-separated list of overlapping labels from other segmentations in this feature, if there are multiple segmentations configured.
+- `overlaps_with` - Semicolon-separated list of overlapping labels from other segmentations in this feature, using sanitized segmentation tokens like `<segmentation_token>_<label_id>`.
 
 **ROI columns:**
 
@@ -193,13 +193,13 @@ with optional cell-segmentation context.
 - `centroid_<axis>_pixels` - Cell centroid in pixels (`y/x` for 2D, `z/y/x` for 3D).
 - `centroid_<axis>_um` - Cell centroid in micrometers when physical pixel sizes are available.
 - Morphology columns (same naming as Markers): e.g., `morph_area`, `morph_volume`, `morph_*`.
-- `overlaps_with` - Semicolon-separated overlapping labels from other configured segmentations in the same feature.
+- `overlaps_with` - Semicolon-separated overlapping labels from other configured segmentations in the same feature, using sanitized segmentation tokens like `<segmentation_token>_<label_id>`.
 - ROI columns: `included_in_roi_<name>` and/or `excluded_from_roi_<name>`.
 - `<channel>_spot_count` - Number of spots assigned to that cell for each configured channel.
 - `<channel>_spot_mean_intensity` - Mean of per-spot mean intensities for spots assigned to that cell.
 - `colocalization_event_count` (when enabled) - Count of unique overlapping spot pairs within the same cell.
 
-> `<channel>` is derived from the channel **Name** (or the image layer name if Name is empty), sanitized to lowercase with underscores.
+> `<channel>` is derived from the channel **Name** (or the image layer name if Name is empty), normalized into a safe underscore-separated token while preserving case.
 
 **Spots table** (one per segmentation, or a single `all_spots` table when no segmentation is configured):
 
@@ -213,7 +213,7 @@ with optional cell-segmentation context.
 - `spot_area_um2` (2D) or `spot_volume_um3` (3D) - Spot size in physical units when pixel sizes are available.
 - `spot_mean_intensity` - Mean intensity of the spot region in the selected image channel.
 - ROI columns: `included_in_roi_<name>` and/or `excluded_from_roi_<name>`, evaluated at the spot centroid.
-- `colocalizes_with` (when enabled) - Semicolon-separated list of overlapping spots as `<channel_label>:<spot_id>`.
+- `colocalizes_with` (when enabled) - Semicolon-separated list of overlapping spots as `<channel_token>:<spot_id>`.
 
 ## Output structure
 
