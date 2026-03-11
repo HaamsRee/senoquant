@@ -26,7 +26,11 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from senoquant.utils.naming import assign_unique_name_tokens, sanitize_name_token
+from senoquant.utils.naming import (
+    assign_unique_name_tokens,
+    build_name_token_map,
+    sanitize_name_token,
+)
 from .backend import VisualizationBackend
 from .plots import PlotConfig, build_plot_data, get_plot_registry
 from .plots.base import RefreshingComboBox
@@ -69,6 +73,55 @@ class ResizingLabel(QLabel):
                 self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
             )
             super().setPixmap(scaled)
+
+
+def _feature_config_from_threshold_payload(payload: object) -> dict:
+    """Return the feature config dict from either flat or bundled JSON."""
+
+    if not isinstance(payload, dict):
+        return {}
+    if isinstance(payload.get("channels"), list):
+        return payload
+    feature_settings = payload.get("feature_settings")
+    if not isinstance(feature_settings, dict):
+        return {}
+    config = feature_settings.get("config")
+    if isinstance(config, dict):
+        return config
+    return feature_settings
+
+
+def _segmentation_tokens_from_feature_config(feature_config: dict) -> list[str]:
+    """Return merged-table segmentation tokens for a feature config."""
+
+    segmentations = feature_config.get("segmentations")
+    if not isinstance(segmentations, list):
+        return []
+    labels = [
+        str(segmentation.get("label", "")).strip()
+        for segmentation in segmentations
+        if isinstance(segmentation, dict)
+        and str(segmentation.get("label", "")).strip()
+    ]
+    return list(
+        build_name_token_map(labels, fallback="segmentation").values()
+    )
+
+
+def _threshold_aliases(
+    name: str,
+    token: str,
+    segmentation_tokens: list[str],
+) -> set[str]:
+    """Return threshold keys that can map back onto exported marker columns."""
+
+    aliases = {name, token, f"{name}_mean_intensity", f"{token}_mean_intensity"}
+    for segmentation_token in segmentation_tokens:
+        aliases.add(f"{segmentation_token}_{name}")
+        aliases.add(f"{segmentation_token}_{token}")
+        aliases.add(f"{segmentation_token}_{name}_mean_intensity")
+        aliases.add(f"{segmentation_token}_{token}_mean_intensity")
+    return aliases
 
 
 class VisualizationTab(QWidget):
@@ -271,17 +324,21 @@ class VisualizationTab(QWidget):
                 data = json.load(f)
             
             thresholds_map = {}
+            feature_config = _feature_config_from_threshold_payload(data)
             
             # Handle SenoQuant export format (dict with "channels" list)
-            if isinstance(data, dict) and "channels" in data and isinstance(data["channels"], list):
+            if isinstance(feature_config.get("channels"), list):
                 channel_entries = [
                     (ch, name)
-                    for ch in data["channels"]
+                    for ch in feature_config["channels"]
                     if (name := ch.get("name") or ch.get("channel"))
                 ]
                 channel_tokens = assign_unique_name_tokens(
                     [name for _ch, name in channel_entries],
                     fallback="marker",
+                )
+                segmentation_tokens = _segmentation_tokens_from_feature_config(
+                    feature_config
                 )
                 for (ch, name), safe_name in zip(
                     channel_entries,
@@ -295,8 +352,12 @@ class VisualizationTab(QWidget):
                         val = ch.get("threshold")
                     
                     if val is not None:
-                        thresholds_map[safe_name] = val
-                        thresholds_map[name] = val
+                        for alias in _threshold_aliases(
+                            name,
+                            safe_name,
+                            segmentation_tokens,
+                        ):
+                            thresholds_map[alias] = val
             
             # Handle simple key-value format
             elif isinstance(data, dict):
