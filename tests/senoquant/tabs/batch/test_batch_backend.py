@@ -278,7 +278,7 @@ def test_process_folder_deduplicates_colliding_spot_mask_stems(
     assert summary.processed == 1
     assert written_names == [
         "Ch_1_ufish_spot_labels",
-        "Ch_1__2_ufish_spot_labels",
+        "Ch_1_ufish_spot_labels__2",
     ]
     assert "Ch 1_ufish_spot_labels" in summary.results[0].outputs
     assert "Ch-1_ufish_spot_labels" in summary.results[0].outputs
@@ -928,8 +928,13 @@ def test_resolve_output_dir_creates_new() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         output_root = Path(tmp)
-        input_path = Path("test_image.tif")
-        result = batch_backend._resolve_output_dir(output_root, input_path, None, False)
+        file_dir_name = "test_image"
+        result = batch_backend._resolve_output_dir(
+            output_root,
+            file_dir_name,
+            None,
+            False,
+        )
         assert result is not None
         assert Path(result).exists()
 
@@ -945,14 +950,19 @@ def test_resolve_output_dir_skip_existing() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         output_root = Path(tmp)
-        input_path = Path("test_image.tif")
+        file_dir_name = "test_image"
         
         # Create the output directory first
         output_dir = output_root / "test_image"
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Request without overwrite should return None
-        result = batch_backend._resolve_output_dir(output_root, input_path, None, False)
+        result = batch_backend._resolve_output_dir(
+            output_root,
+            file_dir_name,
+            None,
+            False,
+        )
         assert result is None
 
 
@@ -967,14 +977,19 @@ def test_resolve_output_dir_overwrite() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         output_root = Path(tmp)
-        input_path = Path("test_image.tif")
+        file_dir_name = "test_image"
         
         # Create the output directory first
         output_dir = output_root / "test_image"
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Request with overwrite should return the directory
-        result = batch_backend._resolve_output_dir(output_root, input_path, None, True)
+        result = batch_backend._resolve_output_dir(
+            output_root,
+            file_dir_name,
+            None,
+            True,
+        )
         assert result is not None
         assert Path(result).exists()
 
