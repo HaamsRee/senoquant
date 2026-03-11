@@ -97,3 +97,22 @@ def test_export_marker_writes_settings_and_masks(tmp_path: Path) -> None:
     assert payload["segmentation_runs"]
     assert payload["segmentation_runs"][0]["layer_name"] == "cells"
     assert payload["segmentation_runs"][0]["run_history"][0]["runner_name"] == "default_2d"
+
+
+def test_export_marker_settings_use_sanitized_mask_filename(tmp_path: Path) -> None:
+    """Store sanitized mask filenames in the settings payload."""
+
+    labels = np.array([[0, 1], [0, 2]], dtype=np.int32)
+    image = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    viewer = DummyViewer([Labels(labels, "Cells / 1"), Image(image, "chan1")])
+    data = MarkerFeatureData(
+        segmentations=[MarkerSegmentationConfig(label="Cells / 1")],
+        channels=[MarkerChannelConfig(name="Ch1", channel="chan1")],
+    )
+    feature = FeatureConfig(name="Markers", type_name="Markers", data=data)
+
+    outputs = list(export_marker(feature, tmp_path, viewer=viewer, export_format="csv"))
+    settings_path = next(path for path in outputs if path.name == "feature_settings.json")
+    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+
+    assert payload["segmentation_runs"][0]["mask_file"] == "Cells_1_mask.npy"
