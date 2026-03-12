@@ -77,7 +77,7 @@ def test_route_feature_outputs_moves_unlisted_files_with_explicit_outputs(
     )
     backend._route_feature_outputs(output_root, [feature_output])
 
-    feature_dir = output_root / "feature"
+    feature_dir = output_root / "Feature"
     assert (feature_dir / "cells.csv").exists()
     assert (feature_dir / "spots_mask.npy").exists()
 
