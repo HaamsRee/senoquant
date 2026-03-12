@@ -71,6 +71,7 @@ dependencies = [
   "matplotlib>=3.8",
   "umap-learn>=0.5",
   "jsonschema>=3.2",
+  "pathvalidate>=3.2",
   "zarr>=3",
   "globus-cli>=3.1.4",
   # Provides the `sennet-clt` executable used by SenNet Portal downloads.
@@ -120,6 +121,7 @@ all = [
   "matplotlib>=3.8",
   "umap-learn>=0.5",
   "jsonschema>=3.2",
+  "pathvalidate>=3.2",
   "zarr>=3",
   "globus-cli>=3.1.4",
   # Provides the `sennet-clt` executable used by SenNet Portal downloads.

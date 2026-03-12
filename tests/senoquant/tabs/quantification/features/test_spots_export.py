@@ -296,7 +296,7 @@ def test_export_spots_marks_outside_segmentation_rows(tmp_path: Path) -> None:
     with cell_path.open("r", encoding="utf-8", newline="") as handle:
         cell_rows = list(csv.DictReader(handle))
     assert len(cell_rows) == 1
-    assert cell_rows[0]["ch1_spot_count"] == "1"
+    assert cell_rows[0]["Ch1_spot_count"] == "1"
 
 
 def test_export_spots_colocalization_keeps_outside_spots(tmp_path: Path) -> None:
@@ -352,3 +352,55 @@ def test_export_spots_colocalization_keeps_outside_spots(tmp_path: Path) -> None
     assert by_key[("B", "5")]["within_segmentation"] == "0"
     assert by_key[("A", "2")]["colocalizes_with"] == "B:5"
     assert by_key[("B", "5")]["colocalizes_with"] == "A:2"
+
+
+def test_export_spots_deduplicates_channel_and_mask_tokens(tmp_path: Path) -> None:
+    """Keep channel headers, mask filenames, and colocalization tokens aligned."""
+
+    cell_labels = np.array([[1, 1], [1, 1]], dtype=np.int32)
+    spot_a = np.array([[1, 0], [0, 0]], dtype=np.int32)
+    spot_b = np.array([[2, 0], [0, 0]], dtype=np.int32)
+    image = np.ones((2, 2), dtype=np.float32)
+    viewer = DummyViewer(
+        [
+            Labels(cell_labels, "cells"),
+            Labels(spot_a, "spots a"),
+            Labels(spot_b, "spots-a"),
+            Image(image, "chan_a"),
+            Image(image, "chan_b"),
+        ]
+    )
+    data = SpotsFeatureData(
+        segmentations=[SpotsSegmentationConfig(label="cells")],
+        channels=[
+            SpotsChannelConfig(
+                name="Ch 1",
+                channel="chan_a",
+                spots_segmentation="spots a",
+            ),
+            SpotsChannelConfig(
+                name="Ch-1",
+                channel="chan_b",
+                spots_segmentation="spots-a",
+            ),
+        ],
+        export_colocalization=True,
+    )
+    feature = FeatureConfig(name="Spots", type_name="Spots", data=data)
+
+    outputs = list(export_spots(feature, tmp_path, viewer=viewer, export_format="csv"))
+    mask_names = {path.name for path in outputs if path.name.endswith("_mask.npy")}
+    assert {"cells_cells_mask.npy", "spots_a_spots_mask.npy", "spots_a__2_spots_mask.npy"} <= mask_names
+
+    cell_path = next(path for path in outputs if path.name == "cells_cells.csv")
+    with cell_path.open("r", encoding="utf-8", newline="") as handle:
+        cell_rows = list(csv.DictReader(handle))
+    assert "Ch_1_spot_count" in cell_rows[0]
+    assert "Ch_1__2_spot_count" in cell_rows[0]
+
+    spot_path = next(path for path in outputs if path.name == "cells_spots.csv")
+    with spot_path.open("r", encoding="utf-8", newline="") as handle:
+        spot_rows = list(csv.DictReader(handle))
+    by_key = {(row["channel"], row["spot_id"]): row for row in spot_rows}
+    assert by_key[("Ch 1", "1")]["colocalizes_with"] == "Ch_1__2:2"
+    assert by_key[("Ch-1", "2")]["colocalizes_with"] == "Ch_1:1"

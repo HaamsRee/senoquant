@@ -182,7 +182,7 @@ def test_safe_scene_dir() -> None:
     None
     """
     # Test normal scene ID
-    assert batch_io.safe_scene_dir("scene-1") == "scene-1"
+    assert batch_io.safe_scene_dir("scene-1") == "scene_1"
     
     # Test scene ID with problematic characters (forward and backslash)
     result = batch_io.safe_scene_dir("scene/path\\with_chars")
@@ -291,7 +291,7 @@ def test_safe_scene_dir_alphanumeric() -> None:
     None
     """
     result = batch_io.safe_scene_dir("Scene-1")
-    assert result == "Scene-1"
+    assert result == "Scene_1"
 
 
 def test_safe_scene_dir_removes_unsafe_chars() -> None:

@@ -26,6 +26,11 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from senoquant.utils.naming import (
+    assign_unique_name_tokens,
+    build_name_token_map,
+    sanitize_name_token,
+)
 from .backend import VisualizationBackend
 from .plots import PlotConfig, build_plot_data, get_plot_registry
 from .plots.base import RefreshingComboBox
@@ -68,6 +73,55 @@ class ResizingLabel(QLabel):
                 self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
             )
             super().setPixmap(scaled)
+
+
+def _feature_config_from_threshold_payload(payload: object) -> dict:
+    """Return the feature config dict from either flat or bundled JSON."""
+
+    if not isinstance(payload, dict):
+        return {}
+    if isinstance(payload.get("channels"), list):
+        return payload
+    feature_settings = payload.get("feature_settings")
+    if not isinstance(feature_settings, dict):
+        return {}
+    config = feature_settings.get("config")
+    if isinstance(config, dict):
+        return config
+    return feature_settings
+
+
+def _segmentation_tokens_from_feature_config(feature_config: dict) -> list[str]:
+    """Return merged-table segmentation tokens for a feature config."""
+
+    segmentations = feature_config.get("segmentations")
+    if not isinstance(segmentations, list):
+        return []
+    labels = [
+        str(segmentation.get("label", "")).strip()
+        for segmentation in segmentations
+        if isinstance(segmentation, dict)
+        and str(segmentation.get("label", "")).strip()
+    ]
+    return list(
+        build_name_token_map(labels, fallback="segmentation").values()
+    )
+
+
+def _threshold_aliases(
+    name: str,
+    token: str,
+    segmentation_tokens: list[str],
+) -> set[str]:
+    """Return threshold keys that can map back onto exported marker columns."""
+
+    aliases = {name, token, f"{name}_mean_intensity", f"{token}_mean_intensity"}
+    for segmentation_token in segmentation_tokens:
+        aliases.add(f"{segmentation_token}_{name}")
+        aliases.add(f"{segmentation_token}_{token}")
+        aliases.add(f"{segmentation_token}_{name}_mean_intensity")
+        aliases.add(f"{segmentation_token}_{token}_mean_intensity")
+    return aliases
 
 
 class VisualizationTab(QWidget):
@@ -270,27 +324,40 @@ class VisualizationTab(QWidget):
                 data = json.load(f)
             
             thresholds_map = {}
+            feature_config = _feature_config_from_threshold_payload(data)
             
             # Handle SenoQuant export format (dict with "channels" list)
-            if isinstance(data, dict) and "channels" in data and isinstance(data["channels"], list):
-                for ch in data["channels"]:
-                    name = ch.get("name") or ch.get("channel")
-                    if not name:
-                        continue
-                    
-                    # Replicate sanitization to match CSV headers
-                    safe_name = "".join(
-                        c if c.isalnum() or c in "-_ " else "_" for c in name
-                    ).strip().replace(" ", "_").lower()
-                    
+            if isinstance(feature_config.get("channels"), list):
+                channel_entries = [
+                    (ch, name)
+                    for ch in feature_config["channels"]
+                    if (name := ch.get("name") or ch.get("channel"))
+                ]
+                channel_tokens = assign_unique_name_tokens(
+                    [name for _ch, name in channel_entries],
+                    fallback="marker",
+                )
+                segmentation_tokens = _segmentation_tokens_from_feature_config(
+                    feature_config
+                )
+                for (ch, name), safe_name in zip(
+                    channel_entries,
+                    channel_tokens,
+                    strict=True,
+                ):
+
                     # Prefer threshold_min
                     val = ch.get("threshold_min")
                     if val is None:
                         val = ch.get("threshold")
                     
                     if val is not None:
-                        thresholds_map[safe_name] = val
-                        thresholds_map[name] = val
+                        for alias in _threshold_aliases(
+                            name,
+                            safe_name,
+                            segmentation_tokens,
+                        ):
+                            thresholds_map[alias] = val
             
             # Handle simple key-value format
             elif isinstance(data, dict):
@@ -867,11 +934,7 @@ class VisualizationTab(QWidget):
     def _plot_dir_name(self, plot_output: object) -> str:
         """Build filesystem-friendly folder name for a plot (matches backend)."""
         plot_type = getattr(plot_output, "plot_type", "unknown")
-        name = plot_type.strip()
-        safe = "".join(
-            c if c.isalnum() or c in " -_" else "_" for c in name
-        )
-        return safe
+        return sanitize_name_token(plot_type, fallback="plot")
 
     def _save_plots(self) -> None:
         """Save the current plot results to the output directory."""

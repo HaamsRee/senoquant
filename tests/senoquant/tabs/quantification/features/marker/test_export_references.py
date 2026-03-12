@@ -145,6 +145,38 @@ def test_export_marker_adds_cross_segmentation_overlap_column(tmp_path):
     assert cyto_by_label["3"] == "nuclear_2"
 
 
+def test_export_marker_deduplicates_segmentation_tokens(tmp_path):
+    """Use deduplicated segmentation tokens in filenames and overlaps."""
+
+    labels_a = np.array([[1, 1], [0, 0]], dtype=np.int32)
+    labels_b = np.array([[10, 10], [0, 0]], dtype=np.int32)
+    image = np.ones((2, 2), dtype=np.float32)
+    viewer = DummyViewer(
+        [
+            Labels(labels_a, "Cell 1"),
+            Labels(labels_b, "Cell-1"),
+            Image(image, "chan1"),
+        ]
+    )
+    data = MarkerFeatureData(
+        segmentations=[
+            MarkerSegmentationConfig(label="Cell 1"),
+            MarkerSegmentationConfig(label="Cell-1"),
+        ],
+        channels=[MarkerChannelConfig(name="Ch1", channel="chan1")],
+    )
+    feature = FeatureConfig(name="Markers", type_name="Markers", data=data)
+
+    outputs = list(export_marker(feature, tmp_path, viewer=viewer, export_format="csv"))
+    csv_paths = {path.stem: path for path in outputs if path.suffix == ".csv"}
+    assert {"Cell_1", "Cell_1__2"} <= set(csv_paths)
+
+    with csv_paths["Cell_1"].open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert rows[0]["overlaps_with"] == "Cell_1__2_10"
+
+
 class TestBuildCrossSegmentationMap:
     """Test the _build_cross_segmentation_map function."""
 

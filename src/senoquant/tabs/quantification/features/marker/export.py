@@ -23,6 +23,11 @@ from senoquant.tabs.quantification.features.roi_membership import (
     membership_from_layer,
 )
 from senoquant.utils.settings_bundle import build_settings_bundle
+from senoquant.utils.naming import (
+    assign_unique_name_tokens,
+    build_name_token_map,
+    sanitize_name_token,
+)
 from senoquant.utils import layer_data_asarray
 from .config import MarkerFeatureData
 from .morphology import add_morphology_columns
@@ -81,6 +86,17 @@ def export_marker(
     channels = [channel for channel in data.channels if channel.channel]
     if not data.segmentations or not channels:
         return []
+    channel_prefixes = assign_unique_name_tokens(
+        [_channel_name(channel) for channel in channels],
+        fallback="channel",
+    )
+    roi_tokens = assign_unique_name_tokens(
+        [
+            getattr(roi, "name", "") or f"roi_{index}"
+            for index, roi in enumerate(data.rois, start=0)
+        ],
+        fallback="roi",
+    )
 
     channel_layers = {
         channel.channel: _find_layer(viewer, channel.channel, "Image")
@@ -119,6 +135,10 @@ def export_marker(
         cross_map = _build_cross_segmentation_map(all_segmentations)
     else:
         cross_map = {}
+    segmentation_tokens = build_name_token_map(
+        all_segmentations.keys(),
+        fallback="segmentation",
+    )
 
     for (
         index,
@@ -140,14 +160,27 @@ def export_marker(
                 if pixel_sizes is not None:
                     break
         rows = _initialize_rows(label_ids, centroids, pixel_sizes)
-        _add_roi_columns(rows, centroids, viewer, data.rois, label_name)
+        _add_roi_columns(
+            rows,
+            centroids,
+            viewer,
+            data.rois,
+            label_name,
+            roi_tokens,
+        )
         _morph_columns = add_morphology_columns(
             rows, labels, label_ids, pixel_sizes
         )
 
         # Determine segmentation type from labels metadata with suffix fallback.
         seg_type = _segmentation_type_from_layer(labels_layer, label_name)
-        file_stem = _sanitize_name(label_name or f"segmentation_{index}")
+        file_stem = segmentation_tokens.get(
+            label_name,
+            sanitize_name_token(
+                label_name or f"segmentation_{index}",
+                fallback="segmentation",
+            ),
+        )
         if label_name not in exported_layers:
             mask_path = _write_mask_output(
                 temp_dir,
@@ -168,11 +201,17 @@ def export_marker(
         _ref_columns = _add_reference_columns(
             rows, labels, label_ids, file_path, seg_type
         )
-        _add_cross_reference_column(rows, label_name, label_ids, cross_map)
+        _add_cross_reference_column(
+            rows,
+            label_name,
+            label_ids,
+            cross_map,
+            segmentation_tokens,
+        )
         
         header = list(rows[0].keys()) if rows else []
 
-        for channel in channels:
+        for channel, prefix in zip(channels, channel_prefixes, strict=True):
             channel_layer = channel_layers.get(channel.channel)
             if channel_layer is None:
                 continue
@@ -203,7 +242,6 @@ def export_marker(
                     raw_sum,
                     integrated,
                 )
-            prefix = _channel_prefix(channel)
             for row, mean_val, raw_val, int_val in zip(
                 rows, mean_intensity, raw_sum, integrated
             ):
@@ -513,6 +551,7 @@ def _add_roi_columns(
     viewer: object | None,
     rois: Sequence["ROIConfig"],
     label_name: str,
+    roi_tokens: Sequence[str] | None = None,
 ) -> None:
     """Add per-ROI inclusion columns to the output rows.
 
@@ -531,7 +570,7 @@ def _add_roi_columns(
     """
     if viewer is None or not rois or not rows or centroids.size == 0:
         return
-    for index, roi in enumerate(rois, start=0):
+    for index, roi in enumerate(rois):
         layer_name = getattr(roi, "layer", "")
         if not layer_name:
             continue
@@ -549,13 +588,20 @@ def _add_roi_columns(
                 RuntimeWarning,
             )
             continue
-        roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
             prefix = "excluded_from_roi"
         else:
             prefix = "included_in_roi"
-        column = f"{prefix}_{_sanitize_name(roi_name)}"
+        token = (
+            roi_tokens[index]
+            if roi_tokens is not None and index < len(roi_tokens)
+            else sanitize_name_token(
+                getattr(roi, "name", "") or f"roi_{index}",
+                fallback="roi",
+            )
+        )
+        column = f"{prefix}_{token}"
         for row, value in zip(rows, included):
             row[column] = int(value)
 
@@ -627,29 +673,14 @@ def _channel_prefix(channel) -> str:
     str
         Sanitized prefix for column names.
     """
+    return sanitize_name_token(_channel_name(channel), fallback="channel")
+
+
+def _channel_name(channel) -> str:
+    """Return the display name used for a marker channel."""
+
     name = channel.name.strip() if channel.name else ""
-    if not name:
-        name = channel.channel
-    return _sanitize_name(name)
-
-
-def _sanitize_name(value: str) -> str:
-    """Normalize names for filenames and column prefixes.
-
-    Parameters
-    ----------
-    value : str
-        Raw name to sanitize.
-
-    Returns
-    -------
-    str
-        Lowercased name with unsafe characters removed.
-    """
-    cleaned = "".join(
-        char if char.isalnum() or char in "-_ " else "_" for char in value
-    )
-    return cleaned.strip().replace(" ", "_").lower()
+    return name or channel.channel
 
 
 def _safe_divide(numerator: np.ndarray, denominator: np.ndarray) -> np.ndarray:
@@ -948,6 +979,7 @@ def _add_cross_reference_column(
     segmentation_name: str,
     label_ids: np.ndarray,
     cross_map: dict,
+    segmentation_tokens: dict[str, str] | None = None,
 ) -> str:
     """Add a cross-reference column to rows for multi-segmentation overlaps.
 
@@ -967,11 +999,16 @@ def _add_cross_reference_column(
     str
         Column name added.
     """
+    if segmentation_tokens is None:
+        segmentation_tokens = {}
     for row, label_id in zip(rows, label_ids, strict=True):
         overlaps = cross_map.get((segmentation_name, int(label_id)), [])
         if overlaps:
             overlap_str = ";".join(
-                [f"{seg}_{lid}" for seg, lid in overlaps],
+                [
+                    f"{segmentation_tokens.get(seg, sanitize_name_token(seg, fallback='segmentation'))}_{lid}"
+                    for seg, lid in overlaps
+                ],
             )
             row["overlaps_with"] = overlap_str
         else:

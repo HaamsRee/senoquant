@@ -62,8 +62,12 @@ class MarkerFeatureData(FeatureData):
         Channel configurations used for marker measurement.
     rois : list of ROIConfig
         ROI entries applied to this feature.
+    merge_tables_across_segmentations : bool
+        Whether to create a merged wide table when strict 1:1
+        correspondence exists across segmentations.
     """
 
     segmentations: list[MarkerSegmentationConfig] = field(default_factory=list)
     channels: list[MarkerChannelConfig] = field(default_factory=list)
     rois: list[ROIConfig] = field(default_factory=list)
+    merge_tables_across_segmentations: bool = True

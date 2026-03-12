@@ -80,7 +80,7 @@ def test_initialize_rows_and_prefix() -> None:
     assert rows[0]["centroid_y_pixels"] == 2.0
     assert rows[0]["centroid_x_um"] == 6.0
     channel = MarkerChannelConfig(name="Ch 1", channel="img")
-    assert marker_export._channel_prefix(channel) == "ch_1"
+    assert marker_export._channel_prefix(channel) == "Ch_1"
 
 
 def test_apply_threshold() -> None:

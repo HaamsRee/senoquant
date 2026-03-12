@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from senoquant.utils.naming import sanitize_name_token
 from senoquant.tabs.quantification.features.spots import export as spots_export
 
 
@@ -41,10 +42,10 @@ def test_sanitize_and_channel_label() -> None:
     -------
     None
     """
-    assert spots_export._sanitize_name("Ch 1") == "ch_1"
+    assert sanitize_name_token("Ch 1") == "Ch_1"
     channel = type("Channel", (), {"name": "Spot A", "channel": "img"})()
     assert spots_export._channel_label(channel) == "Spot A"
-    assert spots_export._sanitize_name(spots_export._channel_label(channel)) == "spot_a"
+    assert sanitize_name_token(spots_export._channel_label(channel)) == "Spot_A"
 
 
 def test_safe_divide_handles_zero() -> None:

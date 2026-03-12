@@ -53,7 +53,7 @@ def test_feature_dir_name_sanitizes() -> None:
         outputs=[],
     )
     output = backend._feature_dir_name(feature_output)
-    assert output == "my_feature__"
+    assert output == "My_Feature"
 
 
 def test_process_routes_outputs(tmp_path: Path) -> None:
@@ -84,3 +84,28 @@ def test_process_routes_outputs(tmp_path: Path) -> None:
     assert len(feature_dirs) == 2
     assert any((d / "a.csv").exists() for d in feature_dirs)
     assert any((d / "b.csv").exists() for d in feature_dirs)
+
+
+def test_process_deduplicates_feature_dir_names(tmp_path: Path) -> None:
+    """Deduplicate colliding sanitized feature folder names."""
+
+    backend = QuantificationBackend()
+    feature_a = FeatureConfig(feature_id="a", name="My Feature", type_name="Markers")
+    feature_b = FeatureConfig(feature_id="b", name="My-Feature", type_name="Spots")
+    contexts = [
+        DummyContext(feature_a, DummyHandler("a.csv")),
+        DummyContext(feature_b, DummyHandler("b.csv")),
+    ]
+
+    result = backend.process(
+        contexts,
+        output_path=str(tmp_path),
+        output_name="",
+        export_format="csv",
+        cleanup=False,
+    )
+
+    feature_dirs = sorted(
+        path.name for path in Path(result.output_root).iterdir() if path.is_dir()
+    )
+    assert feature_dirs == ["My_Feature", "My_Feature__2"]
