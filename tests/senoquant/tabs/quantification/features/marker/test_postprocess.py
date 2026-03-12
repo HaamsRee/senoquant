@@ -34,8 +34,8 @@ def test_marker_feature_export_appends_merged_wide_csv(tmp_path) -> None:
     labels = [[1, 1], [0, 2]]
     viewer = DummyViewer(
         [
-            Labels(labels, "nuclear"),
-            Labels(labels, "cytoplasmic"),
+            Labels(labels, "nuclear", metadata={"task": "nuclear"}),
+            Labels(labels, "cytoplasmic", metadata={"task": "cytoplasmic"}),
             Image([[1.0, 2.0], [3.0, 4.0]], "p21"),
         ]
     )
@@ -62,10 +62,13 @@ def test_marker_feature_export_appends_merged_wide_csv(tmp_path) -> None:
 
     assert rows
     assert rows[0]["merge_label_id"] == "1"
-    assert rows[0]["nuclear_seg_name"] == "nuclear"
-    assert rows[0]["cytoplasmic_seg_name"] == "cytoplasmic"
-    assert "nuclear_label_id" in rows[0]
-    assert "cytoplasmic_p21_mean_intensity" in rows[0]
+    assert rows[0]["nuclear_1_segmentation_name"] == "nuclear"
+    assert rows[0]["nuclear_1_segmentation_token_name"] == "nuclear"
+    assert rows[0]["cyto_1_segmentation_name"] == "cytoplasmic"
+    assert rows[0]["cyto_1_segmentation_token_name"] == "cytoplasmic"
+    assert "nuclear_1_label_id" in rows[0]
+    assert "cyto_1_p21_mean_intensity" in rows[0]
+    assert "cytoplasmic_p21_mean_intensity" not in rows[0]
 
 
 def test_postprocess_marker_creates_merged_wide_xlsx(tmp_path) -> None:
@@ -86,7 +89,12 @@ def test_postprocess_marker_creates_merged_wide_xlsx(tmp_path) -> None:
         channels=[MarkerChannelConfig(name="p21", channel="p21")],
     )
     feature = FeatureConfig(name="Markers", type_name="Markers", data=data)
-    header = ["label_id", "overlaps_with", "p21_mean_intensity"]
+    header = [
+        "label_id",
+        "overlaps_with",
+        "segmentation_type",
+        "p21_mean_intensity",
+    ]
     _write_table(
         tmp_path / "nuclear_1.xlsx",
         header,
@@ -94,6 +102,7 @@ def test_postprocess_marker_creates_merged_wide_xlsx(tmp_path) -> None:
             {
                 "label_id": 1,
                 "overlaps_with": "cyto_1_1;membrane_1_1",
+                "segmentation_type": "nuclear",
                 "p21_mean_intensity": 1.0,
             }
         ],
@@ -106,6 +115,7 @@ def test_postprocess_marker_creates_merged_wide_xlsx(tmp_path) -> None:
             {
                 "label_id": 1,
                 "overlaps_with": "nuclear_1_1;membrane_1_1",
+                "segmentation_type": "cytoplasmic",
                 "p21_mean_intensity": 2.0,
             }
         ],
@@ -118,6 +128,7 @@ def test_postprocess_marker_creates_merged_wide_xlsx(tmp_path) -> None:
             {
                 "label_id": 1,
                 "overlaps_with": "nuclear_1_1;cyto_1_1",
+                "segmentation_type": "cytoplasmic",
                 "p21_mean_intensity": 3.0,
             }
         ],
@@ -147,12 +158,14 @@ def test_postprocess_marker_creates_merged_wide_xlsx(tmp_path) -> None:
 
     assert rows[0][:4] == (
         "merge_label_id",
-        "nuclear_1_seg_name",
+        "nuclear_1_segmentation_name",
+        "nuclear_1_segmentation_token_name",
         "nuclear_1_label_id",
-        "nuclear_1_overlaps_with",
     )
+    assert "nuclear_1_overlaps_with" in rows[0]
     assert "cyto_1_p21_mean_intensity" in rows[0]
-    assert "membrane_1_p21_mean_intensity" in rows[0]
+    assert "cyto_2_p21_mean_intensity" in rows[0]
+    assert "cyto_2_segmentation_token_name" in rows[0]
 
 
 @pytest.mark.parametrize(

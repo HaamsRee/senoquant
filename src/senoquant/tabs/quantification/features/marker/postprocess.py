@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -25,6 +25,8 @@ class MarkerSegmentationTable:
 
     label_name: str
     token: str
+    segmentation_type: str
+    prefix: str
     header: list[str]
     rows_by_label_id: dict[int, dict[str, object]]
 
@@ -88,6 +90,8 @@ def postprocess_marker_merged_wide(
             _log_merge_skip(feature, reason)
             return outputs
         tables.append(table)
+
+    tables = _assign_short_prefixes(tables)
 
     reason = _validate_shared_label_ids(tables)
     if reason is not None:
@@ -159,6 +163,13 @@ def _build_segmentation_table(
         return None, (
             f"table '{token}' is missing required column(s): {', '.join(missing)}"
         )
+    segmentation_type, reason = _resolve_segmentation_type(
+        token=token,
+        header=header,
+        rows=rows,
+    )
+    if reason is not None:
+        return None, reason
 
     rows_by_label_id: dict[int, dict[str, object]] = {}
     for row in rows:
@@ -176,11 +187,66 @@ def _build_segmentation_table(
         MarkerSegmentationTable(
             label_name=label_name,
             token=token,
+            segmentation_type=segmentation_type,
+            prefix="",
             header=header,
             rows_by_label_id=rows_by_label_id,
         ),
         None,
     )
+
+
+def _resolve_segmentation_type(
+    *,
+    token: str,
+    header: list[str],
+    rows: list[dict[str, object]],
+) -> tuple[str, str | None]:
+    """Return a consistent segmentation type token for one table."""
+    if "segmentation_type" not in header:
+        return "segmentation", None
+
+    values = {
+        str(row.get("segmentation_type", "")).strip().lower()
+        for row in rows
+        if str(row.get("segmentation_type", "")).strip()
+    }
+    if not values:
+        return "segmentation", None
+    if len(values) != 1:
+        return (
+            "",
+            f"table '{token}' has inconsistent segmentation_type values",
+        )
+    return next(iter(values)), None
+
+
+def _assign_short_prefixes(
+    tables: list[MarkerSegmentationTable],
+) -> list[MarkerSegmentationTable]:
+    """Return tables with short, deterministic type-based prefixes."""
+    counts: dict[str, int] = {}
+    resolved: list[MarkerSegmentationTable] = []
+    for table in tables:
+        base = _short_prefix_base(table.segmentation_type)
+        counts[base] = counts.get(base, 0) + 1
+        resolved.append(
+            replace(
+                table,
+                prefix=f"{base}_{counts[base]}",
+            )
+        )
+    return resolved
+
+
+def _short_prefix_base(segmentation_type: str) -> str:
+    """Return a concise merged-table prefix base for one segmentation type."""
+    normalized = segmentation_type.strip().lower()
+    if normalized == "nuclear" or normalized.startswith("nuc"):
+        return "nuclear"
+    if normalized == "cytoplasmic" or normalized.startswith("cyto"):
+        return "cyto"
+    return "seg"
 
 
 def _validate_shared_label_ids(
@@ -244,9 +310,12 @@ def _build_merged_table(
     """Return merged header and rows for strict 1:1 marker tables."""
     merged_header = ["merge_label_id"]
     for table in tables:
-        merged_header.append(f"{table.token}_seg_name")
+        merged_header.append(f"{table.prefix}_segmentation_name")
+        merged_header.append(f"{table.prefix}_segmentation_token_name")
         merged_header.extend(
-            f"{table.token}_{column}" for column in table.header
+            f"{table.prefix}_{column}"
+            for column in table.header
+            if column != "segmentation_type"
         )
 
     merged_rows: list[dict[str, object]] = []
@@ -254,10 +323,13 @@ def _build_merged_table(
     for label_id in shared_ids:
         merged_row: dict[str, object] = {"merge_label_id": label_id}
         for table in tables:
-            merged_row[f"{table.token}_seg_name"] = table.label_name
+            merged_row[f"{table.prefix}_segmentation_name"] = table.label_name
+            merged_row[f"{table.prefix}_segmentation_token_name"] = table.token
             source_row = table.rows_by_label_id[label_id]
             for column in table.header:
-                merged_row[f"{table.token}_{column}"] = source_row.get(column)
+                if column == "segmentation_type":
+                    continue
+                merged_row[f"{table.prefix}_{column}"] = source_row.get(column)
         merged_rows.append(merged_row)
     return merged_header, merged_rows
 

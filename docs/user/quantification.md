@@ -125,6 +125,7 @@ Measures channel intensity and morphological properties within segmentation labe
 
 - `Merge tables across segmentations` - Enabled by default when two or more segmentations are configured.
 - When enabled, SenoQuant keeps the normal per-segmentation tables and also writes `merged_wide.<format>` if every selected segmentation has strict 1:1 correspondence by `label_id` and `overlaps_with`.
+- In `merged_wide.<format>`, measurement columns use short type-based prefixes such as `nuclear_1_*` and `cyto_1_*`, while lookup columns like `*_segmentation_token_name` preserve the exact exported segmentation token.
 - If strict correspondence fails, SenoQuant keeps only the separate tables and logs a non-blocking console message.
 
 **Reference columns:**

@@ -131,6 +131,9 @@ This section replaces the old standalone marker cross-reference document.
 - One table per selected segmentation: `<segmentation>.csv|xlsx`.
 - Marker feature postprocessing may also add `merged_wide.csv|xlsx` when
   strict 1:1 correspondence exists across all exported segmentation tables.
+  - Merged headers use short type-instance prefixes (for example
+    `nuclear_1_*`, `cyto_1_*`) plus lookup columns that preserve the
+    full segmentation token.
 - Shared feature metadata bundle: `feature_settings.json`.
   - Uses top-level `feature_settings` + `segmentation_runs` keys from the
     `senoquant.settings` envelope.
