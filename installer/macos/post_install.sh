@@ -83,6 +83,9 @@ log_exec "Upgrading pip" \
 log_exec "Installing uv" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" python -m pip install uv
 
+export UV_NATIVE_TLS=true
+echo "[SenoQuant] Enabled native TLS for uv downloads." | tee -a "${LOG_PATH}"
+
 # Install pip-system-certs for SSL certificate handling
 log_exec "Installing pip-system-certs" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install pip-system-certs

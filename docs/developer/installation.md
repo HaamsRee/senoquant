@@ -26,6 +26,7 @@ uv pip install "napari[all]"
 ```
 
 > **Note:** `pip-system-certs` enables Python to use your system's certificate store for SSL verification. This helps avoid certificate errors when downloading packages or models, especially on corporate networks or systems with custom certificate authorities.
+> The bundled Windows and macOS installers also enable `uv` native TLS so `uv` package downloads use the OS trust store during post-install setup.
 
 Alternatively, using standard `pip`:
 

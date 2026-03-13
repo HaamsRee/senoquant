@@ -85,6 +85,8 @@ if (!(Test-Path $envDir)) {
 Invoke-Checked "Upgrading pip" { & $micromambaExe run -p $envDir python -m pip install --upgrade pip }
 
 Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install uv }
+$env:UV_NATIVE_TLS = "true"
+Write-Host "[SenoQuant] Enabled native TLS for uv downloads."
 Invoke-Checked "Installing pip-system-certs" { & $micromambaExe run -p $envDir uv pip install pip-system-certs }
 
 # Install scyjava for BioFormats Java dependency
