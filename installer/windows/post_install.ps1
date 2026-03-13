@@ -35,29 +35,24 @@ function Invoke-UvPipInstall {
         [string[]]$Arguments
     )
 
-    $pythonCode = @'
-import os
-import subprocess
-import sys
+    $uvCandidates = @(
+        (Join-Path $envDir "Scripts\uv.exe"),
+        (Join-Path $envDir "uv.exe")
+    )
+    $uvExe = $uvCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $uvExe) {
+        throw "uv.exe not found in environment: $envDir"
+    }
 
-os.environ.pop("SSL_CERT_FILE", None)
-os.environ.pop("SSL_CERT_DIR", None)
-os.environ["UV_NATIVE_TLS"] = "true"
-
-python_dir = os.path.dirname(sys.executable)
-uv_candidates = [
-    os.path.join(python_dir, "uv.exe"),
-    os.path.join(python_dir, "Scripts", "uv.exe"),
-]
-uv_executable = next((path for path in uv_candidates if os.path.exists(path)), None)
-if uv_executable is None:
-    raise SystemExit("uv executable not found in the micromamba environment")
-
-raise SystemExit(
-    subprocess.call([uv_executable, "pip", "install", "--native-tls", *sys.argv[1:]])
-)
-'@
-    & $micromambaExe run -p $envDir python -c $pythonCode @Arguments
+    $quotedArgs = $Arguments | ForEach-Object {
+        '"' + ($_ -replace '"', '\"') + '"'
+    }
+    $command = @(
+        'set SSL_CERT_FILE=',
+        'set SSL_CERT_DIR=',
+        ('"' + $uvExe + '" pip install --native-tls ' + ($quotedArgs -join ' '))
+    ) -join ' & '
+    & $micromambaExe run -p $envDir cmd /d /c $command
 }
 
 if (-not $AppDir) {
