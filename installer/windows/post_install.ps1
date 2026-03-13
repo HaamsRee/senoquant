@@ -29,6 +29,28 @@ function Invoke-Checked {
     }
 }
 
+function Invoke-UvPipInstall {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string[]]$Arguments
+    )
+
+    $escapedArgs = $Arguments | ForEach-Object {
+        if ($_ -match '[\s"]') {
+            '"' + ($_ -replace '"', '""') + '"'
+        } else {
+            $_
+        }
+    }
+    $command = @(
+        'set "SSL_CERT_FILE="',
+        'set "SSL_CERT_DIR="',
+        'set "UV_NATIVE_TLS=true"',
+        "uv pip install --native-tls $($escapedArgs -join ' ')"
+    ) -join ' && '
+    & $micromambaExe run -p $envDir cmd /d /c $command
+}
+
 if (-not $AppDir) {
     $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
@@ -85,18 +107,17 @@ if (!(Test-Path $envDir)) {
 Invoke-Checked "Upgrading pip" { & $micromambaExe run -p $envDir python -m pip install --upgrade pip }
 
 Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install uv }
-$env:UV_NATIVE_TLS = "true"
-Write-Host "[SenoQuant] Enabled native TLS for uv downloads."
-Invoke-Checked "Installing pip-system-certs" { & $micromambaExe run -p $envDir uv pip install pip-system-certs }
+Write-Host "[SenoQuant] uv installs will use native TLS and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment."
+Invoke-Checked "Installing pip-system-certs" { Invoke-UvPipInstall @("pip-system-certs") }
 
 # Install scyjava for BioFormats Java dependency
-Invoke-Checked "Installing scyjava (BioFormats dependency)" { & $micromambaExe run -p $envDir uv pip install scyjava }
+Invoke-Checked "Installing scyjava (BioFormats dependency)" { Invoke-UvPipInstall @("scyjava") }
 
-Invoke-Checked "Installing napari" { & $micromambaExe run -p $envDir uv pip install "napari[all]" }
+Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
 
-Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { & $micromambaExe run -p $envDir uv pip install --force-reinstall $wheel.FullName }
+Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { Invoke-UvPipInstall @("--force-reinstall", $wheel.FullName) }
 
-Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" { & $micromambaExe run -p $envDir uv pip install --force-reinstall --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio }
+Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" { Invoke-UvPipInstall @("--force-reinstall", "--index-url", "https://download.pytorch.org/whl/cu121", "torch", "torchvision", "torchaudio") }
 
 Invoke-Checked "Validating napari import" { & $micromambaExe run -p $envDir python -c "import napari" }
 

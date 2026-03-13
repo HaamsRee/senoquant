@@ -224,7 +224,7 @@ senoquant/
 
 - Create a Python 3.11 environment under `env/`.
 - Install `napari[all]`, PyTorch (CUDA 12.1), and SenoQuant from the local wheel.
-- Enable `uv` native TLS so package downloads use the OS trust store.
+- Run `uv` installs with `--native-tls` and clear `SSL_CERT_FILE` / `SSL_CERT_DIR` inside the micromamba child process so enterprise proxy trust uses the OS certificate store.
 - Validate imports.
 
 The SenoQuant wheel pulls in runtime dependencies, including `senoquant-stardist-ext`.

@@ -25,6 +25,11 @@ log_exec() {
     fi
 }
 
+uv_pip_install() {
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env -u SSL_CERT_FILE -u SSL_CERT_DIR UV_NATIVE_TLS=true \
+        uv pip install --native-tls "$@"
+}
+
 echo "[SenoQuant] Starting post-install at $(date)" > "${LOG_PATH}"
 
 TOOLS_DIR="${RESOURCES_DIR}/tools"
@@ -83,27 +88,26 @@ log_exec "Upgrading pip" \
 log_exec "Installing uv" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" python -m pip install uv
 
-export UV_NATIVE_TLS=true
-echo "[SenoQuant] Enabled native TLS for uv downloads." | tee -a "${LOG_PATH}"
+echo "[SenoQuant] uv installs will use native TLS and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment." | tee -a "${LOG_PATH}"
 
 # Install pip-system-certs for SSL certificate handling
 log_exec "Installing pip-system-certs" \
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install pip-system-certs
+    uv_pip_install pip-system-certs
 
 # Install scyjava for BioFormats Java dependency
 log_exec "Installing scyjava (BioFormats dependency)" \
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install scyjava
+    uv_pip_install scyjava
 
 # Install napari
 log_exec "Installing napari" \
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install "napari[all]"
+    uv_pip_install "napari[all]"
 
 # Install PyTorch (CPU version for macOS - no CUDA)
 log_exec "Installing PyTorch" \
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install torch torchvision torchaudio
+    uv_pip_install torch torchvision torchaudio
 
 log_exec "Installing SenoQuant wheel: $(basename "${WHEEL}")" \
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" uv pip install --force-reinstall "${WHEEL}"
+    uv_pip_install --force-reinstall "${WHEEL}"
 
 # Validate napari installation
 log_exec "Validating napari import" \
