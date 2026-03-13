@@ -44,6 +44,7 @@ function Invoke-UvPipInstall {
         throw "uv.exe not found in environment: $envDir"
     }
 
+    $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) "senoquant_uv_install.py"
     $pythonCode = @'
 import os
 import subprocess
@@ -61,7 +62,12 @@ raise SystemExit(
     subprocess.call([uv_exe, "pip", "install", "--native-tls", *install_args], env=child_env)
 )
 '@
-    & $micromambaExe run -p $envDir python -c $pythonCode $uvExe @Arguments
+    Set-Content -Path $tempScript -Value $pythonCode -Encoding ASCII
+    try {
+        & $micromambaExe run -p $envDir python $tempScript $uvExe @Arguments
+    } finally {
+        Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
+    }
 }
 
 if (-not $AppDir) {
