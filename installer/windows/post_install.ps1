@@ -35,20 +35,20 @@ function Invoke-UvPipInstall {
         [string[]]$Arguments
     )
 
-    $escapedArgs = $Arguments | ForEach-Object {
-        if ($_ -match '[\s"]') {
-            '"' + ($_ -replace '"', '""') + '"'
-        } else {
-            $_
-        }
-    }
-    $command = @(
-        'set "SSL_CERT_FILE="',
-        'set "SSL_CERT_DIR="',
-        'set "UV_NATIVE_TLS=true"',
-        "uv pip install --native-tls $($escapedArgs -join ' ')"
-    ) -join ' && '
-    & $micromambaExe run -p $envDir cmd /d /c $command
+    $pythonCode = @'
+import os
+import subprocess
+import sys
+
+os.environ.pop("SSL_CERT_FILE", None)
+os.environ.pop("SSL_CERT_DIR", None)
+os.environ["UV_NATIVE_TLS"] = "true"
+
+raise SystemExit(
+    subprocess.call(["uv", "pip", "install", "--native-tls", *sys.argv[1:]])
+)
+'@
+    & $micromambaExe run -p $envDir python -c $pythonCode @Arguments
 }
 
 if (-not $AppDir) {
