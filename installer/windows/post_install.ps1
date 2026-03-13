@@ -44,8 +44,17 @@ os.environ.pop("SSL_CERT_FILE", None)
 os.environ.pop("SSL_CERT_DIR", None)
 os.environ["UV_NATIVE_TLS"] = "true"
 
+python_dir = os.path.dirname(sys.executable)
+uv_candidates = [
+    os.path.join(python_dir, "uv.exe"),
+    os.path.join(python_dir, "Scripts", "uv.exe"),
+]
+uv_executable = next((path for path in uv_candidates if os.path.exists(path)), None)
+if uv_executable is None:
+    raise SystemExit("uv executable not found in the micromamba environment")
+
 raise SystemExit(
-    subprocess.call([sys.executable, "-m", "uv", "pip", "install", "--native-tls", *sys.argv[1:]])
+    subprocess.call([uv_executable, "pip", "install", "--native-tls", *sys.argv[1:]])
 )
 '@
     & $micromambaExe run -p $envDir python -c $pythonCode @Arguments
