@@ -44,15 +44,24 @@ function Invoke-UvPipInstall {
         throw "uv.exe not found in environment: $envDir"
     }
 
-    $quotedArgs = $Arguments | ForEach-Object {
-        '"' + ($_ -replace '"', '\"') + '"'
-    }
-    $command = @(
-        'set SSL_CERT_FILE=',
-        'set SSL_CERT_DIR=',
-        ('"' + $uvExe + '" pip install --native-tls ' + ($quotedArgs -join ' '))
-    ) -join ' & '
-    & $micromambaExe run -p $envDir cmd /d /c $command
+    $pythonCode = @'
+import os
+import subprocess
+import sys
+
+uv_exe = sys.argv[1]
+install_args = sys.argv[2:]
+
+child_env = os.environ.copy()
+child_env.pop("SSL_CERT_FILE", None)
+child_env.pop("SSL_CERT_DIR", None)
+child_env["UV_NATIVE_TLS"] = "true"
+
+raise SystemExit(
+    subprocess.call([uv_exe, "pip", "install", "--native-tls", *install_args], env=child_env)
+)
+'@
+    & $micromambaExe run -p $envDir python -c $pythonCode $uvExe @Arguments
 }
 
 if (-not $AppDir) {
