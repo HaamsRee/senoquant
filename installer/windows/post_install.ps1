@@ -45,7 +45,7 @@ os.environ.pop("SSL_CERT_DIR", None)
 os.environ["UV_NATIVE_TLS"] = "true"
 
 raise SystemExit(
-    subprocess.call(["uv", "pip", "install", "--native-tls", *sys.argv[1:]])
+    subprocess.call([sys.executable, "-m", "uv", "pip", "install", "--native-tls", *sys.argv[1:]])
 )
 '@
     & $micromambaExe run -p $envDir python -c $pythonCode @Arguments
