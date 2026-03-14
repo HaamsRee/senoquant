@@ -199,7 +199,14 @@ class SpatialPlot(SenoQuantPlot):
                         color=point_color,
                         label=category,
                     )
-                ax.legend(loc="best", frameon=False, title="Assigned marker")
+                ax.legend(
+                    loc="upper left",
+                    bbox_to_anchor=(1.02, 1.0),
+                    borderaxespad=0.0,
+                    frameon=False,
+                    title="Assigned marker",
+                )
+                fig.subplots_adjust(right=0.78)
 
             ax.set_xlabel(x_col)
             ax.set_ylabel(y_col)

@@ -273,9 +273,9 @@ class NeighborhoodEnrichmentPlot(SenoQuantPlot):
                 take = is_pos & (class_codes < 0)
                 class_codes[take] = idx
 
-            negative_code = len(marker_names)
-            class_codes[class_codes < 0] = negative_code
-            class_names = marker_names + ["Negative"]
+            other_code = len(marker_names)
+            class_codes[class_codes < 0] = other_code
+            class_names = marker_names + ["Other"]
 
             edges = _build_knn_edges(coords, k=6)
             if edges.size == 0:

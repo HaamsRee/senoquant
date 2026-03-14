@@ -186,9 +186,17 @@ class DoubleExpressionPlot(SenoQuantPlot):
             ax.set_title(f"Spatial Distribution\n{m1} (Red) | {m2} (Blue) | Both (Green)", fontsize=15)
             ax.set_xlabel(x_col)
             ax.set_ylabel(y_col)
+            ax.invert_yaxis()
 
-            # Custom Legend
-            ax.legend(markerscale=4, loc='upper right', frameon=False)
+            # Place legend outside the axes to avoid covering data.
+            ax.legend(
+                markerscale=4,
+                loc='upper left',
+                bbox_to_anchor=(1.02, 1.0),
+                borderaxespad=0.0,
+                frameon=False,
+            )
+            fig.subplots_adjust(right=0.78)
 
             # Print Counts
             print(f"[DoubleExpressionPlot] {m1}+ only: {len(m1_only)}")
@@ -210,3 +218,5 @@ class DoubleExpressionPlot(SenoQuantPlot):
             print(traceback.format_exc())
             _notify_error(f"Error in Double Expression Plot: {e}")
             return []
+
+
