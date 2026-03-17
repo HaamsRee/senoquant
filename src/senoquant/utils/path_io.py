@@ -152,6 +152,7 @@ def write_json(path: str | Path, payload: dict[str, Any]) -> str:
             json.dump(payload, handle, indent=2)
         return target
     target_path = Path(target)
+
     with target_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
     return str(target_path)

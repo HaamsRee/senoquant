@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import sys
+
 from senoquant.utils import path_io
 
 
@@ -68,7 +70,10 @@ def test_remote_write_and_copy_to_memory_filesystem(tmp_path: Path) -> None:
     assert fs.exists("path-io-tests/out/data.npy") or fs.exists("/path-io-tests/out/data.npy")
     assert fs.exists("path-io-tests/out/local.txt") or fs.exists("/path-io-tests/out/local.txt")
 
-
+@pytest.mark.skipif(
+    sys.platform == "win32", 
+    reason="Windows natively strips trailing spaces from file and folder names."
+)
 def test_write_json_preserves_whitespace_in_local_filename(tmp_path: Path) -> None:
     """Preserve leading/trailing spaces inside local path segments."""
     json_path = tmp_path / " out " / " settings .json "
