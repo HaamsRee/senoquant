@@ -192,6 +192,7 @@ class DoubleExpressionPlot(SenoQuantPlot):
             ax.set_title(f"Spatial Distribution\n{m1} (Red) | {m2} (Blue) | Both (Green)", fontsize=15)
             ax.set_xlabel(x_col)
             ax.set_ylabel(y_col)
+            ax.invert_yaxis()
 
             ax.invert_yaxis()
 
@@ -229,3 +230,5 @@ class DoubleExpressionPlot(SenoQuantPlot):
             print(traceback.format_exc())
             _notify_error(f"Error in Double Expression Plot: {e}")
             return []
+
+
