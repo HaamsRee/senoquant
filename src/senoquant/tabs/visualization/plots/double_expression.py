@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 from typing import Iterable
 
+from senoquant.utils.naming import sanitize_name_token
+
 try:
     from napari.utils.notifications import show_error
 except Exception:  # pragma: no cover - optional runtime dependency
@@ -161,8 +163,12 @@ class DoubleExpressionPlot(SenoQuantPlot):
                 _notify_error(msg)
                 return []
 
-            # Plotting
-            fig, ax = plt.subplots(figsize=(10, 10))
+            # Plotting in two columns: main plot + dedicated legend column.
+            fig, (ax, legend_ax) = plt.subplots(
+                ncols=2,
+                figsize=(12, 10),
+                gridspec_kw={"width_ratios": [1.0, 0.30], "wspace": 0.03},
+            )
             
             # 1. Background (All cells - Negative appearance)
             ax.scatter(df[x_col], df[y_col], c="#f0f0f0", s=1, label="Negative")
@@ -188,15 +194,19 @@ class DoubleExpressionPlot(SenoQuantPlot):
             ax.set_ylabel(y_col)
             ax.invert_yaxis()
 
-            # Place legend outside the axes to avoid covering data.
-            ax.legend(
+            ax.invert_yaxis()
+
+            handles, labels = ax.get_legend_handles_labels()
+            legend_ax.axis("off")
+            legend_ax.legend(
+                handles,
+                labels,
+                loc="upper left",
+                frameon=True,
+                facecolor="white",
+                edgecolor="0.7",
                 markerscale=4,
-                loc='upper left',
-                bbox_to_anchor=(1.02, 1.0),
-                borderaxespad=0.0,
-                frameon=False,
             )
-            fig.subplots_adjust(right=0.78)
 
             # Print Counts
             print(f"[DoubleExpressionPlot] {m1}+ only: {len(m1_only)}")
@@ -204,8 +214,10 @@ class DoubleExpressionPlot(SenoQuantPlot):
             print(f"[DoubleExpressionPlot] Double + : {len(both_pos)}")
 
             # Save
-            safe_name = f"{m1}_{m2}_double_expression"
-            safe_name = "".join(c if c.isalnum() else "_" for c in safe_name)
+            safe_name = sanitize_name_token(
+                f"{m1}_{m2}_double_expression",
+                fallback="double_expression",
+            )
             output_file = temp_dir / f"{safe_name}.{export_format}"
             fig.savefig(str(output_file), dpi=150, bbox_inches="tight")
             plt.close(fig)

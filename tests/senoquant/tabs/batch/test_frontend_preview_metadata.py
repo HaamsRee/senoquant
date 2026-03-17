@@ -48,3 +48,28 @@ def test_refresh_config_viewer_adds_task_metadata_to_placeholder_labels() -> Non
     assert task_by_name["Ch0_nuc_model_nuc_labels"] == "nuclear"
     assert task_by_name["Ch0_cyto_model_cyto_labels"] == "cytoplasmic"
     assert task_by_name["Ch0_spotdet_spot_labels"] == "spots"
+
+
+def test_refresh_config_viewer_keeps_raw_spot_channel_names() -> None:
+    """Keep raw channel naming for spot preview labels."""
+    tab = BatchTab.__new__(BatchTab)
+    tab._channel_configs = [BatchChannelConfig(name="A/B", index=0)]
+    tab._config_viewer = BatchViewer()
+    tab._nuclear_enabled = _Toggle(False)
+    tab._nuclear_model_combo = _Combo("nuc_model")
+    tab._nuclear_channel_combo = _Combo("A/B")
+    tab._cyto_enabled = _Toggle(False)
+    tab._cyto_model_combo = _Combo("cyto_model")
+    tab._cyto_channel_combo = _Combo("A/B")
+    tab._spots_enabled = _Toggle(True)
+    tab._spot_detector_combo = _Combo("spotdet")
+    tab._spot_channel_rows = [{"combo": _Combo("A/B")}]
+
+    tab._refresh_config_viewer()
+
+    task_by_name = {
+        layer.name: layer.metadata.get("task")
+        for layer in tab._config_viewer.layers
+        if layer.__class__.__name__ == "Labels"
+    }
+    assert task_by_name["A/B_spotdet_spot_labels"] == "spots"

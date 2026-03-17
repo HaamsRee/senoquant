@@ -37,6 +37,7 @@ def test_batch_job_config_round_trip(tmp_path) -> None:
     marker_data = MarkerFeatureData(
         segmentations=[MarkerSegmentationConfig(label="cells")],
         channels=[MarkerChannelConfig(name="DAPI", channel="nuclei")],
+        merge_tables_across_segmentations=False,
     )
     spots_data = SpotsFeatureData(
         segmentations=[SpotsSegmentationConfig(label="cells")],
@@ -71,6 +72,9 @@ def test_batch_job_config_round_trip(tmp_path) -> None:
     assert restored.output_path == "/output"
     assert restored.channel_map[0].name == "DAPI"
     assert restored.quantification.features[0].feature_id == "marker-1"
+    restored_marker = restored.quantification.features[0].data
+    assert isinstance(restored_marker, MarkerFeatureData)
+    assert restored_marker.merge_tables_across_segmentations is False
 
     save_path = tmp_path / "job.json"
     job.save(str(save_path))

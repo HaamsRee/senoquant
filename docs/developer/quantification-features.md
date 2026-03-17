@@ -26,7 +26,7 @@ Each feature owns two things:
   for each configured feature.
 - Output files are moved into a feature-specific folder under the chosen output
   root:
-  - Folder name = sanitized feature `name` (or `type_name` when name is blank).
+  - Folder name = shared sanitized token for feature `name` (or `type_name` when name is blank).
   - Lowercase, spaces become `_`, and non-alphanumeric characters are replaced.
 - If `export()` returns an empty iterable, the backend moves all files found in
   that feature's temp directory.
@@ -129,6 +129,11 @@ This section replaces the old standalone marker cross-reference document.
 `src/senoquant/tabs/quantification/features/marker/export.py` currently writes:
 
 - One table per selected segmentation: `<segmentation>.csv|xlsx`.
+- Marker feature postprocessing may also add `merged_wide.csv|xlsx` when
+  strict 1:1 correspondence exists across all exported segmentation tables.
+  - Merged headers use short type-instance prefixes (for example
+    `nuclear_1_*`, `cyto_1_*`) plus lookup columns that preserve the
+    full segmentation token.
 - Shared feature metadata bundle: `feature_settings.json`.
   - Uses top-level `feature_settings` + `segmentation_runs` keys from the
     `senoquant.settings` envelope.
@@ -138,7 +143,7 @@ Reference columns added in marker rows:
 
 - `file_path` (from first selected channel image metadata path, when present).
 - `segmentation_type` (`nuclear` or `cytoplasmic`).
-- `overlaps_with` (cross-segmentation overlap ids, `seg_name_label_id;...`).
+- `overlaps_with` (cross-segmentation overlap ids, `segmentation_token_label_id;...`).
 
 ### Spots export
 
@@ -155,12 +160,12 @@ depending on segmentation availability:
 Reference and relationship columns:
 
 - `file_path` is included in both cells and spots tables.
-- Cells table includes `overlaps_with` for cross-segmentation overlaps.
+- Cells table includes `overlaps_with` for cross-segmentation overlaps using sanitized segmentation tokens.
 - Spots rows are always preserved; with segmentation configured, rows include
   `within_segmentation` (`1` inside segmentation, `0` outside) and `cell_id=0`
   for outside spots.
 - If `export_colocalization` is enabled:
-  - The spots table includes `colocalizes_with`.
+  - The spots table includes `colocalizes_with` using sanitized channel tokens.
   - The cells table includes `colocalization_event_count`.
 
 Channel label behavior in spots export:

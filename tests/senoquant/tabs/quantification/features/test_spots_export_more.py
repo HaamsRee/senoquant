@@ -116,10 +116,10 @@ def test_append_channel_exports_no_spots() -> None:
         "",
     )
 
-    assert "ch_1_spot_count" in cell_header
+    assert "Ch_1_spot_count" in cell_header
     assert spot_rows == []
-    assert cell_rows[0]["ch_1_spot_count"] == 0
-    assert np.isnan(cell_rows[0]["ch_1_spot_mean_intensity"])
+    assert cell_rows[0]["Ch_1_spot_count"] == 0
+    assert np.isnan(cell_rows[0]["Ch_1_spot_mean_intensity"])
 
 
 def test_append_channel_exports_warns_on_mismatch() -> None:
@@ -224,10 +224,38 @@ def test_spot_roi_columns_and_values() -> None:
     viewer = DummyViewer([Shapes("roi", polygon)])
     rois = [DummyROI("My ROI", "roi", roi_type="Exclude")]
     columns = spots_export._spot_roi_columns(viewer, rois, "cells", 2)
-    assert columns[0][0] == "excluded_from_roi_my_roi"
+    assert columns[0][0] == "excluded_from_roi_My_ROI"
     centroids = np.array([[0, 0], [1, 1]], dtype=float)
     values = spots_export._spot_roi_values(centroids, columns)
     assert values[0][1].tolist() == [1, 1]
+
+
+def test_spot_roi_columns_deduplicate_tokens() -> None:
+    """Accept precomputed ROI tokens for colliding ROI names."""
+
+    polygon = np.array(
+        [
+            [-0.5, -0.5],
+            [-0.5, 1.5],
+            [1.5, 1.5],
+            [1.5, -0.5],
+        ],
+        dtype=float,
+    )
+    viewer = DummyViewer([Shapes("roi", polygon), Shapes("roi2", polygon)])
+    rois = [DummyROI("My ROI", "roi"), DummyROI("My-ROI", "roi2")]
+    columns = spots_export._spot_roi_columns(
+        viewer,
+        rois,
+        "cells",
+        2,
+        roi_tokens=["My_ROI", "My_ROI__2"],
+    )
+
+    assert [column for column, _ in columns] == [
+        "included_in_roi_My_ROI",
+        "included_in_roi_My_ROI__2",
+    ]
 
 
 def test_spot_header_and_rows(tmp_path: Path) -> None:

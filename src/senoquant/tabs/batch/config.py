@@ -261,6 +261,10 @@ def _deserialize_feature_data(data_type: str, payload: dict):
                 for item in payload.get("channels", [])
             ],
             rois=[ROIConfig(**item) for item in payload.get("rois", [])],
+            merge_tables_across_segmentations=payload.get(
+                "merge_tables_across_segmentations",
+                True,
+            ),
         )
     if data_type == "Spots":
         return SpotsFeatureData(

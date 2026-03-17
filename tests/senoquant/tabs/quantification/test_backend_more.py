@@ -77,7 +77,7 @@ def test_route_feature_outputs_moves_unlisted_files_with_explicit_outputs(
     )
     backend._route_feature_outputs(output_root, [feature_output])
 
-    feature_dir = output_root / "feature"
+    feature_dir = output_root / "Feature"
     assert (feature_dir / "cells.csv").exists()
     assert (feature_dir / "spots_mask.npy").exists()
 
@@ -102,6 +102,6 @@ def test_process_routes_outputs_to_memory_filesystem() -> None:
     )
 
     assert result.output_root == f"{output_root}/run"
-    assert fs.exists(f"{root_name}/run/remote_feature/remote.csv") or fs.exists(
-        f"/{root_name}/run/remote_feature/remote.csv"
+    assert fs.exists(f"{root_name}/run/Remote_Feature/remote.csv") or fs.exists(
+        f"/{root_name}/run/Remote_Feature/remote.csv"
     )

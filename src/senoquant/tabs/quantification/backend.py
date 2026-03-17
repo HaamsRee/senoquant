@@ -8,6 +8,7 @@ from typing import Iterable
 import shutil
 import tempfile
 
+from senoquant.utils.naming import assign_unique_name_tokens, sanitize_name_token
 from senoquant.utils.path_io import (
     copy_local_to_target,
     is_remote,
@@ -174,7 +175,7 @@ class QuantificationBackend:
         """
         base = normalize_uri(output_path) if output_path else str(Path.cwd())
         if output_name:
-            return join(base, output_name)
+            return join(base, sanitize_name_token(output_name, fallback="output"))
         return base
 
     def _route_feature_outputs(
@@ -201,8 +202,18 @@ class QuantificationBackend:
         """
         root = normalize_uri(output_root)
         remote_root = is_remote(root)
-        for feature_output in feature_outputs:
-            feature_dir = join(root, self._feature_dir_name(feature_output))
+        feature_outputs = list(feature_outputs)
+        feature_dir_names = assign_unique_name_tokens(
+            [
+                feature_output.feature_name.strip() or feature_output.feature_type
+                for feature_output in feature_outputs
+            ],
+            fallback="feature",
+        )
+        for feature_output, feature_dir_name in zip(
+            feature_outputs, feature_dir_names, strict=True
+        ):
+            feature_dir = join(root, feature_dir_name)
             mkdirs(feature_dir)
             outputs = feature_output.outputs
             if outputs:
@@ -233,10 +244,7 @@ class QuantificationBackend:
         name = feature_output.feature_name.strip()
         if not name:
             name = feature_output.feature_type
-        safe = "".join(
-            char if char.isalnum() or char in "-_ " else "_" for char in name
-        )
-        return safe.replace(" ", "_").lower()
+        return sanitize_name_token(name, fallback="feature")
 
 
 def _transfer_temp_output(source: Path, destination: str, remote_root: bool) -> None:

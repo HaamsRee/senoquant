@@ -112,12 +112,16 @@ class MarkerSegmentationRow(QGroupBox):
     def _set_data(self, key: str, value) -> None:
         """Update the segmentation data model."""
         setattr(self.data, key, value)
+        if hasattr(self._dialog, "_update_auto_populate_enabled"):
+            self._dialog._update_auto_populate_enabled()
 
     def _restore_state(self) -> None:
         """Restore UI state from stored segmentation data."""
         label_name = self.data.label
         if label_name:
+            self._labels_combo.blockSignals(True)
             self._labels_combo.setCurrentText(label_name)
+            self._labels_combo.blockSignals(False)
 
 
 class MarkerChannelRow(QGroupBox):
@@ -287,6 +291,8 @@ class MarkerChannelRow(QGroupBox):
             New value to store.
         """
         setattr(self.data, key, value)
+        if key == "channel" and hasattr(self._dialog, "_update_auto_populate_enabled"):
+            self._dialog._update_auto_populate_enabled()
 
     def _restore_state(self) -> None:
         """Restore UI state from stored channel data."""
@@ -295,7 +301,9 @@ class MarkerChannelRow(QGroupBox):
             self._name_input.setText(channel_label)
         channel_name = self.data.channel
         if channel_name:
+            self._channel_combo.blockSignals(True)
             self._channel_combo.setCurrentText(channel_name)
+            self._channel_combo.blockSignals(False)
         method = self.data.threshold_method or "Manual"
         self._auto_threshold_combo.setCurrentText(method)
         enabled = bool(self.data.threshold_enabled)

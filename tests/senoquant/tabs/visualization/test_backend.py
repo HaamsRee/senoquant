@@ -221,5 +221,4 @@ def test_route_outputs_with_custom_name_and_helpers(
 
     assert backend._resolve_output_root("", "") == tmp_path
     assert backend._resolve_output_root(str(tmp_path), "named") == tmp_path / "named"
-    assert backend._plot_dir_name(export) == "type___with_symbols"
-
+    assert backend._plot_dir_name(export) == "Type_With_Symbols"

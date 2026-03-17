@@ -106,7 +106,7 @@ def test_add_roi_columns_and_masks() -> None:
     rois = [DummyROI("My ROI", "roi", roi_type="Exclude")]
 
     marker_export._add_roi_columns(rows, centroids, viewer, rois, "cells")
-    assert rows[0]["excluded_from_roi_my_roi"] == 1
+    assert rows[0]["excluded_from_roi_My_ROI"] == 1
 
 
 def test_add_roi_columns_warns_on_missing_mask() -> None:
@@ -170,5 +170,5 @@ def test_add_roi_columns_3d_xy_roi_propagates_along_z() -> None:
     rois = [DummyROI("All Z", "roi", roi_type="Include")]
 
     marker_export._add_roi_columns(rows, centroids, viewer, rois, "cells")
-    assert rows[0]["included_in_roi_all_z"] == 1
-    assert rows[1]["included_in_roi_all_z"] == 1
+    assert rows[0]["included_in_roi_All_Z"] == 1
+    assert rows[1]["included_in_roi_All_Z"] == 1

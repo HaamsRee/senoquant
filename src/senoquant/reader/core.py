@@ -9,6 +9,7 @@ import itertools
 import logging
 import os
 import platform
+import re
 from pathlib import Path
 import shutil
 import tempfile
@@ -35,6 +36,14 @@ _DISALLOWED_DATA_READER_MODULES: frozenset[str] = frozenset(
     {
         "bioio_tiff_glob",
     }
+)
+_GENERIC_CHANNEL_COLON_PATTERN = re.compile(
+    r"^Channel:\d+:\d+(?::\d+)*$",
+    flags=re.IGNORECASE,
+)
+_GENERIC_CHANNEL_INDEX_PATTERN = re.compile(
+    r"^Channel\s+\d+$",
+    flags=re.IGNORECASE,
 )
 
 
@@ -991,6 +1000,69 @@ def _get_channel_colors_from_ome(image) -> list[dict | None]:
     return channel_colors
 
 
+def _extract_channel_names(image) -> list[str]:
+    """Extract normalized channel names from a BioImage-like object."""
+    try:
+        names = getattr(image, "channel_names", None)
+    except Exception:
+        return []
+
+    if names is None:
+        return []
+    if isinstance(names, str):
+        raw_names = [names]
+    else:
+        try:
+            raw_names = list(names)
+        except Exception:
+            return []
+
+    normalized: list[str] = []
+    for name in raw_names:
+        if name is None:
+            normalized.append("")
+            continue
+        try:
+            normalized.append(str(name).strip())
+        except Exception:
+            normalized.append("")
+    return normalized
+
+
+def _is_generic_channel_name(name: str) -> bool:
+    """Return True for placeholder channel-name values."""
+    normalized = str(name).strip()
+    if not normalized:
+        return True
+    return bool(
+        _GENERIC_CHANNEL_COLON_PATTERN.fullmatch(normalized)
+        or _GENERIC_CHANNEL_INDEX_PATTERN.fullmatch(normalized)
+    )
+
+
+def _all_channel_names_generic(names: list[str]) -> bool:
+    """Return True when every channel name is a generic placeholder."""
+    return bool(names) and all(_is_generic_channel_name(name) for name in names)
+
+
+def _resolve_channel_names(metadata_image, data_image, c_size: int) -> list[str]:
+    """Resolve channel names with metadata-reader-first fallback to data reader."""
+    resolved = _extract_channel_names(metadata_image)
+
+    if not resolved or _all_channel_names_generic(resolved):
+        data_names = _extract_channel_names(data_image)
+        if data_names and (not resolved or data_names != resolved):
+            resolved = data_names
+
+    final_names: list[str] = []
+    for index in range(c_size):
+        name = ""
+        if index < len(resolved):
+            name = resolved[index].strip()
+        final_names.append(name or f"Channel {index}")
+    return final_names
+
+
 def _physical_pixel_sizes(image) -> dict[str, float | None]:
     """Return physical pixel sizes (um) for the active scene."""
     try:
@@ -1088,6 +1160,7 @@ def _iter_channel_layers(
     t_size = getattr(dims, "T", 1) if "T" in axes_present else 1
     c_size = getattr(dims, "C", 1) if "C" in axes_present else 1
     z_size = getattr(dims, "Z", 1) if "Z" in axes_present else 1
+    resolved_channel_names = _resolve_channel_names(metadata_source, image, c_size)
 
     scene_name = scene_id or f"Scene {scene_idx}"
     scene_meta = {
@@ -1129,8 +1202,7 @@ def _iter_channel_layers(
         layer_data = data[channel_index] if c_size > 1 else data
 
         layer_name = f"{base_name} - {scene_name}" if total_scenes > 1 else base_name
-        if c_size > 1:
-            layer_name = f"{layer_name} - Channel {channel_index}"
+        layer_name = f"{layer_name} - {resolved_channel_names[channel_index]}"
 
         physical_sizes = _physical_pixel_sizes(metadata_source)
         meta = {
@@ -1141,6 +1213,7 @@ def _iter_channel_layers(
                 "scene_info": scene_meta,
                 "path": path,
                 "channel_index": channel_index,
+                "channel_names": resolved_channel_names,
                 "physical_pixel_sizes": physical_sizes,
                 "data_reader": data_reader_name,
                 "metadata_reader": metadata_reader_name,

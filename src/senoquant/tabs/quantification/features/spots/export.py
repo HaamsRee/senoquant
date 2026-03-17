@@ -34,6 +34,11 @@ from senoquant.tabs.quantification.features.roi_membership import (
     membership_from_layer,
 )
 from senoquant.utils.settings_bundle import build_settings_bundle
+from senoquant.utils.naming import (
+    assign_unique_name_tokens,
+    build_name_token_map,
+    sanitize_name_token,
+)
 from senoquant.utils import layer_data_asarray
 from .config import SpotsFeatureData
 from ..base import FeatureConfig
@@ -123,6 +128,22 @@ def export_spots(
     # Channels are required; segmentation filters are optional.
     if not channels:
         return []
+    channel_labels = [_channel_label(channel) for channel in channels]
+    channel_tokens = assign_unique_name_tokens(
+        channel_labels,
+        fallback="channel",
+    )
+    spot_layer_tokens = build_name_token_map(
+        [channel.spots_segmentation for channel in channels],
+        fallback="spots",
+    )
+    roi_tokens = assign_unique_name_tokens(
+        [
+            getattr(roi, "name", "") or f"roi_{index}"
+            for index, roi in enumerate(data.rois, start=0)
+        ],
+        fallback="roi",
+    )
 
     if len(data.segmentations) > 1:
         cross_map = _build_cell_cross_segmentation_map(viewer, data.segmentations)
@@ -169,6 +190,10 @@ def export_spots(
                 cell_centroids,
             )
         )
+    segmentation_tokens = build_name_token_map(
+        [segmentation[1] for segmentation in valid_segmentations],
+        fallback="segmentation",
+    )
 
     segmentation_contexts: list[
         tuple[int, str | None, object | None, np.ndarray | None, np.ndarray, np.ndarray]
@@ -211,7 +236,13 @@ def export_spots(
             assert label_name is not None
             assert labels_layer is not None
             assert cell_labels is not None
-            file_stem = _sanitize_name(label_name or f"segmentation_{index}")
+            file_stem = segmentation_tokens.get(
+                label_name,
+                sanitize_name_token(
+                    label_name or f"segmentation_{index}",
+                    fallback="segmentation",
+                ),
+            )
             cell_task = _segmentation_task_from_layer(
                 labels_layer, label_name, default_task="nuclear"
             )
@@ -264,8 +295,15 @@ def export_spots(
                 viewer,
                 data.rois,
                 label_name,
+                roi_tokens,
             )
-            _add_cross_reference_column(cell_rows, label_name, cell_ids, cross_map)
+            _add_cross_reference_column(
+                cell_rows,
+                label_name,
+                cell_ids,
+                cross_map,
+                segmentation_tokens,
+            )
             cell_header = list(cell_rows[0].keys()) if cell_rows else []
 
         # --- Resolve per-channel label layers before heavy computation ---
@@ -276,12 +314,16 @@ def export_spots(
                 channels,
                 cell_labels.shape,
                 label_name,
+                channel_tokens=channel_tokens,
+                spot_layer_tokens=spot_layer_tokens,
             )
             spot_shape = cell_labels.shape
         else:
             channel_entries, spot_shape = _build_channel_entries_without_segmentation(
                 viewer,
                 channels,
+                channel_tokens=channel_tokens,
+                spot_layer_tokens=spot_layer_tokens,
             )
         if spot_shape is None:
             continue
@@ -301,7 +343,7 @@ def export_spots(
             spot_mask = np.asarray(entry.get("spots_labels"))
             mask_path = _write_mask_output(
                 temp_dir,
-                stem=f"{_sanitize_name(spot_layer_name)}_spots_mask",
+                stem=f"{entry['spots_layer_token']}_spots_mask",
                 labels=spot_mask,
             )
             outputs.append(mask_path)
@@ -329,6 +371,7 @@ def export_spots(
             data.rois,
             label_name or "all_spots",
             len(spot_shape),
+            roi_tokens,
         )
 
         adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
@@ -497,6 +540,7 @@ def _add_cross_reference_column(
     segmentation_name: str,
     label_ids: np.ndarray,
     cross_map: dict[tuple[str, int], list[tuple[str, int]]],
+    segmentation_tokens: dict[str, str] | None = None,
 ) -> str:
     """Add cross-segmentation overlap references to cell rows.
 
@@ -516,11 +560,14 @@ def _add_cross_reference_column(
     str
         Name of the added column (``"overlaps_with"``).
     """
+    if segmentation_tokens is None:
+        segmentation_tokens = {}
     for row, label_id in zip(rows, label_ids):
         overlaps = cross_map.get((segmentation_name, int(label_id)), [])
         if overlaps:
             row["overlaps_with"] = ";".join(
-                f"{seg_name}_{other_id}" for seg_name, other_id in overlaps
+                f"{segmentation_tokens.get(seg_name, sanitize_name_token(seg_name, fallback='segmentation'))}_{other_id}"
+                for seg_name, other_id in overlaps
             )
         else:
             row["overlaps_with"] = ""
@@ -532,6 +579,8 @@ def _build_channel_entries(
     channels: list,
     cell_shape: tuple[int, ...],
     label_name: str,
+    channel_tokens: Sequence[str] | None = None,
+    spot_layer_tokens: dict[str, str] | None = None,
 ) -> list[dict[str, object]]:
     """Resolve channel layers into export-ready entries.
 
@@ -563,7 +612,17 @@ def _build_channel_entries(
     the segmentation does not match the cell labels shape.
     """
     entries: list[dict[str, object]] = []
-    for channel in channels:
+    if channel_tokens is None:
+        channel_tokens = assign_unique_name_tokens(
+            [_channel_label(channel) for channel in channels],
+            fallback="channel",
+        )
+    if spot_layer_tokens is None:
+        spot_layer_tokens = build_name_token_map(
+            [channel.spots_segmentation for channel in channels],
+            fallback="spots",
+        )
+    for channel, channel_token in zip(channels, channel_tokens, strict=True):
         # Resolve channel display label and layer references.
         channel_label = _channel_label(channel)
         channel_layer = _find_layer(viewer, channel.channel, "Image")
@@ -587,9 +646,17 @@ def _build_channel_entries(
         entries.append(
             {
                 "channel_label": channel_label,
+                "channel_token": channel_token,
                 "channel_layer": channel_layer,
                 "spots_layer": spots_layer,
                 "spots_layer_name": channel.spots_segmentation,
+                "spots_layer_token": spot_layer_tokens.get(
+                    channel.spots_segmentation,
+                    sanitize_name_token(
+                        channel.spots_segmentation,
+                        fallback="spots",
+                    ),
+                ),
                 "spots_labels": spots_labels,
             }
         )
@@ -599,6 +666,8 @@ def _build_channel_entries(
 def _build_channel_entries_without_segmentation(
     viewer: object,
     channels: list,
+    channel_tokens: Sequence[str] | None = None,
+    spot_layer_tokens: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, object]], tuple[int, ...] | None]:
     """Resolve channels for export when no cell segmentation is configured.
 
@@ -618,7 +687,17 @@ def _build_channel_entries_without_segmentation(
     """
     entries: list[dict[str, object]] = []
     reference_shape: tuple[int, ...] | None = None
-    for channel in channels:
+    if channel_tokens is None:
+        channel_tokens = assign_unique_name_tokens(
+            [_channel_label(channel) for channel in channels],
+            fallback="channel",
+        )
+    if spot_layer_tokens is None:
+        spot_layer_tokens = build_name_token_map(
+            [channel.spots_segmentation for channel in channels],
+            fallback="spots",
+        )
+    for channel, channel_token in zip(channels, channel_tokens, strict=True):
         channel_label = _channel_label(channel)
         channel_layer = _find_layer(viewer, channel.channel, "Image")
         spots_layer = _find_layer(viewer, channel.spots_segmentation, "Labels")
@@ -643,9 +722,17 @@ def _build_channel_entries_without_segmentation(
         entries.append(
             {
                 "channel_label": channel_label,
+                "channel_token": channel_token,
                 "channel_layer": channel_layer,
                 "spots_layer": spots_layer,
                 "spots_layer_name": channel.spots_segmentation,
+                "spots_layer_token": spot_layer_tokens.get(
+                    channel.spots_segmentation,
+                    sanitize_name_token(
+                        channel.spots_segmentation,
+                        fallback="spots",
+                    ),
+                ),
                 "spots_labels": spots_labels,
             }
         )
@@ -703,6 +790,10 @@ def _append_channel_exports(
     and keep ``cell_id = 0`` for spots outside segmentation.
     """
     channel_label = entry["channel_label"]
+    channel_token = entry.get(
+        "channel_token",
+        sanitize_name_token(channel_label, fallback="channel"),
+    )
     channel_layer = entry["channel_layer"]
     spots_labels = entry["spots_labels"]
     has_segmentation = cell_labels is not None and cell_rows and cell_ids.size > 0
@@ -716,7 +807,7 @@ def _append_channel_exports(
                 cell_rows,
                 np.zeros_like(cell_ids, dtype=int),
                 np.full_like(cell_ids, np.nan, dtype=float),
-                channel_label,
+                channel_token,
                 cell_header,
             )
         return
@@ -753,7 +844,7 @@ def _append_channel_exports(
             cell_rows,
             cell_counts[cell_ids],
             cell_means[cell_ids],
-            channel_label,
+            channel_token,
             cell_header,
         )
     else:
@@ -860,7 +951,13 @@ def _apply_colocalization_columns(
     ``colocalization_event_count`` counts unique overlapping spot pairs
     within the same cell.
     """
-    channel_labels = [entry["channel_label"] for entry in channel_entries]
+    channel_labels = [
+        entry.get(
+            "channel_token",
+            sanitize_name_token(entry["channel_label"], fallback="channel"),
+        )
+        for entry in channel_entries
+    ]
     for key, info in spot_lookup.items():
         others = adjacency.get(key, set())
         names: list[str] = []
@@ -1197,6 +1294,7 @@ def _add_roi_columns(
     viewer: object | None,
     rois: Sequence["ROIConfig"],
     label_name: str,
+    roi_tokens: Sequence[str] | None = None,
 ) -> None:
     """Add per-ROI inclusion columns to the output rows.
 
@@ -1215,7 +1313,7 @@ def _add_roi_columns(
     """
     if viewer is None or not rois or not rows or centroids.size == 0:
         return
-    for index, roi in enumerate(rois, start=0):
+    for index, roi in enumerate(rois):
         layer_name = getattr(roi, "layer", "")
         if not layer_name:
             continue
@@ -1233,13 +1331,20 @@ def _add_roi_columns(
                 RuntimeWarning,
             )
             continue
-        roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
             prefix = "excluded_from_roi"
         else:
             prefix = "included_in_roi"
-        column = f"{prefix}_{_sanitize_name(roi_name)}"
+        token = (
+            roi_tokens[index]
+            if roi_tokens is not None and index < len(roi_tokens)
+            else sanitize_name_token(
+                getattr(roi, "name", "") or f"roi_{index}",
+                fallback="roi",
+            )
+        )
+        column = f"{prefix}_{token}"
         for row, value in zip(rows, included):
             row[column] = int(value)
 
@@ -1301,7 +1406,7 @@ def _append_cell_metrics(
     rows: list[dict[str, object]],
     counts: np.ndarray,
     means: np.ndarray,
-    channel_label: str,
+    channel_token: str,
     header: list[str],
 ) -> None:
     """Append channel spot metrics to cell rows.
@@ -1314,14 +1419,13 @@ def _append_cell_metrics(
         Spot counts per row.
     means : numpy.ndarray
         Mean spot intensity per row.
-    channel_label : str
-        Display label for the channel.
+    channel_token : str
+        Sanitized token used for the channel-derived columns.
     header : list of str
         Header list to extend with the new column names.
     """
-    prefix = _sanitize_name(channel_label)
-    count_key = f"{prefix}_spot_count"
-    mean_key = f"{prefix}_spot_mean_intensity"
+    count_key = f"{channel_token}_spot_count"
+    mean_key = f"{channel_token}_spot_mean_intensity"
     for row, count, mean in zip(rows, counts, means):
         row[count_key] = int(count)
         row[mean_key] = float(mean) if np.isfinite(mean) else np.nan
@@ -1442,6 +1546,7 @@ def _spot_roi_columns(
     rois: Sequence["ROIConfig"],
     label_name: str,
     ndim: int,
+    roi_tokens: Sequence[str] | None = None,
 ) -> list[tuple[str, list[ROIGeometry]]]:
     """Prepare ROI mask columns for spots export.
 
@@ -1464,7 +1569,7 @@ def _spot_roi_columns(
     if viewer is None or not rois:
         return []
     columns: list[tuple[str, list[ROIGeometry]]] = []
-    for index, roi in enumerate(rois, start=0):
+    for index, roi in enumerate(rois):
         layer_name = getattr(roi, "layer", "")
         if not layer_name:
             continue
@@ -1482,13 +1587,20 @@ def _spot_roi_columns(
                 RuntimeWarning,
             )
             continue
-        roi_name = getattr(roi, "name", "") or f"roi_{index}"
         roi_type = getattr(roi, "roi_type", "Include") or "Include"
         if roi_type.lower() == "exclude":
             prefix = "excluded_from_roi"
         else:
             prefix = "included_in_roi"
-        column = f"{prefix}_{_sanitize_name(roi_name)}"
+        token = (
+            roi_tokens[index]
+            if roi_tokens is not None and index < len(roi_tokens)
+            else sanitize_name_token(
+                getattr(roi, "name", "") or f"roi_{index}",
+                fallback="roi",
+            )
+        )
+        column = f"{prefix}_{token}"
         columns.append((column, geometries))
     return columns
 
@@ -1580,26 +1692,6 @@ def _channel_label(channel) -> str:
     """
     label = channel.name.strip() if channel.name else ""
     return label or channel.channel
-
-
-def _sanitize_name(value: str) -> str:
-    """Normalize names for filenames and column prefixes.
-
-    Parameters
-    ----------
-    value : str
-        Raw name to sanitize.
-
-    Returns
-    -------
-    str
-        Lowercase name with spaces normalized and unsafe characters removed.
-    """
-    cleaned = "".join(
-        char if char.isalnum() or char in "-_ " else "_" for char in value
-    )
-    return cleaned.strip().replace(" ", "_").lower()
-
 
 def _safe_divide(numerator: np.ndarray, denominator: np.ndarray) -> np.ndarray:
     """Compute numerator/denominator with zero-safe handling.

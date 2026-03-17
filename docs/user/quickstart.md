@@ -131,7 +131,7 @@ To add a feature:
 
 #### Configure a Markers feature
 
-1. Click **Add channels**.
+1. Click **Add channel(s)**.
 2. In the popup:
 
     - In the top **Segmentations** box, click **Add segmentation** → Add nuclear/cytoplasmic labels layer.
@@ -146,7 +146,7 @@ To add a feature:
 
 #### Configure a Spots feature
 
-1. Click **Add channels**.
+1. Click **Add channel(s)**.
 2. In the popup:
 
     - (Optional) In the top box, click **Add segmentation** → Add a nuclear/cytoplasmic labels layer if you want per-cell spot summaries.
@@ -196,8 +196,11 @@ In the SenoQuant dock widget, select **Batch**.
 
 Add channel names and indices so they appear in all dropdowns:
 
+- Click **Auto populate channel(s)** to load channel names/indices from the first matching input image in the selected folder.
 - **Name**: `DAPI`, `FITC`, `Cy3`, etc.
 - **Index**: zero-based channel index
+
+> The **Auto populate channel(s)** button is enabled only after a valid **Input folder** is selected.
 
 ### 4. Enable processing steps
 

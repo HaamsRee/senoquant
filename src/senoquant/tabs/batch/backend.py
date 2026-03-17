@@ -31,6 +31,7 @@ from typing import Iterable
 import numpy as np
 
 from senoquant.utils import append_run_metadata
+from senoquant.utils.naming import assign_unique_name_tokens, sanitize_name_token
 from senoquant.utils.path_io import exists, join, mkdirs, normalize_uri, write_json
 from senoquant.utils.settings_bundle import build_settings_bundle
 from senoquant.tabs.quantification.backend import QuantificationBackend
@@ -47,7 +48,6 @@ from .io import (
     list_scenes,
     normalize_extensions,
     resolve_channel_index,
-    safe_scene_dir,
     write_array,
 )
 
@@ -327,10 +327,20 @@ class BatchBackend:
         )
         _write_batch_settings_bundle(output_root, payload)
 
+        file_dir_names = assign_unique_name_tokens(
+            [basename_for_path(path) for path in files],
+            fallback="image",
+        )
+
         # Iterate over files and (optionally) scene variants.
         current_item = 0
-        for path in files:
+        for path, file_dir_name in zip(files, file_dir_names, strict=True):
             scenes = self._iter_scenes(path, process_all_scenes)
+            scene_dir_names = assign_unique_name_tokens(
+                [scene_id for scene_id in scenes if scene_id],
+                fallback="scene",
+            )
+            scene_dir_lookup = iter(scene_dir_names)
             for scene_id in scenes:
                 current_item += 1
                 item_result = BatchItemResult(path=path, scene_id=scene_id)
@@ -344,7 +354,13 @@ class BatchBackend:
                     )
                 
                 try:
-                    output_dir = _resolve_output_dir(output_root, path, scene_id, overwrite)
+                    scene_dir_name = next(scene_dir_lookup) if scene_id else None
+                    output_dir = _resolve_output_dir(
+                        output_root,
+                        file_dir_name,
+                        scene_dir_name,
+                        overwrite,
+                    )
                     if output_dir is None:
                         skipped += 1
                         results.append(item_result)
@@ -376,9 +392,13 @@ class BatchBackend:
                                 nuclear_channel, normalized_channels
                             )
                             label_name = f"{channel_name}_{nuclear_model}_nuc_labels"
+                            output_stem = sanitize_name_token(
+                                label_name,
+                                fallback="output",
+                            )
                             out_path = write_array(
                                 output_dir,
-                                label_name,
+                                output_stem,
                                 masks,
                             )
                             labels_data[label_name] = masks
@@ -456,9 +476,13 @@ class BatchBackend:
                                 cyto_channel, normalized_channels
                             )
                             label_name = f"{channel_name}_{cyto_model}_cyto_labels"
+                            output_stem = sanitize_name_token(
+                                label_name,
+                                fallback="output",
+                            )
                             out_path = write_array(
                                 output_dir,
-                                label_name,
+                                output_stem,
                                 masks,
                             )
                             labels_data[label_name] = masks
@@ -478,7 +502,23 @@ class BatchBackend:
                             "max_size": int(spot_max_size),
                         }
                         resolved_spot_channels = list(spot_channels or [])
-                        for channel_choice in resolved_spot_channels:
+                        spot_label_names = [
+                            (
+                                f"{_resolve_channel_name(channel_choice, normalized_channels)}_"
+                                f"{spot_detector}_spot_labels"
+                            )
+                            for channel_choice in resolved_spot_channels
+                        ]
+                        spot_output_stems = assign_unique_name_tokens(
+                            spot_label_names,
+                            fallback="output",
+                        )
+                        for channel_choice, label_name, output_stem in zip(
+                            resolved_spot_channels,
+                            spot_label_names,
+                            spot_output_stems,
+                            strict=True,
+                        ):
                             channel_idx = resolve_channel_index(
                                 channel_choice, normalized_channels
                             )
@@ -503,13 +543,9 @@ class BatchBackend:
                             # Apply size filtering if enabled
                             if spot_min_size > 0 or spot_max_size > 0:
                                 mask = _filter_labels_by_size(mask, spot_min_size, spot_max_size)
-                            channel_name = _resolve_channel_name(
-                                channel_choice, normalized_channels
-                            )
-                            label_name = f"{channel_name}_{spot_detector}_spot_labels"
                             out_path = write_array(
                                 output_dir,
-                                label_name,
+                                output_stem,
                                 mask,
                             )
                             labels_data[label_name] = mask
@@ -628,8 +664,8 @@ def _resolve_channel_name(
 
 def _resolve_output_dir(
     output_root: str | Path,
-    path: Path,
-    scene_id: str | None,
+    file_dir_name: str,
+    scene_dir_name: str | None,
     overwrite: bool,
 ) -> str | None:
     """Resolve (and optionally create) the output directory for a run.
@@ -638,10 +674,10 @@ def _resolve_output_dir(
     ----------
     output_root : str or Path
         Root output folder.
-    path : Path
-        Input file path.
-    scene_id : str or None
-        Optional scene identifier.
+    file_dir_name : str
+        Unique sanitized directory name for the input file.
+    scene_dir_name : str or None
+        Optional sanitized scene directory name.
     overwrite : bool
         Whether to overwrite existing folders.
 
@@ -650,10 +686,9 @@ def _resolve_output_dir(
     str or None
         Output directory path, or None when skipped.
     """
-    base_name = basename_for_path(path)
-    output_dir = join(output_root, base_name)
-    if scene_id:
-        output_dir = join(output_dir, safe_scene_dir(scene_id))
+    output_dir = join(output_root, file_dir_name)
+    if scene_dir_name:
+        output_dir = join(output_dir, scene_dir_name)
     if exists(output_dir) and not overwrite:
         return None
     mkdirs(output_dir)

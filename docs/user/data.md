@@ -41,7 +41,9 @@ Files with multiple scenes (e.g., Leica `.lif`, Zeiss `.czi`) are processed as f
 ### Channel organization
 
 - Each channel becomes a dedicated image layer.
-- Layer names include channel indices for identification (e.g., `image.tif - Channel 0`).
+- Layer names include resolved channel names (for example, `image.tif - DAPI`).
+- Channel names prefer metadata-reader values and fall back to data-reader names when metadata names are generic placeholders (such as `Channel:0:0`).
+- Missing or blank names fall back to `Channel {index}`.
 - Blending mode is set to "additive" for multi-channel visualization.
 
 ## Supported file formats
@@ -67,6 +69,7 @@ Layer metadata includes:
 - **`scene_info`**: Scene identifier, index, and total scene count.
 - **`path`**: Original file path.
 - **`channel_index`**: Zero-based channel index.
+- **`channel_names`**: Resolved channel-name list for the active scene.
 - **`physical_pixel_sizes`**: Physical dimensions in micrometers (X, Y, Z).
 - **`data_reader`**: Reader class used for pixel data loading.
 - **`metadata_reader`**: Reader class used for metadata extraction.
@@ -74,10 +77,11 @@ Layer metadata includes:
 Access metadata programmatically:
 
 ```python
-layer = viewer.layers["image.tif - Channel 0"]
+layer = viewer.layers["image.tif - DAPI"]
 metadata = layer.metadata
 scene_name = metadata["scene_info"]["scene_name"]
 pixel_size_x = metadata["physical_pixel_sizes"]["X"]
+all_channel_names = metadata["channel_names"]
 ```
 
 ## Dimensionality

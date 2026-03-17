@@ -9,6 +9,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
     QGroupBox,
+    QHBoxLayout,
     QPushButton,
     QScrollArea,
     QSplitter,
@@ -22,6 +23,7 @@ from .config import (
     MarkerFeatureData,
     MarkerSegmentationConfig,
 )
+from ..channel_autopopulate import channel_label_from_layer, unique_channel_label
 from .rows import MarkerChannelRow, MarkerSegmentationRow
 
 if TYPE_CHECKING:
@@ -75,6 +77,7 @@ class MarkerChannelsDialog(QDialog):
         self.setLayout(layout)
         self._load_segmentations()
         self._load_channels()
+        self._update_auto_populate_enabled()
         self._start_layout_watch()
 
     def closeEvent(self, event) -> None:
@@ -153,14 +156,21 @@ class MarkerChannelsDialog(QDialog):
 
         add_button = QPushButton("Add channel")
         add_button.clicked.connect(self._add_channel)
+        auto_populate_button = QPushButton("Auto populate channel(s)")
+        auto_populate_button.clicked.connect(self._auto_populate_channels)
+
+        controls_layout = QHBoxLayout()
+        controls_layout.addWidget(add_button, 3)
+        controls_layout.addWidget(auto_populate_button, 1)
 
         section_layout = QVBoxLayout()
         section_layout.setContentsMargins(10, 12, 10, 10)
         section_layout.addWidget(self._channels_scroll_area)
-        section_layout.addWidget(add_button)
+        section_layout.addLayout(controls_layout)
         section.setLayout(section_layout)
 
         self._channels_section = section
+        self._auto_populate_button = auto_populate_button
         return section
 
     @staticmethod
@@ -259,6 +269,116 @@ class MarkerChannelsDialog(QDialog):
             if index != -1:
                 combo.setCurrentIndex(index)
 
+    def _image_layers(self) -> list[object]:
+        """Return image layers currently available in the viewer."""
+        viewer = self._tab._viewer
+        if viewer is None:
+            return []
+        layers: list[object] = []
+        for layer in viewer.layers:
+            if layer.__class__.__name__ == "Image":
+                layers.append(layer)
+        return layers
+
+    def _channel_row_for_data(
+        self, channel_data: MarkerChannelConfig
+    ) -> MarkerChannelRow | None:
+        """Return the UI row backing a channel config object."""
+        for row in self._rows:
+            if row.data is channel_data:
+                return row
+        return None
+
+    def _suggest_channel_name(self, layer: object, used_names: set[str]) -> str:
+        """Return a unique suggested channel label for the layer."""
+        base_name = channel_label_from_layer(layer)
+        suggested = unique_channel_label(base_name, used_names)
+        used_names.add(suggested)
+        return suggested
+
+    def _update_auto_populate_enabled(self) -> None:
+        """Enable auto-populate when channel/segmentation configuration exists."""
+        button = getattr(self, "_auto_populate_button", None)
+        if button is None:
+            return
+        has_channel_config = any(
+            isinstance(channel, MarkerChannelConfig)
+            and str(channel.channel).strip()
+            for channel in self._channels
+        )
+        has_segmentation_config = any(
+            isinstance(segmentation, MarkerSegmentationConfig)
+            and str(segmentation.label).strip()
+            for segmentation in self._segmentations
+        )
+        button.setEnabled(has_channel_config or has_segmentation_config)
+        if hasattr(self._feature, "_update_merge_checkbox_state"):
+            self._feature._update_merge_checkbox_state()
+
+    def _auto_populate_channels(self) -> None:
+        """Auto-create channel rows and channel names from image layers."""
+        image_layers = self._image_layers()
+        if not image_layers:
+            return
+
+        ordered_layer_names: list[str] = []
+        layer_by_name: dict[str, object] = {}
+        for layer in image_layers:
+            layer_name = str(getattr(layer, "name", "")).strip()
+            if not layer_name or layer_name in layer_by_name:
+                continue
+            ordered_layer_names.append(layer_name)
+            layer_by_name[layer_name] = layer
+        used_names: set[str] = {
+            str(channel.name).strip()
+            for channel in self._channels
+            if isinstance(channel, MarkerChannelConfig) and str(channel.name).strip()
+        }
+        configured_channels = {
+            str(channel.channel).strip()
+            for channel in self._channels
+            if isinstance(channel, MarkerChannelConfig)
+            and str(channel.channel).strip()
+        }
+        available_layer_names = [
+            layer_name
+            for layer_name in ordered_layer_names
+            if layer_name not in configured_channels
+        ]
+
+        for channel_data in self._channels:
+            if not isinstance(channel_data, MarkerChannelConfig):
+                continue
+            row = self._channel_row_for_data(channel_data)
+            assert (
+                row is not None
+            ), "Invariant violated: each marker channel config must have a row widget."
+            channel_name = str(channel_data.channel).strip()
+            if not channel_name and available_layer_names:
+                channel_name = available_layer_names.pop(0)
+                self._refresh_image_combo(row._channel_combo)
+                row._channel_combo.setCurrentText(channel_name)
+                configured_channels.add(channel_name)
+            if not channel_name or str(channel_data.name).strip():
+                continue
+            layer = layer_by_name.get(channel_name)
+            if layer is None:
+                continue
+            suggested_name = self._suggest_channel_name(layer, used_names)
+            row._name_input.setText(suggested_name)
+
+        for channel_name in available_layer_names:
+            layer = layer_by_name.get(channel_name)
+            if layer is None:
+                continue
+            suggested_name = self._suggest_channel_name(layer, used_names)
+            self._add_channel(
+                MarkerChannelConfig(name=suggested_name, channel=channel_name)
+            )
+            configured_channels.add(channel_name)
+
+        self._update_auto_populate_enabled()
+
     def _load_segmentations(self) -> None:
         """Build segmentation rows from stored data."""
         if not self._segmentations:
@@ -289,11 +409,19 @@ class MarkerChannelsDialog(QDialog):
             channel_data = None
         if not isinstance(channel_data, MarkerChannelConfig):
             channel_data = MarkerChannelConfig()
+        if not any(existing is channel_data for existing in self._channels):
             self._channels.append(channel_data)
+        initial_channel_name = str(channel_data.channel).strip()
         row = MarkerChannelRow(self, channel_data)
         self._rows.append(row)
         self._channels_layout.addWidget(row)
+        if initial_channel_name and not str(channel_data.channel).strip():
+            channel_data.channel = initial_channel_name
+        if initial_channel_name:
+            self._refresh_image_combo(row._channel_combo)
+            row._channel_combo.setCurrentText(initial_channel_name)
         self._renumber_rows()
+        self._update_auto_populate_enabled()
         self._schedule_layout_update()
 
     def _remove_channel(self, row: MarkerChannelRow) -> None:
@@ -312,6 +440,7 @@ class MarkerChannelsDialog(QDialog):
         self._channels_layout.removeWidget(row)
         row.deleteLater()
         self._renumber_rows()
+        self._update_auto_populate_enabled()
         self._schedule_layout_update()
 
     def _renumber_rows(self) -> None:
@@ -333,11 +462,19 @@ class MarkerChannelsDialog(QDialog):
             segmentation_data = None
         if not isinstance(segmentation_data, MarkerSegmentationConfig):
             segmentation_data = MarkerSegmentationConfig()
+        if not any(existing is segmentation_data for existing in self._segmentations):
             self._segmentations.append(segmentation_data)
+        initial_label_name = str(segmentation_data.label).strip()
         row = MarkerSegmentationRow(self, segmentation_data)
         self._segmentation_rows.append(row)
         self._segmentations_layout.addWidget(row)
+        if initial_label_name and not str(segmentation_data.label).strip():
+            segmentation_data.label = initial_label_name
+        if initial_label_name:
+            self._refresh_labels_combo(row._labels_combo)
+            row._labels_combo.setCurrentText(initial_label_name)
         self._renumber_segmentations()
+        self._update_auto_populate_enabled()
         self._schedule_layout_update()
 
     def _remove_segmentation(self, row: MarkerSegmentationRow) -> None:
@@ -356,6 +493,7 @@ class MarkerChannelsDialog(QDialog):
         self._segmentations_layout.removeWidget(row)
         row.deleteLater()
         self._renumber_segmentations()
+        self._update_auto_populate_enabled()
         self._schedule_layout_update()
 
     def _renumber_segmentations(self) -> None:
