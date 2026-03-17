@@ -157,7 +157,14 @@ class UMAPPlot(SenoQuantPlot):
 
             # 4. Create Plot
             fig, ax = plt.subplots(figsize=(10, 8))
-            
+
+            palette_size = 20
+            if len(unique_clusters) > palette_size:
+                print(
+                    f"[UMAPPlot] WARNING: Leiden produced {len(unique_clusters)} clusters; "
+                    f"plot colors will repeat after {palette_size}."
+                )
+
             # Define a color map (tab20 can handle up to 20 distinct clusters)
             cmap = plt.cm.get_cmap('tab20', len(unique_clusters))
 
@@ -167,7 +174,7 @@ class UMAPPlot(SenoQuantPlot):
                 ax.scatter(
                     embedding[mask, 0], 
                     embedding[mask, 1], 
-                    color=cmap(cluster % 20), 
+                    color=cmap(cluster % palette_size), 
                     label=f"Cluster {cluster}", 
                     alpha=0.6, 
                     s=20
