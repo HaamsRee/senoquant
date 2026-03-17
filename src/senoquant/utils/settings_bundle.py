@@ -133,7 +133,7 @@ def _json_safe(value: object):
     if value is None or isinstance(value, (str, bool, int, float)):
         return value
     if isinstance(value, Path):
-        return str(value)
+        return value.as_posix()
     if isinstance(value, dict):
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set)):

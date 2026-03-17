@@ -114,10 +114,14 @@ class UMAPPlot(SenoQuantPlot):
             # 2. Fit UMAP 
             # UMAP can handle lower n_neighbors for visual local structure
             umap_neighbors = 15 if n_samples >= 15 else max(2, n_samples - 1)
+            
+            init_method = "spectral" if n_samples >= 15 else "random"
+            
             reducer = UMAPReducer(
                 n_components=2,
                 random_state=42,
                 n_neighbors=umap_neighbors,
+                init=init_method,
             )
             embedding = reducer.fit_transform(X)
 
