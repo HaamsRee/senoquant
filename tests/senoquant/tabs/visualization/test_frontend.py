@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from qtpy.QtWidgets import QLineEdit, QTableWidget, QTableWidgetItem
+from qtpy.QtWidgets import QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QFileDialog
 
 from senoquant.tabs.visualization.frontend import VisualizationTab
 
@@ -66,13 +66,14 @@ def test_select_marker_source_file_prompts_for_multiple_results(
         return str(excel_path), "Result files (*.csv *.xlsx *.xls)"
 
     monkeypatch.setattr(
-        "senoquant.tabs.visualization.frontend.QMessageBox.warning",
-        _show_message,
+        QMessageBox, 
+        "warning", 
+        _show_message
     )
-
     monkeypatch.setattr(
-        "senoquant.tabs.visualization.frontend.QFileDialog.getOpenFileName",
-        _get_open_file_name,
+        QFileDialog, 
+        "getOpenFileName", 
+        _get_open_file_name
     )
 
     tab = VisualizationTab.__new__(VisualizationTab)
