@@ -66,10 +66,10 @@ def test_select_marker_source_file_prompts_for_multiple_results(
         return str(excel_path), "Result files (*.csv *.xlsx *.xls)"
 
     monkeypatch.setattr(
-        "qtpy.QtWidgets.QMessageBox.warning",
+        "senoquant.tabs.visualization.frontend.QMessageBox.warning",
         _show_message,
-        raising=False,
     )
+
     monkeypatch.setattr(
         "senoquant.tabs.visualization.frontend.QFileDialog.getOpenFileName",
         _get_open_file_name,
