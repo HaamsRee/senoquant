@@ -6,7 +6,19 @@ SenoQuant is a versatile [napari](https://napari.org/stable/index.html) plugin d
 and unbiased spatial quantification and prediction of senescence markers
 across diverse tissue contexts.
 
-## Video Tutorial
+Use these docs to:
+
+- Install the plugin and its optional components.
+- Learn the user workflow for each tab.
+- Understand how models, detectors, and quantification features are wired.
+- Contribute new models, detectors, or features.
+
+Start here:
+
+- User Guide: `Installation` and `Quick Start`.
+- Developer Guide: `Architecture`, `Models & Detectors`, and `Prediction Models`.
+
+## Video tutorial
 
 Watch the walkthrough here or open it directly on YouTube:
 
@@ -21,15 +33,3 @@ Watch the walkthrough here or open it directly on YouTube:
 </div>
 
 [Watch on YouTube](https://www.youtube.com/watch?v=WIjnY6j8xmI)
-
-Use these docs to:
-
-- Install the plugin and its optional components.
-- Learn the user workflow for each tab.
-- Understand how models, detectors, and quantification features are wired.
-- Contribute new models, detectors, or features.
-
-Start here:
-
-- User Guide: `Installation` and `Quick Start`.
-- Developer Guide: `Architecture`, `Models & Detectors`, and `Prediction Models`.
