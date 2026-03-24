@@ -9,6 +9,12 @@ SenoQuant is a versatile [napari](https://napari.org/stable/index.html) plugin d
 and unbiased spatial quantification and prediction of senescence markers
 across diverse tissue contexts.
 
+## Video tutorial
+
+Watch the tutorial for a guided walkthrough of the main workflow:
+
+[![Watch the SenoQuant tutorial](https://img.youtube.com/vi/WIjnY6j8xmI/hqdefault.jpg)](https://www.youtube.com/watch?v=WIjnY6j8xmI)
+
 ## Features
 
 - Read microscopy formats via BioIO, including OME-TIFF, OME-ZARR, ND2, LIF, CZI, and more.
