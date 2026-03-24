@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from qtpy.QtWidgets import QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QFileDialog
+from qtpy.QtWidgets import QLineEdit, QTableWidget, QTableWidgetItem, QFileDialog
 
 from senoquant.tabs.visualization.frontend import VisualizationTab
 
