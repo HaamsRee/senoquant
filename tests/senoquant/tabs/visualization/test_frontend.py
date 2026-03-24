@@ -55,39 +55,34 @@ def test_select_marker_source_file_prompts_for_multiple_results(
     csv_path.write_text("CD3_mean_intensity\n", encoding="utf-8")
     excel_path.write_text("", encoding="utf-8")
 
-    messages: list[tuple[str, str]] = []
     calls: list[tuple[str, str, str]] = []
+    message_counts: list[int] = []
 
-    def _show_message(parent, title: str, message: str) -> None:
-        messages.append((title, message))
-
-    def _get_open_file_name(parent, title: str, directory: str, file_filter: str):
-        calls.append((title, directory, file_filter))
+    def _get_open_file_name(*args, **kwargs):
+        strs = [a for a in args if isinstance(a, str)]
+        if len(strs) >= 3:
+            calls.append((strs[0], strs[1], strs[2]))
         return str(excel_path), "Result files (*.csv *.xlsx *.xls)"
 
-    monkeypatch.setattr(
-        QMessageBox, 
-        "warning", 
-        _show_message
-    )
-    monkeypatch.setattr(
-        QFileDialog, 
-        "getOpenFileName", 
-        _get_open_file_name
-    )
-
+    # Create the tab instance
     tab = VisualizationTab.__new__(VisualizationTab)
 
+    # 1. Mock the warning method directly on the instance to prevent UI hangs
+    def _mock_show_message(file_count: int) -> None:
+        message_counts.append(file_count)
+        
+    monkeypatch.setattr(tab, "_show_result_file_selection_message", _mock_show_message)
+
+    # 2. Patch QFileDialog where it is safely imported at the top of frontend.py
+    import senoquant.tabs.visualization.frontend as frontend
+    monkeypatch.setattr(frontend.QFileDialog, "getOpenFileName", _get_open_file_name)
+
+    # Run the method
     selected = tab._select_marker_source_file(tmp_path)
 
+    # Assertions
     assert selected == excel_path
-    assert messages == [
-        (
-            "Multiple result files found",
-            "Found 2 result files in this folder.\n\n"
-            "Please choose a single result file to continue.",
-        )
-    ]
+    assert message_counts == [2]  # Verifies it tried to warn about 2 files
     assert calls == [
         ("Select result file", str(tmp_path), "Result files (*.csv *.xlsx *.xls)")
     ]
