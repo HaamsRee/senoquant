@@ -254,14 +254,8 @@ class VisualizationTab(QWidget):
         if not path.exists() or not path.is_dir():
             return
 
-        # Find first CSV or Excel file
-        data_file = None
-        for ext in [".csv", ".xlsx", ".xls"]:
-            found = list(path.glob(f"*{ext}"))
-            if found:
-                data_file = found[0]
-                break
-        
+        data_file = self._select_marker_source_file(path)
+
         if data_file:
             self._populate_markers_from_file(data_file)
             
@@ -277,6 +271,53 @@ class VisualizationTab(QWidget):
                 if not target_json:
                     target_json = json_files[0]
                 self._load_thresholds_from_json(target_json)
+
+    def _select_marker_source_file(self, directory: Path) -> Path | None:
+        """Choose the data file used to infer marker columns.
+
+        If the directory contains multiple supported result files, ask the user
+        which one to use.
+        """
+        data_files = sorted(
+            [
+                *directory.glob("*.csv"),
+                *directory.glob("*.xlsx"),
+                *directory.glob("*.xls"),
+            ],
+            key=lambda path: path.name.lower(),
+        )
+        if not data_files:
+            return None
+        if len(data_files) == 1:
+            return data_files[0]
+
+        self._show_result_file_selection_message(len(data_files))
+        selected_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select result file",
+            str(directory),
+            "Result files (*.csv *.xlsx *.xls)",
+        )
+        if not selected_path:
+            return None
+        selected_file = Path(selected_path)
+        if selected_file in data_files:
+            return selected_file
+        return None
+
+    def _show_result_file_selection_message(self, file_count: int) -> None:
+        """Display a blocking message before prompting for a result file."""
+        title = "Multiple result files found"
+        message = (
+            f"Found {file_count} result files in this folder.\n\n"
+            "Please choose a single unmerged result file to continue."
+        )
+        try:
+            from qtpy.QtWidgets import QMessageBox
+
+            QMessageBox.warning(self, title, message)
+        except Exception:
+            print(f"[Frontend] {title}: {message}")
 
     def _populate_markers_from_file(self, file_path: Path) -> None:
         """Read header from file and populate marker table."""

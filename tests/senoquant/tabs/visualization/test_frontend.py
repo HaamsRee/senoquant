@@ -21,6 +21,77 @@ def _build_marker_table(markers: list[str]) -> QTableWidget:
     return table
 
 
+def test_select_marker_source_file_returns_single_result_file(tmp_path: Path) -> None:
+    """Use the only supported result file without prompting."""
+    csv_path = tmp_path / "markers.csv"
+    csv_path.write_text("CD3_mean_intensity\n", encoding="utf-8")
+
+    tab = VisualizationTab.__new__(VisualizationTab)
+
+    selected = tab._select_marker_source_file(tmp_path)
+
+    assert selected == csv_path
+
+
+def test_select_marker_source_file_returns_single_excel(tmp_path: Path) -> None:
+    """Use the only Excel file without prompting."""
+    excel_path = tmp_path / "markers.xlsx"
+    excel_path.write_text("", encoding="utf-8")
+
+    tab = VisualizationTab.__new__(VisualizationTab)
+
+    selected = tab._select_marker_source_file(tmp_path)
+
+    assert selected == excel_path
+
+
+def test_select_marker_source_file_prompts_for_multiple_results(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Show a blocking popup, then prompt when several result files exist."""
+    csv_path = tmp_path / "a.csv"
+    excel_path = tmp_path / "b.xls"
+    csv_path.write_text("CD3_mean_intensity\n", encoding="utf-8")
+    excel_path.write_text("", encoding="utf-8")
+
+    messages: list[tuple[str, str]] = []
+    calls: list[tuple[str, str, str]] = []
+
+    def _show_message(parent, title: str, message: str) -> None:
+        messages.append((title, message))
+
+    def _get_open_file_name(parent, title: str, directory: str, file_filter: str):
+        calls.append((title, directory, file_filter))
+        return str(excel_path), "Result files (*.csv *.xlsx *.xls)"
+
+    monkeypatch.setattr(
+        "qtpy.QtWidgets.QMessageBox.warning",
+        _show_message,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "senoquant.tabs.visualization.frontend.QFileDialog.getOpenFileName",
+        _get_open_file_name,
+    )
+
+    tab = VisualizationTab.__new__(VisualizationTab)
+
+    selected = tab._select_marker_source_file(tmp_path)
+
+    assert selected == excel_path
+    assert messages == [
+        (
+            "Multiple result files found",
+            "Found 2 result files in this folder.\n\n"
+            "Please choose a single result file to continue.",
+        )
+    ]
+    assert calls == [
+        ("Select result file", str(tmp_path), "Result files (*.csv *.xlsx *.xls)")
+    ]
+
+
 def test_load_thresholds_from_json_deduplicates_colliding_channel_tokens(
     tmp_path: Path,
 ) -> None:
