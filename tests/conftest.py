@@ -114,6 +114,39 @@ class QThread(QObject):
         self.finished.emit()
 
 
+def _qt_stub_value(value: object) -> int | None:
+    """Return the integer payload for a Qt-like enum stub."""
+    candidate = getattr(value, "value", value)
+    try:
+        return int(candidate)
+    except (TypeError, ValueError):
+        return None
+
+
+class _QtEnumValue:
+    """Qt enum stub that mimics Qt6 objects without ``int(...)`` support."""
+
+    def __init__(self, value: int) -> None:
+        self.value = int(value)
+
+    def __bool__(self) -> bool:
+        return bool(self.value)
+
+    def __eq__(self, other: object) -> bool:
+        return _qt_stub_value(other) == self.value
+
+    def __or__(self, other: object):
+        other_value = _qt_stub_value(other) or 0
+        return _QtEnumValue(self.value | other_value)
+
+    def __ror__(self, other: object):
+        other_value = _qt_stub_value(other) or 0
+        return _QtEnumValue(other_value | self.value)
+
+    def __repr__(self) -> str:
+        return str(self.value)
+
+
 class Qt:
     """Qt constant namespace stub."""
 
@@ -127,10 +160,10 @@ class Qt:
     SmoothTransformation = 6
     ItemIsUserCheckable = 1 << 0
     ItemIsEnabled = 1 << 1
-    Checked = 2
-    Unchecked = 0
-    AscendingOrder = 0
-    DescendingOrder = 1
+    Checked = _QtEnumValue(2)
+    Unchecked = _QtEnumValue(0)
+    AscendingOrder = _QtEnumValue(0)
+    DescendingOrder = _QtEnumValue(1)
 
 
 class QTimer:
@@ -905,14 +938,14 @@ class QHeaderView(QWidget):
     def setSortIndicatorShown(self, *_args, **_kwargs) -> None:
         return None
 
-    def setSortIndicator(self, section: int, order: int) -> None:
+    def setSortIndicator(self, section: int, order) -> None:
         self._sort_section = int(section)
-        self._sort_order = int(order)
+        self._sort_order = order
 
     def sortIndicatorSection(self) -> int:
         return self._sort_section
 
-    def sortIndicatorOrder(self) -> int:
+    def sortIndicatorOrder(self):
         return self._sort_order
 
 

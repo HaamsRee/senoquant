@@ -8,6 +8,19 @@ from qtpy.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QTableWidgetItem, 
 from senoquant.tabs.sennet_portal.backend import SenNetDataset
 
 
+def _qt_sort_order_value(order: object) -> int:
+    """Normalize Qt sort-order enums across Qt5/Qt6 bindings."""
+    if order == getattr(Qt, "DescendingOrder", None):
+        return 1
+    if order == getattr(Qt, "AscendingOrder", None):
+        return 0
+    value = getattr(order, "value", order)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 class SenNetPortalDatasetMixin:
     """Mixin containing dataset table, selection, and filter helpers."""
 
@@ -15,8 +28,10 @@ class SenNetPortalDatasetMixin:
     _TABLE_COLUMN_COUNT = 9
     _AGE_COLUMN = 5
     _CATEGORICAL_FILTER_COLUMNS = (1, 2, 3, 4, 6, 7, 8)
-    _SORT_ASC = int(getattr(Qt, "AscendingOrder", 0))
-    _SORT_DESC = int(getattr(Qt, "DescendingOrder", 1))
+    _SORT_ASC = getattr(Qt, "AscendingOrder", 0)
+    _SORT_DESC = getattr(Qt, "DescendingOrder", 1)
+    _SORT_ASC_VALUE = _qt_sort_order_value(_SORT_ASC)
+    _SORT_DESC_VALUE = _qt_sort_order_value(_SORT_DESC)
 
     def _refresh_dataset_types(self) -> None:
         """Fetch and repopulate available antibody dataset-type options."""
@@ -57,14 +72,14 @@ class SenNetPortalDatasetMixin:
     def _populate_table(
         self,
         *,
-        checked_by_identity: dict[str, int] | None = None,
+        checked_by_identity: dict[str, object] | None = None,
         preserve_filters: bool = False,
     ) -> None:
         """Render currently loaded datasets into the selection table.
 
         Parameters
         ----------
-        checked_by_identity : dict of str to int or None, optional
+        checked_by_identity : dict of str to object or None, optional
             Mapping of dataset identity to checkbox state to preserve when
             rebuilding the table.
         preserve_filters : bool, optional
@@ -95,7 +110,7 @@ class SenNetPortalDatasetMixin:
             include_item = QTableWidgetItem()
             dataset_id = self._dataset_identity(dataset)
             if checked_by_identity is not None and dataset_id in checked_by_identity:
-                include_item.setCheckState(int(checked_by_identity[dataset_id]))
+                include_item.setCheckState(checked_by_identity[dataset_id])
             else:
                 include_item.setCheckState(Qt.Checked)
             include_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
@@ -276,12 +291,12 @@ class SenNetPortalDatasetMixin:
         self._age_filter_max_input.blockSignals(False)
         self._apply_column_filters()
 
-    def _set_all_dataset_check_state(self, state: int) -> None:
+    def _set_all_dataset_check_state(self, state: object) -> None:
         """Apply one checkbox state to every dataset include row.
 
         Parameters
         ----------
-        state : int
+        state : object
             Qt check-state value (for example ``Qt.Checked``).
         """
         for row in range(1, self._dataset_table.rowCount()):
@@ -325,9 +340,9 @@ class SenNetPortalDatasetMixin:
             return f"{dataset.sennet_id}:{clean_uuid}"
         return dataset.sennet_id
 
-    def _checked_states_by_identity(self) -> dict[str, int]:
+    def _checked_states_by_identity(self) -> dict[str, object]:
         """Return checkbox states keyed by stable dataset identity."""
-        states: dict[str, int] = {}
+        states: dict[str, object] = {}
         for row in range(1, self._dataset_table.rowCount()):
             dataset_index = row - 1
             if dataset_index >= len(self._datasets):
@@ -336,7 +351,7 @@ class SenNetPortalDatasetMixin:
             if include_item is None:
                 continue
             dataset = self._datasets[dataset_index]
-            states[self._dataset_identity(dataset)] = int(include_item.checkState())
+            states[self._dataset_identity(dataset)] = include_item.checkState()
         return states
 
     def _restore_column_filters(
@@ -368,9 +383,11 @@ class SenNetPortalDatasetMixin:
         if column < 0 or column >= self._TABLE_COLUMN_COUNT:
             return
         previous_column = getattr(self, "_sort_column", None)
-        previous_order = int(getattr(self, "_sort_order", self._SORT_ASC))
+        previous_order = _qt_sort_order_value(getattr(self, "_sort_order", self._SORT_ASC))
         if previous_column == column:
-            order = self._SORT_DESC if previous_order == self._SORT_ASC else self._SORT_ASC
+            order = (
+                self._SORT_DESC if previous_order == self._SORT_ASC_VALUE else self._SORT_ASC
+            )
         else:
             order = self._SORT_ASC
 
@@ -381,7 +398,7 @@ class SenNetPortalDatasetMixin:
                 column=column,
                 checked_states=checked_states,
             ),
-            reverse=(order == self._SORT_DESC),
+            reverse=(_qt_sort_order_value(order) == self._SORT_DESC_VALUE),
         )
         self._sort_column = column
         self._sort_order = order
@@ -396,7 +413,7 @@ class SenNetPortalDatasetMixin:
         dataset: SenNetDataset,
         *,
         column: int,
-        checked_states: dict[str, int],
+        checked_states: dict[str, object],
     ) -> object:
         """Return sorting key for one dataset and target table column."""
         if column == 0:
