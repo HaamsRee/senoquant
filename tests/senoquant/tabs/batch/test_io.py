@@ -131,6 +131,7 @@ def test_load_channel_data(monkeypatch) -> None:
     -------
     None
     """
+    path = Path("/tmp/test.tif")
     data = np.zeros((2, 4, 4), dtype=np.uint8)
     dims = DummyDims(order="CYX", C=2, Z=1, T=1)
     image = DummyImage(data, dims)
@@ -140,8 +141,9 @@ def test_load_channel_data(monkeypatch) -> None:
         return image
 
     monkeypatch.setattr(batch_io.reader_core, "_open_bioimage", fake_open)
-    array, metadata = batch_io.load_channel_data(Path("/tmp/test.tif"), 1, None)
+    array, metadata = batch_io.load_channel_data(path, 1, None)
     assert array.shape == (4, 4)
+    assert metadata["path"] == str(path)
     assert "physical_pixel_sizes" in metadata
 
 

@@ -357,6 +357,84 @@ def test_apply_quantification_viewer_sets_viewer() -> None:
     assert contexts[0].feature_handler._tab._viewer is viewer
 
 
+def test_process_folder_quantification_exports_image_path_to_xlsx(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Propagate source image paths into batch quantification workbook rows."""
+    import openpyxl
+
+    from senoquant.tabs.quantification.features.base import FeatureConfig, FeatureData
+
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_file = input_dir / "sample.tif"
+    input_file.write_text("data")
+    output_dir = tmp_path / "output"
+
+    def fake_iter_input_files(_root, _exts, _include):
+        yield input_file
+
+    def fake_load_channel_data(_path, _index, _scene_id):
+        return np.ones((2, 2), dtype=np.float32), {"path": str(input_file)}
+
+    class DummyPathExportHandler:
+        def __init__(self) -> None:
+            self._tab = types.SimpleNamespace(_viewer=None)
+
+        def export(self, temp_dir: Path, export_format: str):
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+            image_layer = next(
+                layer
+                for layer in self._tab._viewer.layers
+                if layer.__class__.__name__ == "Image"
+            )
+            sheet.append(["file_path"])
+            sheet.append([image_layer.metadata.get("path", "")])
+            output_path = temp_dir / f"table.{export_format}"
+            workbook.save(output_path)
+            return [output_path]
+
+    monkeypatch.setattr(batch_backend, "iter_input_files", fake_iter_input_files)
+    monkeypatch.setattr(batch_backend, "load_channel_data", fake_load_channel_data)
+
+    context = types.SimpleNamespace(
+        state=FeatureConfig(
+            name="Path Export",
+            type_name="Path Export",
+            data=FeatureData(),
+        ),
+        feature_handler=DummyPathExportHandler(),
+    )
+
+    backend = batch_backend.BatchBackend(
+        segmentation_backend=DummySegmentationBackend(),
+        spots_backend=DummySpotsBackend(),
+    )
+    summary = backend.process_folder(
+        input_path=str(input_dir),
+        output_path=str(output_dir),
+        quantification_features=[context],
+        quantification_format="xlsx",
+        channel_map=[BatchChannelConfig(name="Channel 0", index=0)],
+    )
+
+    assert summary.processed == 1
+    assert summary.failed == 0
+
+    workbook_path = output_dir / "sample" / "Path_Export" / "table.xlsx"
+    assert workbook_path.exists()
+
+    workbook = openpyxl.load_workbook(workbook_path, read_only=True, data_only=True)
+    try:
+        rows = list(workbook.active.iter_rows(values_only=True))
+    finally:
+        workbook.close()
+
+    assert rows[0] == ("file_path",)
+    assert rows[1] == (str(input_file),)
+
+
 def test_process_folder_tags_label_metadata_with_task(tmp_path: Path, monkeypatch) -> None:
     """Attach task metadata and run history to generated labels."""
     input_dir = tmp_path / "input"

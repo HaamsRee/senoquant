@@ -205,7 +205,10 @@ def load_channel_data(
     try:
         if scene_id:
             image.set_scene(scene_id)
-        metadata = {"physical_pixel_sizes": reader_core._physical_pixel_sizes(image)}
+        metadata = {
+            "path": str(path),
+            "physical_pixel_sizes": reader_core._physical_pixel_sizes(image),
+        }
         axes_present = reader_core._axes_present(image)
         dims = getattr(image, "dims", None)
         c_size = getattr(dims, "C", 1) if "C" in axes_present else 1
