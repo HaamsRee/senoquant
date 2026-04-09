@@ -6,7 +6,7 @@ It is intentionally narrow:
 - input: one 2D image per case
 - output: one predicted nuclear mask per case
 - comparison: predicted mask vs ground-truth mask
-- metrics: Dice and IoU
+- metrics: Precision, Recall, F1, Jaccard, and Dice
 
 ## Folder layout
 
@@ -58,6 +58,10 @@ conda activate senoquant-dev
 python model_benchmarking/benchmark_nuclear_segmentation.py --model cpsam
 ```
 
+The script also writes or updates a summary plot at:
+
+- `model_benchmarking/results/benchmark_summary.png`
+
 ## External models
 
 Run a model outside `src`:
@@ -106,13 +110,29 @@ Example:
 ## Output
 
 The script writes `model_benchmarking/results/<model_name>.csv` with per-image
-Dice and IoU, plus a final `MEAN` row.
+metrics plus a final `MEAN` row.
 
 Example CSV:
 
 ```csv
-case_id,dice,iou,pred_pixels,gt_pixels
-sample_01,0.91,0.84,15230,14980
-sample_02,0.88,0.79,11102,11740
-MEAN,0.895,0.815,,
+case_id,model,precision,recall,f1,jaccard,dice,pred_pixels,gt_pixels
+sample_01,cpsam,0.93,0.89,0.91,0.84,0.91,15230,14980
+sample_02,cpsam,0.9,0.86,0.88,0.79,0.88,11102,11740
+MEAN,cpsam,0.915,0.875,0.895,0.815,0.895,,
 ```
+
+It also writes a grouped bar chart PNG that summarizes the `MEAN` rows from all
+benchmark CSVs currently in `model_benchmarking/results/`. This is what lets
+multiple models appear together in one comparison figure.
+
+If you want to override the plot path or title:
+
+```bash
+python model_benchmarking/benchmark_nuclear_segmentation.py \
+  --model cpsam \
+  --plot model_benchmarking/results/my_plot.png \
+  --plot-title dataset_DAPI
+```
+
+For binary foreground segmentation, F1 and Dice are numerically the same, so
+those two columns in the CSV and plot will match.
