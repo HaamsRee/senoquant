@@ -27,6 +27,11 @@ from pathlib import Path
 
 import numpy as np
 
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - optional dependency
+    tqdm = None
+
 
 class ImageLayer:
     """Minimal napari-like image layer.
@@ -172,6 +177,8 @@ def run_benchmark(
     list[dict[str, object]]
         Per-case result rows suitable for CSV export. The final row is a
         summary row with ``case_id="MEAN"`` when at least one case was run.
+        When ``tqdm`` is available, progress is shown over the number of images
+        processed.
 
     Raises
     ------
@@ -185,7 +192,12 @@ def run_benchmark(
     model = backend.get_model(model_name)
 
     rows: list[dict[str, object]] = []
-    for case_id, image_path in sorted(image_paths.items()):
+    case_items = sorted(image_paths.items())
+    progress_items = iter_with_progress(
+        case_items,
+        description=f"Benchmarking {model_name}",
+    )
+    for case_id, image_path in progress_items:
         if case_id not in ground_truth_paths:
             raise ValueError(f"Missing ground truth for {case_id!r}.")
 
@@ -220,6 +232,36 @@ def run_benchmark(
             }
         )
     return rows
+
+
+def iter_with_progress(
+    items: list[tuple[str, Path]],
+    *,
+    description: str,
+) -> Iterable[tuple[str, Path]]:
+    """Wrap benchmark cases in a progress iterator when available.
+
+    Parameters
+    ----------
+    items : list[tuple[str, pathlib.Path]]
+        Sequence of benchmark cases as ``(case_id, image_path)`` pairs.
+    description : str
+        Progress-bar label shown alongside the current iteration state.
+
+    Returns
+    -------
+    collections.abc.Iterable[tuple[str, pathlib.Path]]
+        ``items`` wrapped in a ``tqdm`` progress bar when the dependency is
+        available, otherwise the original list.
+    """
+    if tqdm is None:
+        return items
+    return tqdm(
+        items,
+        total=len(items),
+        desc=description,
+        unit="image",
+    )
 
 
 def compute_case_metrics(

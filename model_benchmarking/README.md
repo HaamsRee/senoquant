@@ -58,6 +58,14 @@ conda activate senoquant-dev
 python model_benchmarking/benchmark_nuclear_segmentation.py --model cpsam
 ```
 
+For an interactive workflow, open:
+
+- `model_benchmarking/benchmark_nuclear_segmentation.ipynb`
+
+The notebook is set up in batch format by default. Edit the `model_specs` list
+to benchmark multiple models in one run. It currently pre-populates the built-in
+2D-compatible nuclear models `cpsam` and `default_2d`.
+
 The script also writes or updates a summary plot at:
 
 - `model_benchmarking/results/benchmark_summary.png`

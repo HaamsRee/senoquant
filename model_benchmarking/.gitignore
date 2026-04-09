@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 results/*.csv
 results/*.png
+
+# Data files
+ground_truth/
+images/
