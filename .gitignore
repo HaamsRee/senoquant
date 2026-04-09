@@ -39,3 +39,6 @@ res/
 
 # Installer artifacts
 installer/windows/Output/
+
+# Model benchmarking
+model_benchmarking/
