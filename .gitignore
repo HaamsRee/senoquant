@@ -37,12 +37,13 @@ coverage.xml
 
 # Local resources
 res/
+*.npy
 
 # Installer artifacts
 installer/windows/Output/
 
 # Model benchmarking
-model_benchmarking/
+# model_benchmarking/
 
 # Logs
 *.log
