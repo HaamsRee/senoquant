@@ -1,12 +1,18 @@
 # Model Benchmarking
 
-This is a minimal benchmark for 2D single-channel nuclear segmentation.
-It is intentionally narrow:
+This benchmark is a small, file-based workflow for 2D single-channel nuclear
+segmentation. It uses instance segmentation metrics:
 
-- input: one 2D image per case
-- output: one predicted nuclear mask per case
-- comparison: predicted mask vs ground-truth mask
-- metrics: Precision, Recall, F1, Jaccard, and Dice
+- Objects are matched by IoU
+- Metrics are computed from matched instances, not foreground pixels
+- One run can evaluate multiple IoU thresholds
+
+For this benchmark:
+
+- Input: one 2D image per case
+- Output: one predicted nuclear instance mask per case
+- Comparison: predicted instances vs. ground-truth instances
+- Metrics: `precision`, `recall`, `jaccard`, and `dice`
 
 ## Folder layout
 
@@ -40,7 +46,7 @@ Both are treated as the same case: `sample_01`.
 
 ## Supported file formats
 
-The benchmark script currently reads:
+The benchmark script reads:
 
 - `.npy`
 - `.npz` containing exactly one array
@@ -48,6 +54,9 @@ The benchmark script currently reads:
 - `.tiff`
 
 Each image and mask must be 2D.
+
+Ground truth and predictions can be instance label images. Binary masks also
+work: they are converted to connected components before instance matching.
 
 ## Running a benchmark
 
@@ -58,13 +67,22 @@ conda activate senoquant-dev
 python model_benchmarking/benchmark_nuclear_segmentation.py --model cpsam
 ```
 
+By default the benchmark evaluates IoU thresholds `0.5 0.6 0.7 0.8 0.9`.
+
+To choose your own thresholds:
+
+```bash
+python model_benchmarking/benchmark_nuclear_segmentation.py \
+  --model cpsam \
+  --iou-thresholds 0.5 0.75 0.9
+```
+
 For an interactive workflow, open:
 
 - `model_benchmarking/benchmark_nuclear_segmentation.ipynb`
 
-The notebook is set up in batch format by default. Edit the `model_specs` list
-to benchmark multiple models in one run. It currently pre-populates the built-in
-2D-compatible nuclear models `cpsam` and `default_2d`.
+The notebook still imports `run_benchmark`, `write_csv`, and
+`write_summary_plot` from the script entrypoint.
 
 The script also writes or updates a summary plot at:
 
@@ -117,21 +135,42 @@ Example:
 
 ## Output
 
-The script writes `model_benchmarking/results/<model_name>.csv` with per-image
-metrics plus a final `MEAN` row.
+The script writes `model_benchmarking/results/<model_name>.csv`.
+
+Each CSV contains:
+
+- one `case` row per image and IoU threshold
+- one `dataset_summary` row per IoU threshold
+
+The dataset summary rows aggregate instance counts across the full dataset, so
+the reported metrics reflect per-instance performance instead of averaging
+per-image scores.
+
+The CSV also includes instance counts (`n_true`, `n_pred`, `tp`, `fp`, `fn`)
+for context, but the only reported metrics are `precision`, `recall`,
+`jaccard`, and `dice`.
 
 Example CSV:
 
 ```csv
-case_id,model,precision,recall,f1,jaccard,dice,pred_pixels,gt_pixels
-sample_01,cpsam,0.93,0.89,0.91,0.84,0.91,15230,14980
-sample_02,cpsam,0.9,0.86,0.88,0.79,0.88,11102,11740
-MEAN,cpsam,0.915,0.875,0.895,0.815,0.895,,
+row_type,case_id,model,criterion,iou_threshold,n_true,n_pred,tp,fp,fn,precision,recall,jaccard,dice
+case,sample_01,cpsam,iou,0.5,42,44,39,5,3,0.8863636364,0.9285714286,0.829787234,0.9069767442
+case,sample_01,cpsam,iou,0.75,42,44,34,10,8,0.7727272727,0.8095238095,0.6538461538,0.7906976744
+dataset_summary,DATASET,cpsam,iou,0.5,1014,1038,946,92,68,0.9113680154,0.932938856,0.8552532723,0.9221153846
+dataset_summary,DATASET,cpsam,iou,0.75,1014,1038,861,177,153,0.8294797688,0.849112426,0.7231332219,0.8395316804
 ```
 
-It also writes a grouped bar chart PNG that summarizes the `MEAN` rows from all
-benchmark CSVs currently in `model_benchmarking/results/`. This is what lets
-multiple models appear together in one comparison figure.
+## Plotting
+
+The summary plot reads every compatible CSV in `model_benchmarking/results/`
+and draws one threshold curve per model for these metrics:
+
+- `precision`
+- `recall`
+- `jaccard`
+- `dice`
+
+This makes it easy to compare models across both metric type and IoU threshold.
 
 If you want to override the plot path or title:
 
@@ -141,6 +180,3 @@ python model_benchmarking/benchmark_nuclear_segmentation.py \
   --plot model_benchmarking/results/my_plot.png \
   --plot-title dataset_DAPI
 ```
-
-For binary foreground segmentation, F1 and Dice are numerically the same, so
-those two columns in the CSV and plot will match.
