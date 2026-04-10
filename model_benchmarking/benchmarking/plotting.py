@@ -54,14 +54,20 @@ def write_summary_plot(
         axis.grid(axis="both", alpha=0.3)
         axis.set_axisbelow(True)
 
-    figure.suptitle(title)
+    figure.suptitle(title, y=0.985)
     figure.text(0.5, 0.04, "IoU Threshold", ha="center")
     figure.text(0.04, 0.5, "Score", va="center", rotation="vertical")
     handles, labels = axes.flat[0].get_legend_handles_labels()
     if handles:
-        figure.legend(handles, labels, loc="upper center", ncol=min(len(labels), 4))
+        figure.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.955),
+            ncol=min(len(labels), 4),
+        )
 
     plot_path.parent.mkdir(parents=True, exist_ok=True)
-    figure.tight_layout(rect=(0.05, 0.06, 1.0, 0.92))
+    figure.tight_layout(rect=(0.05, 0.06, 1.0, 0.95))
     figure.savefig(plot_path, dpi=200)
     plt.close(figure)

@@ -8,16 +8,16 @@ import numpy as np
 from senoquant.utils import layer_data_asarray
 from ..base import SenoQuantSegmentationModel
 
-class Cyto3Model(SenoQuantSegmentationModel):
-    """cyto3 segmentation model implementation."""
+class NucleiModel(SenoQuantSegmentationModel):
+    """Cellpose nuclei segmentation model implementation."""
 
     def __init__(self, models_root=None) -> None:
-        """Initialize the cyto3 model wrapper."""
-        super().__init__("cp_cyto3", models_root=models_root)
+        """Initialize the nuclei model wrapper."""
+        super().__init__("cp_nuclei", models_root=models_root)
         from cellpose.models import CellposeModel
 
         # Always request GPU; Cellpose will fall back if unavailable.
-        self._model = CellposeModel(gpu=True, pretrained_model=str((Path(__file__).parent / "cyto3.pth").resolve()))
+        self._model = CellposeModel(gpu=True, pretrained_model=str((Path(__file__).parent / "nucleitorch_0").resolve()))
 
     def run(self, **kwargs) -> dict:
         """Run using the Cellpose API.
