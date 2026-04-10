@@ -44,6 +44,8 @@ installer/windows/Output/
 
 # Model benchmarking
 # model_benchmarking/
+*cyto3.pth
+*nucleitorch_0
 
 # Logs
 *.log
