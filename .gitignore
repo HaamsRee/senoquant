@@ -33,6 +33,7 @@ out.gv
 out.png
 coverage.xml
 .coverage
+.codex-cache/
 
 # Local resources
 res/
@@ -42,3 +43,6 @@ installer/windows/Output/
 
 # Model benchmarking
 model_benchmarking/
+
+# Logs
+*.log
