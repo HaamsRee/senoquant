@@ -1,0 +1,57 @@
+{
+  "name": "cp_cyto3",
+  "description": "Cellpose cyto3 model",
+  "version": "0.1.0",
+  "order": 3,
+  "tasks": {
+    "nuclear": {
+      "supported": true
+    },
+    "cytoplasmic": {
+      "supported": true,
+      "input_modes": ["cytoplasmic", "nuclear+cytoplasmic"],
+      "nuclear_channel_optional": true
+    }
+  },
+  "settings": [
+    {
+      "key": "diameter",
+      "label": "Object diameter (px)",
+      "tooltip": "Approximate object diameter in pixels.",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.1,
+      "max": 1000.0,
+      "default": 30.0
+    },
+    {
+      "key": "flow_threshold",
+      "label": "Flow threshold",
+      "tooltip": "Maximum allowed flow error in Cellpose; lower is stricter and higher accepts more masks.",
+      "type": "float",
+      "decimals": 1,
+      "min": 0.0,
+      "max": 2.0,
+      "default": 0.4
+    },
+    {
+      "key": "cellprob_threshold",
+      "label": "Cellprob threshold",
+      "tooltip": "Cell-probability cutoff; lower values include weaker objects, higher values are stricter.",
+      "type": "float",
+      "decimals": 1,
+      "min": -6.0,
+      "max": 6.0,
+      "default": 0.0
+    },
+    {
+      "key": "n_iterations",
+      "label": "Number of iterations",
+      "tooltip": "Optional number of dynamics iterations (0 lets Cellpose choose automatically).",
+      "type": "int",
+      "min": 0,
+      "max": 9999,
+      "default": 0
+    }
+  ]
+}
