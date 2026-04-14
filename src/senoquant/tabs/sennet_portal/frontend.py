@@ -139,14 +139,14 @@ class SenNetPortalTab(
         return section
 
     def _make_dataset_section(self) -> QGroupBox:
-        """Create table section that lists compatible datasets.
+        """Create table section that lists SenNet datasets.
 
         Returns
         -------
         QGroupBox
             Group box containing the dataset selection table.
         """
-        section = QGroupBox("Compatible SenNet datasets")
+        section = QGroupBox("SenNet datasets")
         layout = QVBoxLayout()
 
         self._dataset_table = QTableWidget()
@@ -292,7 +292,7 @@ class SenNetPortalTab(
         Parameters
         ----------
         datasets : list of SenNetDataset
-            Compatible datasets returned by backend discovery.
+            Dataset rows returned by backend discovery.
 
         Returns
         -------
@@ -303,7 +303,7 @@ class SenNetPortalTab(
         self._populate_table(preserve_filters=False)
         self._download_button.setEnabled(bool(self._datasets))
         self._notify(
-            f"Found {len(self._datasets)} compatible dataset(s). "
+            f"Found {len(self._datasets)} dataset(s). "
             "Select rows and choose a destination to download."
         )
 
@@ -350,11 +350,17 @@ class SenNetPortalTab(
         dataset_count = int(result.get("dataset_count", 0))
         file_count = int(result.get("file_count", 0))
         destination = str(result.get("destination", "")).strip()
+        download_scope = self._download_scope(result, file_count)
         task_ids = [str(task_id).strip() for task_id in result.get("task_ids", []) if str(task_id).strip()]
         if not task_ids:
-            self._notify(
-                f"Submitted transfer for {dataset_count} dataset(s), {file_count} file(s) to {destination}."
-            )
+            if download_scope == "dataset":
+                self._notify(
+                    f"Submitted transfer for {dataset_count} dataset(s) to {destination}."
+                )
+            else:
+                self._notify(
+                    f"Submitted transfer for {dataset_count} dataset(s), {file_count} file(s) to {destination}."
+                )
             self._download_locked = False
             self._download_progress_bar.setVisible(False)
             self._download_speed_label.setVisible(False)
@@ -368,6 +374,7 @@ class SenNetPortalTab(
             "dataset_count": dataset_count,
             "file_count": file_count,
             "destination": destination,
+            "download_scope": download_scope,
         }
         self._download_progress_bar.setVisible(True)
         self._download_progress_bar.setValue(0)
@@ -375,7 +382,14 @@ class SenNetPortalTab(
         self._download_speed_label.setText("Transfer in progress: 0%")
         self._download_button.setEnabled(False)
         self._cancel_download_button.setEnabled(True)
-        self._notify(f"Transfer initiated for {dataset_count} dataset(s), {file_count} file(s). Monitoring progress...")
+        if download_scope == "dataset":
+            self._notify(
+                f"Transfer initiated for {dataset_count} dataset(s). Monitoring progress..."
+            )
+        else:
+            self._notify(
+                f"Transfer initiated for {dataset_count} dataset(s), {file_count} file(s). Monitoring progress..."
+            )
         self._start_download_monitoring()
 
     def _start_download_monitoring(self) -> None:
@@ -465,12 +479,37 @@ class SenNetPortalTab(
         dataset_count = int(self._download_summary.get("dataset_count", 0) or 0)
         file_count = int(self._download_summary.get("file_count", 0) or 0)
         destination = str(self._download_summary.get("destination", "")).strip()
+        download_scope = self._download_scope(self._download_summary, file_count)
         all_succeeded = bool(status.get("all_succeeded", False))
         self._stop_download_monitoring()
         if all_succeeded:
-            self._notify(f"Transfer complete: {dataset_count} dataset(s), {file_count} file(s) to {destination}.")
+            if download_scope == "dataset":
+                self._notify(
+                    f"Transfer complete: {dataset_count} dataset(s) to {destination}."
+                )
+            else:
+                self._notify(
+                    f"Transfer complete: {dataset_count} dataset(s), {file_count} file(s) to {destination}."
+                )
         else:
-            self._notify(f"Transfer finished with failures: {dataset_count} dataset(s), {file_count} file(s). Check Globus activity.")
+            if download_scope == "dataset":
+                self._notify(
+                    f"Transfer finished with failures: {dataset_count} dataset(s). Check Globus activity."
+                )
+            else:
+                self._notify(
+                    f"Transfer finished with failures: {dataset_count} dataset(s), {file_count} file(s). Check Globus activity."
+                )
+
+    @staticmethod
+    def _download_scope(payload: dict[str, object], file_count: int) -> str:
+        """Return normalized download scope from a backend/UI summary payload."""
+        scope = str(payload.get("download_scope", "")).strip().lower()
+        if scope:
+            return scope
+        if file_count == 0:
+            return "dataset"
+        return "file"
 
     def cancel_active_downloads(self) -> None:
         """Cancel active transfer tasks and stop monitoring state."""

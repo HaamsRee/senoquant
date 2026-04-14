@@ -43,8 +43,8 @@ def _stable_entity_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_search_datasets_filters_antibody_and_supported_paths() -> None:
-    """Return only antibody datasets with compatible file extensions."""
+def test_search_datasets_returns_whole_dataset_scope_for_matching_hits() -> None:
+    """Return antibody datasets as whole-dataset download candidates."""
     backend = SenNetPortalBackend()
 
     def fake_post(url: str, *, payload, token=None):
@@ -65,10 +65,6 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
                             "dataset_type_hierarchy": {
                                 "first_level": ["Antibody-based imaging"]
                             },
-                            "files": [
-                                {"rel_path": "/raw/image_a.ome.tif"},
-                                {"rel_path": "/notes/readme.txt"},
-                            ],
                         }
                     },
                     {
@@ -80,9 +76,6 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
                             "dataset_type_hierarchy": {
                                 "first_level": ["Antibody-based imaging"]
                             },
-                            "files": [
-                                {"rel_path": "/tables/summary.csv"},
-                            ],
                         }
                     },
                 ]
@@ -93,12 +86,7 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
         if url == backend.ORGANS_API_URL:
             assert params == {"application_context": "SENNET"}
             return [{"organ_uberon": "UBERON:0001264", "term": "Pancreas"}]
-        assert url == backend.PARAM_SEARCH_FILES_URL
-        assert params == {"dataset_sennet_id": "SNT1"}
-        return [
-            {"rel_path": "/raw/image_a.ome.tif"},
-            {"rel_path": "/notes/readme.txt"},
-        ]
+        raise AssertionError(f"Unexpected lookup during dataset search: {url}")
 
     backend._post_json = fake_post  # type: ignore[method-assign]
     backend._fetch_json = fake_fetch_json  # type: ignore[method-assign]
@@ -114,16 +102,17 @@ def test_search_datasets_filters_antibody_and_supported_paths() -> None:
     assert datasets[0].dataset_uuid == "uuid-snt1"
     assert datasets[0].source_type == "Human"
     assert datasets[0].organ == "Pancreas"
-    assert datasets[0].compatible_paths == ["/raw/image_a.ome.tif"]
-    assert datasets[0].compatible_extensions == [".ome.tif"]
+    assert datasets[0].compatible_paths == ["/"]
+    assert datasets[0].compatible_extensions == []
     assert datasets[0].entity_payload["sennet_id"] == "SNT1"
+    assert datasets[0].query_metadata["download_scope"] == "dataset"
 
 
 def test_download_datasets_builds_manifest_and_runs_clt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Create manifest lines and call ``sennet-clt transfer <manifest>``."""
+    """Create whole-dataset manifest lines and call ``sennet-clt transfer``."""
     backend = SenNetPortalBackend()
     home = tmp_path / "home"
     home.mkdir(parents=True, exist_ok=True)
@@ -171,8 +160,8 @@ def test_download_datasets_builds_manifest_and_runs_clt(
                 status="Published",
                 access_level="consortium",
                 title="Dataset 1",
-                compatible_paths=["/raw/image_a.ome.tif"],
-                compatible_extensions=[".ome.tif"],
+                compatible_paths=["/"],
+                compatible_extensions=[],
                 entity_payload={
                     "sennet_id": "SNT1",
                     "entity_type": "Dataset",
@@ -185,11 +174,12 @@ def test_download_datasets_builds_manifest_and_runs_clt(
 
     assert len(transfer_calls) == 2
     assert transfer_calls[1][:2] == ["sennet-clt", "transfer"]
-    assert "SNT1 /raw/image_a.ome.tif" in manifest_text["value"]
+    assert "SNT1 /" in manifest_text["value"]
     metadata_path = destination / "SNT1" / "sennet_dataset_metadata.json"
     assert metadata_path.exists() is False
     assert result["dataset_count"] == 1
-    assert result["file_count"] == 1
+    assert result["file_count"] == 0
+    assert result["download_scope"] == "dataset"
     assert result["task_ids"] == ["5724a523-11aa-11f1-a049-0e5b09a3151b"]
 
     task_payload = {
@@ -615,10 +605,10 @@ def test_available_antibody_dataset_types_falls_back_on_failure(
     assert dataset_types == list(backend.ANTIBODY_DATASET_TYPES)
 
 
-def test_search_datasets_uses_param_search_files_when_indexed_files_missing(
+def test_search_datasets_does_not_query_param_search_files(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Include datasets when param-search/files reveals supported files."""
+    """Do not use ``param-search/files`` when building dataset rows."""
     backend = SenNetPortalBackend()
 
     def fake_post(url: str, *, payload, token=None):
@@ -645,12 +635,9 @@ def test_search_datasets_uses_param_search_files_when_indexed_files_missing(
         if url == backend.ORGANS_API_URL:
             assert params == {"application_context": "SENNET"}
             return []
-        assert url == backend.PARAM_SEARCH_FILES_URL
-        assert params == {"dataset_sennet_id": "SNT1"}
-        return [
-            {"rel_path": "panel/image.qptiff", "file_extension": ".qptiff"},
-            {"rel_path": "panel/readme.txt", "file_extension": ".txt"},
-        ]
+        if url == backend.PARAM_SEARCH_FILES_URL:
+            raise AssertionError("param-search/files should not be queried")
+        raise AssertionError(f"Unexpected lookup during dataset search: {url}")
 
     monkeypatch.setattr(backend, "_post_json", fake_post)
     monkeypatch.setattr(backend, "_fetch_json", fake_fetch_json)
@@ -663,8 +650,8 @@ def test_search_datasets_uses_param_search_files_when_indexed_files_missing(
 
     assert len(datasets) == 1
     assert datasets[0].sennet_id == "SNT1"
-    assert datasets[0].compatible_paths == ["/panel/image.qptiff"]
-    assert datasets[0].compatible_extensions == [".qptiff"]
+    assert datasets[0].compatible_paths == ["/"]
+    assert datasets[0].compatible_extensions == []
 
 
 def test_search_datasets_does_not_require_globus_login(

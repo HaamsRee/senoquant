@@ -2,7 +2,7 @@
 
 The **SenNet Portal** tab lets you discover and download SenNet datasets directly from SenoQuant.
 
-It is designed for antibody-based imaging datasets and only allows downloads for files that match SenoQuant-supported image extensions.
+It is designed for antibody-based imaging datasets and downloads each selected dataset as a whole dataset.
 
 ## Prerequisites
 
@@ -36,11 +36,11 @@ See the official Globus instructions:
     - **Max results**.
 
 3. Click **Find datasets**.
-4. Review compatible datasets in the table:
+4. Review datasets in the table:
 
     - Only antibody-imaging datasets are included.
-    - Only datasets with at least one supported file extension are shown.
     - The table columns are: **SenNet ID**, **Type**, **Source type**, **Organ**, **Age**, **Status**, **Access**, and **Files**.
+    - `Files = All` indicates the entire dataset will be downloaded.
 
 5. Optionally use the filter row under the table headers:
 
@@ -57,7 +57,8 @@ See the official Globus instructions:
 
 ## Supported extensions
 
-The portal filters files dynamically using the extensions supported by the SenoQuant reader (via BioIO plugin registration).
+The portal no longer filters search results by reader-supported extensions before download.
+SenoQuant still relies on its reader support when opening downloaded image files later.
 
 ## Dataset table columns and filters
 
@@ -83,7 +84,6 @@ The portal filters files dynamically using the extensions supported by the SenoQ
 
 ## Notes
 
-- File compatibility is resolved from SenNet Search API `param-search/files`.
 - Transfers use SenNet CLI manifest mode internally.
 - If your selected destination is outside your home directory, SenoQuant stages the transfer and then moves files into your chosen folder.
 - A `sennet_dataset_metadata.json` is written in each dataset output folder, including the full Entity API payload for that dataset.

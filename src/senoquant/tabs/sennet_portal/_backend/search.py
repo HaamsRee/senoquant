@@ -53,7 +53,7 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
         max_results: int = 40,
         status: str = "Published",
     ) -> list[SenNetDataset]:
-        """Find antibody-imaging datasets with supported image files.
+        """Find antibody-imaging datasets for whole-dataset download.
 
         Parameters
         ----------
@@ -63,22 +63,24 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
         token : str or None, optional
             Optional bearer token for authenticated API access.
         max_results : int, optional
-            Maximum number of compatible datasets to return.
+            Maximum number of datasets to return.
         status : str, optional
             Dataset status filter sent to the Search API.
 
         Returns
         -------
         list of SenNetDataset
-            Compatible dataset records ordered by discovery time.
+            Dataset records ordered by discovery time.
 
         Notes
         -----
-        A dataset is considered compatible when it passes all checks:
+        A dataset is included when it passes all checks:
 
         - Matches antibody-focused dataset criteria.
-        - Has at least one file path with a supported extension from
-          ``/param-search/files`` records.
+        - Matches one of the requested dataset types.
+
+        Matching records are returned as whole-dataset download candidates
+        using the dataset-root manifest scope ``"/"``.
         """
         requested_types = list(dataset_types or self.available_antibody_dataset_types(token=token))
         if not requested_types:
@@ -113,12 +115,6 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                 if not self._matches_requested_dataset_type(record, requested_types):
                     continue
 
-                compatible_paths = self._extract_supported_paths_from_param_search_files(
-                    dataset_id,
-                    token=token,
-                )
-                if not compatible_paths:
-                    continue
                 entity_payload = self._dataset_entity_payload(dataset_id, token=token)
                 source_type = self._source_type_from_payload(record)
                 if source_type == "Unknown":
@@ -127,15 +123,6 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                     summary_payload=record,
                     entity_payload=entity_payload,
                     source_type=source_type,
-                )
-
-                extensions = sorted(
-                    {
-                        ext
-                        for path in compatible_paths
-                        for ext in [self._matching_supported_extension(path)]
-                        if ext is not None
-                    }
                 )
                 datasets.append(
                     SenNetDataset(
@@ -154,8 +141,8 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                             default="Unknown",
                         ),
                         title=self._dataset_title(record, record, dataset_id),
-                        compatible_paths=compatible_paths,
-                        compatible_extensions=extensions,
+                        compatible_paths=["/"],
+                        compatible_extensions=[],
                         source_type=source_type,
                         organ=self._organ_from_payload(record, token=token),
                         sample_age=sample_age,
@@ -168,6 +155,7 @@ class SenNetPortalSearchMixin(SenNetPortalGlobusMixin):
                             "status": clean_status,
                             "max_results": limit,
                             "antibody_first_level": self.ANTIBODY_FIRST_LEVEL,
+                            "download_scope": "dataset",
                         },
                     )
                 )

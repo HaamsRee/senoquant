@@ -126,7 +126,7 @@ class SenNetPortalDatasetMixin:
             self._dataset_table.setItem(
                 row,
                 8,
-                self._readonly_item(str(len(dataset.compatible_paths))),
+                self._readonly_item(self._files_column_text(dataset)),
             )
 
         self._populate_column_filter_combos()
@@ -182,6 +182,13 @@ class SenNetPortalDatasetMixin:
                 if text:
                     values.add(text)
             self._replace_combo_items(combo, ["All", *sorted(values)])
+
+    @staticmethod
+    def _files_column_text(dataset: SenNetDataset) -> str:
+        """Return user-facing text for the Files column."""
+        if dataset.compatible_paths == ["/"]:
+            return "All"
+        return str(len(dataset.compatible_paths))
 
     @staticmethod
     def _replace_combo_items(combo: QComboBox, items: list[str]) -> None:

@@ -25,12 +25,12 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
         datasets: Sequence[SenNetDataset],
         destination: str | Path,
     ) -> dict[str, object]:
-        """Download selected dataset file paths via ``sennet-clt`` manifest mode.
+        """Download selected dataset manifest paths via ``sennet-clt``.
 
         Parameters
         ----------
         datasets : sequence of SenNetDataset
-            Selected datasets whose compatible paths should be transferred.
+            Selected datasets whose manifest paths should be transferred.
         destination : str or pathlib.Path
             Local destination directory where downloaded files should end up.
 
@@ -38,7 +38,8 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
         -------
         dict of str to object
             Summary payload with ``dataset_count``, ``file_count``, and
-            ``destination`` plus submitted Globus ``task_ids``.
+            ``destination`` plus submitted Globus ``task_ids`` and
+            ``download_scope``.
 
         Raises
         ------
@@ -60,8 +61,9 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
         manifest_lines = self._build_manifest_lines(dataset_list)
         if not manifest_lines:
             raise RuntimeError(
-                "No compatible file paths were available for the selected datasets."
+                "No transfer manifest paths were available for the selected datasets."
             )
+        download_scope = self._download_scope(dataset_list)
         destination_uri = normalize_uri(destination)
         destination_is_remote = is_remote(destination_uri)
         destination_path = (
@@ -127,10 +129,18 @@ class SenNetPortalTransferMixin(SenNetPortalCommandMixin, SenNetPortalTransferFi
 
         return {
             "dataset_count": len(dataset_list),
-            "file_count": len(manifest_lines),
+            "file_count": 0 if download_scope == "dataset" else len(manifest_lines),
             "destination": destination_uri,
             "task_ids": task_ids,
+            "download_scope": download_scope,
         }
+
+    @staticmethod
+    def _download_scope(datasets: Sequence[SenNetDataset]) -> str:
+        """Return aggregate download scope for a selected dataset list."""
+        if datasets and all(dataset.compatible_paths == ["/"] for dataset in datasets):
+            return "dataset"
+        return "file"
 
     def download_tasks_status(self, task_ids: Sequence[str]) -> dict[str, object]:
         """Return aggregate live status for one or more Globus task IDs.

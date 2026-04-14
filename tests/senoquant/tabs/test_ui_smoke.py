@@ -126,7 +126,13 @@ class _DummySenNetPortalBackend:
         return []
 
     def download_datasets(self, _datasets, _destination) -> dict[str, object]:
-        return {"dataset_count": 0, "file_count": 0, "destination": "", "task_ids": []}
+        return {
+            "dataset_count": 0,
+            "file_count": 0,
+            "destination": "",
+            "task_ids": [],
+            "download_scope": "dataset",
+        }
 
     def download_tasks_status(self, _task_ids) -> dict[str, object]:
         return {
@@ -485,6 +491,45 @@ def test_sennet_portal_select_all_and_clear_all() -> None:
     assert tab._dataset_table.isRowHidden(2) is False
     assert tab._dataset_table.item(1, 0).checkState() == Qt.Checked
     assert tab._dataset_table.item(2, 0).checkState() == Qt.Unchecked
+
+
+def test_sennet_portal_whole_dataset_rows_show_all_and_omit_file_counts() -> None:
+    """Render whole-dataset rows and omit file-count wording in status text."""
+    tab = SenNetPortalTab(backend=_DummySenNetPortalBackend())
+    tab._on_search_complete(
+        [
+            SenNetDataset(
+                sennet_id="SNT1",
+                dataset_type="PhenoCycler",
+                status="Published",
+                access_level="public",
+                title="Dataset 1",
+                compatible_paths=["/"],
+                compatible_extensions=[],
+                source_type="Human",
+                organ="Pancreas",
+                query_metadata={"download_scope": "dataset"},
+            )
+        ]
+    )
+
+    assert tab._dataset_table.item(1, 8).text() == "All"
+    assert tab._status_label.text() == (
+        "Found 1 dataset(s). Select rows and choose a destination to download."
+    )
+
+    tab._on_download_complete(
+        {
+            "dataset_count": 1,
+            "file_count": 0,
+            "destination": "/tmp/downloads",
+            "task_ids": [],
+            "download_scope": "dataset",
+        }
+    )
+    assert tab._status_label.text() == (
+        "Submitted transfer for 1 dataset(s) to /tmp/downloads."
+    )
 
 
 def test_sennet_portal_column_filter_hides_nonmatching_rows() -> None:

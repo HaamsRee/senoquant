@@ -23,9 +23,12 @@ class SenNetDataset:
     title : str
         Human-readable title, dataset name, or fallback identifier.
     compatible_paths : list of str
-        Dataset-relative file paths that match SenoQuant-supported formats.
+        SenNet manifest paths to transfer for this dataset. A single ``"/"``
+        entry means download the whole dataset.
     compatible_extensions : list of str
-        Unique supported file extensions detected in ``compatible_paths``.
+        Optional extension hints detected from ``compatible_paths`` when the
+        transfer scope targets specific files. Empty for whole-dataset
+        downloads.
     source_type : str, optional
         Biological source label (for example, Human or Mouse).
     organ : str, optional

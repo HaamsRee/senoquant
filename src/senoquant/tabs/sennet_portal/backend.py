@@ -17,11 +17,11 @@ class SenNetPortalBackend(
 
     Notes
     -----
-    Discovery combines the SenNet Search API and parameterized file search:
+    Discovery combines the SenNet Search API and Entity API enrichment:
 
     1. Search returns candidate dataset records.
-    2. Records are filtered for antibody-based imaging.
-    3. File compatibility is resolved from ``/param-search/files`` records.
+    2. Records are filtered for antibody-based imaging and dataset type.
+    3. Matching datasets are exposed as whole-dataset download candidates.
 
     Downloads are executed through ``sennet-clt`` manifest transfers.
     """
