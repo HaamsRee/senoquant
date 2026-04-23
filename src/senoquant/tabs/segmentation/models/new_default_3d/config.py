@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional, Set, Tuple
 import numpy as np
 
 _DEFAULT_MODEL_PATH = str(Path(__file__).parent / "best_model_v18.pth")
-_UNSET = object()
 DEFAULT_CELL_DIAMETER_PX = 100.0
 
 
@@ -52,27 +51,27 @@ class PipelineConfig:
 
     mask_threshold: float = 0.55
 
-    center_smooth_sigma: float = _UNSET
-    center_peak_threshold: float = _UNSET
-    seed_min_dist_vox: float = _UNSET
-    min_island_vox_fallback: int = _UNSET
+    center_smooth_sigma: Optional[float] = None
+    center_peak_threshold: Optional[float] = None
+    seed_min_dist_vox: Optional[float] = None
+    min_island_vox_fallback: Optional[int] = None
 
     height_center_weight: float = 2.0
-    height_div_weight: float = _UNSET
+    height_div_weight: Optional[float] = None
     watershed_compactness: float = 0.0
-    boundary_shell_depth: float = _UNSET
+    boundary_shell_depth: Optional[float] = None
 
-    watershed_downsample_xy: int = _UNSET
+    watershed_downsample_xy: Optional[int] = None
 
-    shell_merge_depth: float = _UNSET
-    shell_merge_max_dist_px: float = _UNSET
+    shell_merge_depth: Optional[float] = None
+    shell_merge_max_dist_px: Optional[float] = None
 
-    high_mask_threshold: float = _UNSET
-    min_high_mask_fraction: float = _UNSET
+    high_mask_threshold: Optional[float] = None
+    min_high_mask_fraction: Optional[float] = None
 
-    min_cell_volume_vox: int = _UNSET
-    sdf_sigma_px: float = _UNSET
-    sdf_max_dist_px: float = _UNSET
+    min_cell_volume_vox: Optional[int] = None
+    sdf_sigma_px: Optional[float] = None
+    sdf_max_dist_px: Optional[float] = None
 
     anisotropy: Tuple[float, float, float] = (1.8895, 1.0000, 1.0000)
     verbose: bool = True
@@ -112,18 +111,18 @@ class PipelineConfig:
 
     def __post_init__(self) -> None:
         self._auto_tuned_fields = {
-            name for name in self._AUTO_FIELDS if getattr(self, name) is _UNSET
+            name for name in self._AUTO_FIELDS if getattr(self, name) is None
         }
 
         if self.cell_diameter_px is not None:
             self._derive_from_diameter(self.cell_diameter_px, force_auto=True)
 
         for name, default in self._DEFAULTS.items():
-            if getattr(self, name) is _UNSET:
+            if getattr(self, name) is None:
                 setattr(self, name, default)
 
     def _is_unset(self, name: str) -> bool:
-        return getattr(self, name) is _UNSET
+        return getattr(self, name) is None
 
     def _set_auto_or_unset(
         self, name: str, value: Any, force_auto: bool = False
