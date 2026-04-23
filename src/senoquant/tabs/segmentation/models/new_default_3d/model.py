@@ -60,7 +60,7 @@ class TitanCellModel(SenoQuantSegmentationModel):
         self._ensure_loaded(config)
 
         raw_outputs = self._inference.predict(image)
-        seg_result = self._instance.process(raw_outputs, image)
+        seg_result = self._instance.process(raw_outputs)
 
         return {
             "masks": seg_result["instances"],

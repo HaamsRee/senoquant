@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import time
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -11,7 +10,6 @@ import numpy as np
 import tifffile
 from scipy.ndimage import (
     binary_dilation,
-    binary_closing,
     binary_propagation,
     find_objects,
     generate_binary_structure,
@@ -28,8 +26,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.amp import autocast
-
-warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
 # Optional speedups
@@ -744,31 +740,6 @@ def _fast_bbox(mask: np.ndarray) -> Tuple[int, int, int, int, int, int]:
     return z0, y0, x0, z1, y1, x1
 
 
-def _neighbor_extremes6(inst: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    mx = np.zeros_like(inst)
-    sent = inst.astype(np.int32, copy=True)
-    sent[sent == 0] = 0x7FFFFFFF
-    mn = np.full_like(sent, 0x7FFFFFFF)
-
-    mx[:-1, :, :] = np.maximum(mx[:-1, :, :], inst[1:, :, :])
-    mn[:-1, :, :] = np.minimum(mn[:-1, :, :], sent[1:, :, :])
-    mx[1:, :, :] = np.maximum(mx[1:, :, :], inst[:-1, :, :])
-    mn[1:, :, :] = np.minimum(mn[1:, :, :], sent[:-1, :, :])
-
-    mx[:, :-1, :] = np.maximum(mx[:, :-1, :], inst[:, 1:, :])
-    mn[:, :-1, :] = np.minimum(mn[:, :-1, :], sent[:, 1:, :])
-    mx[:, 1:, :] = np.maximum(mx[:, 1:, :], inst[:, :-1, :])
-    mn[:, 1:, :] = np.minimum(mn[:, 1:, :], sent[:, :-1, :])
-
-    mx[:, :, :-1] = np.maximum(mx[:, :, :-1], inst[:, :, 1:])
-    mn[:, :, :-1] = np.minimum(mn[:, :, :-1], sent[:, :, 1:])
-    mx[:, :, 1:] = np.maximum(mx[:, :, 1:], inst[:, :, :-1])
-    mn[:, :, 1:] = np.minimum(mn[:, :, 1:], sent[:, :, :-1])
-
-    mn[mn == 0x7FFFFFFF] = 0
-    return mx, mn
-
-
 def _compact_relabel(instances: np.ndarray) -> np.ndarray:
     max_lbl = int(instances.max())
     if max_lbl <= 0:
@@ -1171,66 +1142,6 @@ class InstanceEngine:
 
         return out.astype(np.uint32, copy=False), n_merged
 
-    def _fill_small_boundary_inlets(
-        self,
-        instances: np.ndarray,
-        max_inlet_vox: int = 512,
-    ) -> Tuple[np.ndarray, int, int]:
-        max_lbl = int(instances.max())
-        if max_lbl <= 0:
-            return instances.astype(np.uint32, copy=False), 0, 0
-
-        out = instances.copy()
-        sl_list = find_objects(out)
-
-        n_filled_vox = 0
-        n_filled_inlets = 0
-
-        for lbl in range(1, max_lbl + 1):
-            sl = sl_list[lbl - 1] if lbl - 1 < len(sl_list) else None
-            if sl is None:
-                continue
-
-            pad_sl = tuple(
-                slice(max(0, s.start - 1), min(dim, s.stop + 1))
-                for s, dim in zip(sl, out.shape)
-            )
-
-            crop = out[pad_sl]
-            obj = crop == lbl
-            if not obj.any():
-                continue
-
-            allowed = (crop == 0) | obj
-            closed = binary_closing(obj, structure=_STRUCT6, iterations=1)
-            gained = closed & ~obj & (crop == 0)
-            if not gained.any():
-                continue
-
-            comp, n_comp = _label3d(gained)
-            if n_comp == 0:
-                continue
-
-            for cid in range(1, n_comp + 1):
-                m = comp == cid
-                vox = int(m.sum())
-                if vox == 0 or vox > max_inlet_vox:
-                    continue
-
-                dil = binary_dilation(m, structure=_STRUCT6)
-                neigh = crop[dil & ~m]
-                neigh = neigh[neigh > 0]
-                if neigh.size == 0:
-                    continue
-
-                u = np.unique(neigh)
-                if len(u) == 1 and int(u[0]) == lbl:
-                    out[pad_sl][m] = lbl
-                    n_filled_vox += vox
-                    n_filled_inlets += 1
-
-        return out.astype(np.uint32, copy=False), n_filled_vox, n_filled_inlets
-
     def _filter_instances_crop(
         self,
         instances: np.ndarray,
@@ -1435,7 +1346,7 @@ class InstanceEngine:
             "cell_info": {},
         }
 
-    def process(self, outputs: Dict[str, np.ndarray], original_image=None) -> Dict[str, Any]:
+    def process(self, outputs: Dict[str, np.ndarray]) -> Dict[str, Any]:
         t_total = time.time()
 
         mask_prob = outputs["mask"]
@@ -1601,9 +1512,9 @@ class TitanCellPipeline:
         self._ensure_loaded()
         return self._inference.predict(volume)
 
-    def segment(self, outputs: Dict[str, np.ndarray], original_image=None) -> Dict[str, Any]:
+    def segment(self, outputs: Dict[str, np.ndarray]) -> Dict[str, Any]:
         self._ensure_loaded()
-        return self._instance.process(outputs, original_image)
+        return self._instance.process(outputs)
 
     def save(self, outputs: Dict[str, np.ndarray], result: Dict[str, Any], output_dir: str, base: str, save_all: bool = False):
         out = Path(output_dir)
@@ -1634,29 +1545,9 @@ class TitanCellPipeline:
         print("=" * 72, flush=True)
 
         outputs = self.predict(image)
-        result = self.segment(outputs, image)
+        result = self.segment(outputs)
         self.save(outputs, result, output_dir, Path(input_path).stem, save_all=save_all)
 
         n_cells = result["statistics"]["n_instances"]
         print(f"DONE in {time.time() - t0:.1f}s — {n_cells} cells", flush=True)
         return {"outputs": outputs, "result": result}
-
-
-TitanCellV42Pipeline = TitanCellPipeline
-
-
-if __name__ == "__main__":
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    config = make_config(cell_diameter_px=45)
-
-    pipeline = TitanCellPipeline(
-        model_path="./models/TitanCell_V18_0_3D/best_model_v18.pth",
-        device=device,
-        config=config,
-    )
-
-    pipeline.run(
-        "/path/to/input_volume.tif",
-        "/path/to/output_dir",
-        save_all=True,
-    )
