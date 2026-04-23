@@ -9,6 +9,33 @@ import numpy as np
 
 _DEFAULT_MODEL_PATH = str(Path(__file__).parent / "best_model_v18.pth")
 _UNSET = object()
+DEFAULT_CELL_DIAMETER_PX = 100.0
+
+
+def _derive_defaults_for_diameter(cell_diameter_px: float) -> Dict[str, Any]:
+    d = float(cell_diameter_px)
+    r = d / 2.0
+    min_cell_volume_vox = max(
+        200,
+        int((4.0 / 3.0) * math.pi * max(5.0, r * 0.20) ** 3),
+    )
+    return {
+        "cell_diameter_px": d,
+        "center_smooth_sigma": min(12.0, max(5.0, r / 3.0)),
+        "center_peak_threshold": float(np.clip(0.004 + 0.00020 * r, 0.003, 0.015)),
+        "seed_min_dist_vox": min(21.0, max(5.0, r * 0.55)),
+        "min_island_vox_fallback": max(200, int(min_cell_volume_vox * 0.30)),
+        "height_div_weight": float(np.clip(0.20 + 0.007 * r, 0.18, 0.900)),
+        "boundary_shell_depth": float(np.clip(r * 0.04, 1.5, 4.0)),
+        "watershed_downsample_xy": 2,
+        "shell_merge_depth": float(np.clip(r * 0.10, 3.0, 12.0)),
+        "shell_merge_max_dist_px": float(r * 0.40),
+        "high_mask_threshold": 0.92,
+        "min_high_mask_fraction": 0.08,
+        "min_cell_volume_vox": min_cell_volume_vox,
+        "sdf_sigma_px": max(0.5, d * 0.015),
+        "sdf_max_dist_px": max(5.0, d * 0.10),
+    }
 
 
 @dataclass
@@ -21,7 +48,7 @@ class PipelineConfig:
     inference_batch_size: int = 4
     use_torch_compile: bool = False
 
-    cell_diameter_px: Optional[float] = 100.0
+    cell_diameter_px: Optional[float] = DEFAULT_CELL_DIAMETER_PX
 
     mask_threshold: float = 0.55
 
@@ -54,22 +81,11 @@ class PipelineConfig:
 
     _DEFAULTS: Dict[str, Any] = field(
         init=False,
-        default_factory=lambda: dict(
-            center_smooth_sigma=12.0,
-            center_peak_threshold=0.013,
-            seed_min_dist_vox=21.0,
-            min_island_vox_fallback=1256,
-            height_div_weight=0.53,
-            boundary_shell_depth=2.0,
-            watershed_downsample_xy=2,
-            shell_merge_depth=5.0,
-            shell_merge_max_dist_px=20.0,
-            high_mask_threshold=0.92,
-            min_high_mask_fraction=0.08,
-            min_cell_volume_vox=4188,
-            sdf_sigma_px=1.5,
-            sdf_max_dist_px=10.0,
-        ),
+        default_factory=lambda: {
+            k: v
+            for k, v in _derive_defaults_for_diameter(DEFAULT_CELL_DIAMETER_PX).items()
+            if k != "cell_diameter_px"
+        },
     )
 
     _AUTO_FIELDS: Tuple[str, ...] = field(
@@ -119,58 +135,11 @@ class PipelineConfig:
             setattr(self, name, value)
 
     def _derive_from_diameter(self, d: float, force_auto: bool = False) -> None:
-        d = float(d)
-        r = d / 2.0
+        derived = _derive_defaults_for_diameter(d)
+        d = float(derived["cell_diameter_px"])
 
-        min_cell_volume_vox = max(
-            200,
-            int((4.0 / 3.0) * math.pi * max(5.0, r * 0.20) ** 3),
-        )
-
-        self._set_auto_or_unset(
-            "center_smooth_sigma", min(12.0, max(5.0, r / 3.0)), force_auto
-        )
-        self._set_auto_or_unset(
-            "seed_min_dist_vox", min(21.0, max(5.0, r * 0.55)), force_auto
-        )
-        self._set_auto_or_unset(
-            "center_peak_threshold",
-            float(np.clip(0.004 + 0.00020 * r, 0.003, 0.015)),
-            force_auto,
-        )
-        self._set_auto_or_unset(
-            "height_div_weight",
-            float(np.clip(0.20 + 0.007 * r, 0.18, 0.900)),
-            force_auto,
-        )
-        self._set_auto_or_unset(
-            "boundary_shell_depth",
-            float(np.clip(r * 0.04, 1.5, 4.0)),
-            force_auto,
-        )
-        self._set_auto_or_unset(
-            "shell_merge_depth", float(np.clip(r * 0.10, 3.0, 12.0)), force_auto
-        )
-        self._set_auto_or_unset(
-            "shell_merge_max_dist_px", float(r * 0.40), force_auto
-        )
-        self._set_auto_or_unset(
-            "min_cell_volume_vox", int(min_cell_volume_vox), force_auto
-        )
-        self._set_auto_or_unset(
-            "sdf_max_dist_px", float(max(5.0, d * 0.10)), force_auto
-        )
-        self._set_auto_or_unset(
-            "sdf_sigma_px", float(max(0.5, d * 0.015)), force_auto
-        )
-        self._set_auto_or_unset(
-            "min_island_vox_fallback",
-            int(max(200, int(min_cell_volume_vox * 0.30))),
-            force_auto,
-        )
-        self._set_auto_or_unset("high_mask_threshold", 0.92, force_auto)
-        self._set_auto_or_unset("min_high_mask_fraction", 0.08, force_auto)
-        self._set_auto_or_unset("watershed_downsample_xy", 2, force_auto)
+        for name in self._AUTO_FIELDS:
+            self._set_auto_or_unset(name, derived[name], force_auto)
 
         if self.verbose:
             print(
@@ -193,28 +162,7 @@ class PipelineConfig:
 
     @staticmethod
     def derive_defaults(cell_diameter_px: float) -> Dict[str, Any]:
-        d = float(cell_diameter_px)
-        r = d / 2.0
-        min_cell_volume_vox = max(
-            200, int((4.0 / 3.0) * math.pi * max(5.0, r * 0.20) ** 3)
-        )
-        return {
-            "cell_diameter_px": d,
-            "center_smooth_sigma": min(12.0, max(5.0, r / 3.0)),
-            "center_peak_threshold": float(np.clip(0.004 + 0.00020 * r, 0.003, 0.015)),
-            "seed_min_dist_vox": min(21.0, max(5.0, r * 0.55)),
-            "min_island_vox_fallback": max(200, int(min_cell_volume_vox * 0.30)),
-            "height_div_weight": float(np.clip(0.2 + 0.007 * r, 0.2, 0.900)),
-            "boundary_shell_depth": float(np.clip(r * 0.04, 1.5, 4.0)),
-            "watershed_downsample_xy": 2,
-            "shell_merge_depth": float(np.clip(r * 0.10, 3.0, 12.0)),
-            "shell_merge_max_dist_px": float(r * 0.40),
-            "high_mask_threshold": 0.92,
-            "min_high_mask_fraction": 0.08,
-            "min_cell_volume_vox": min_cell_volume_vox,
-            "sdf_sigma_px": max(0.5, d * 0.015),
-            "sdf_max_dist_px": max(5.0, d * 0.10),
-        }
+        return _derive_defaults_for_diameter(cell_diameter_px)
 
 
 __all__ = ["PipelineConfig"]

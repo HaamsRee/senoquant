@@ -18,7 +18,6 @@
       "max": 300.0,
       "default": 100.0
     },
-
     {
       "key": "mask_threshold",
       "label": "Mask threshold",
@@ -29,109 +28,6 @@
       "max": 1.0,
       "default": 0.55
     },
-
-    {
-      "key": "center_smooth_sigma",
-      "label": "Center smooth sigma (px)",
-      "tooltip": "Gaussian smoothing applied to center heatmap before NMS peak detection. Lower = sharper peaks (more seeds, risk over-splitting). Higher = smoother (fewer seeds, risk merging touching cells).",
-      "type": "float",
-      "decimals": 1,
-      "min": 1.0,
-      "max": 30.0,
-      "default": 12.0
-    },
-    {
-      "key": "center_peak_threshold",
-      "label": "Center peak threshold",
-      "tooltip": "Minimum center heatmap value for a peak to become a Tier-1 seed. Lower = more sensitive (more seeds). Higher = stricter (fewer, stronger seeds).",
-      "type": "float",
-      "decimals": 4,
-      "min": 0.001,
-      "max": 0.5,
-      "default": 0.013
-    },
-    {
-      "key": "seed_min_dist_vox",
-      "label": "Min seed distance (px)",
-      "tooltip": "Minimum distance between center peaks in XY pixels (anisotropy-adjusted). Lower = allow closer seeds (split touching cells). Higher = suppress nearby seeds (merge touching cells).",
-      "type": "float",
-      "decimals": 1,
-      "min": 3.0,
-      "max": 60.0,
-      "default": 21.0
-    },
-    {
-      "key": "min_island_vox_fallback",
-      "label": "Min island volume (Tier-2)",
-      "tooltip": "Minimum volume (voxels) for an unseeded SDF island to receive a Tier-2 gap-fill seed. Too low = noise seeds. Too high = miss small real cells.",
-      "type": "int",
-      "min": 50,
-      "max": 100000,
-      "default": 4000
-    },
-
-    {
-      "key": "height_center_weight",
-      "label": "Height center weight",
-      "tooltip": "Weight of center heatmap in watershed height map. Higher = stronger basins at cell centers (deeper wells). Lower = less center influence.",
-      "type": "float",
-      "decimals": 2,
-      "min": 0.0,
-      "max": 10.0,
-      "default": 2.0
-    },
-    {
-      "key": "height_div_weight",
-      "label": "Height divergence weight",
-      "tooltip": "Weight of flow divergence in watershed height map. Raise (0.8-1.0) to split touching cells more aggressively. Lower (0.2-0.4) to reduce over-splitting. Set 0.0 to disable divergence entirely.",
-      "type": "float",
-      "decimals": 3,
-      "min": 0.0,
-      "max": 2.0,
-      "default": 0.53
-    },
-    {
-      "key": "boundary_shell_depth",
-      "label": "Boundary shell depth (px)",
-      "tooltip": "Depth in pixels of the shell mask applied to the boundary signal in the height map. Only the outer shell of each cell contributes to boundary elevation. Lower = thinner shell = more boundary exposed.",
-      "type": "float",
-      "decimals": 2,
-      "min": 0.5,
-      "max": 10.0,
-      "default": 2.0
-    },
-
-    {
-      "key": "watershed_downsample_xy",
-      "label": "Watershed downsample XY",
-      "tooltip": "Downsample factor for watershed in XY. 2 = ~4x faster, slightly coarser boundaries. 1 = full resolution, slower but precise boundaries.",
-      "type": "int",
-      "min": 1,
-      "max": 4,
-      "default": 2
-    },
-
-    {
-      "key": "shell_merge_depth",
-      "label": "Shell merge depth (px)",
-      "tooltip": "SDF depth threshold for identifying the deep interior zone where shell merging operates. Peaks within the same deep interior region may be merged if close enough.",
-      "type": "float",
-      "decimals": 1,
-      "min": 1.0,
-      "max": 30.0,
-      "default": 5.0
-    },
-    {
-      "key": "shell_merge_max_dist_px",
-      "label": "Shell merge max distance (px)",
-      "tooltip": "Maximum anisotropy-weighted distance (px) for two peaks in the same deep interior to be merged. Lower = only merge very close peaks. Higher = merge more distant peaks.",
-      "type": "float",
-      "decimals": 1,
-      "min": 5.0,
-      "max": 60.0,
-      "default": 20.0
-    },
-
     {
       "key": "high_mask_threshold",
       "label": "High mask threshold",
@@ -151,37 +47,6 @@
       "min": 0.0,
       "max": 1.0,
       "default": 0.08
-    },
-
-    {
-      "key": "min_cell_volume_vox",
-      "label": "Min cell volume (vox)",
-      "tooltip": "Minimum volume in voxels for a final instance to be kept. Removes tiny noise objects. Lower = keep smaller cells. Higher = remove more small objects.",
-      "type": "int",
-      "min": 50,
-      "max": 500000,
-      "default": 4000
-    },
-
-    {
-      "key": "sdf_sigma_px",
-      "label": "SDF boundary sigma (px)",
-      "tooltip": "Exponential decay rate for converting SDF to boundary surface probability. Lower = sharper boundary. Higher = smoother boundary falloff.",
-      "type": "float",
-      "decimals": 2,
-      "min": 0.1,
-      "max": 10.0,
-      "default": 1.5
-    },
-    {
-      "key": "sdf_max_dist_px",
-      "label": "SDF max distance (px)",
-      "tooltip": "Maximum SDF distance for tanh scaling. Controls the range over which the SDF signal is spread. Larger = more gradual SDF transition.",
-      "type": "float",
-      "decimals": 1,
-      "min": 1.0,
-      "max": 50.0,
-      "default": 10.0
     }
   ]
 }

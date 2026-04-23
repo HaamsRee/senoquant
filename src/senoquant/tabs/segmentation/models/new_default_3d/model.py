@@ -28,6 +28,7 @@ class TitanCellModel(SenoQuantSegmentationModel):
     """
 
     _SUPPORTED_TASKS = {"nuclear"}
+    _DEFAULT_DIAMETER = 100.0
 
     def __init__(self, models_root=None) -> None:
         super().__init__("new_default_3d", models_root=models_root)
@@ -149,23 +150,9 @@ class TitanCellModel(SenoQuantSegmentationModel):
     # for the current diameter instead.  When it differs, the user has
     # explicitly overridden it, so we keep the user's value.
     _MANIFEST_DEFAULTS: dict[str, Any] = {
-        "cell_diameter_px":      100.0,
-        "mask_threshold":        0.55,
-        "center_smooth_sigma":   12.0,
-        "center_peak_threshold": 0.014,
-        "seed_min_dist_vox":     21.0,
-        "min_island_vox_fallback": 1256,
-        "height_center_weight":  2.0,
-        "height_div_weight":     0.53,
-        "boundary_shell_depth":  2.0,
-        "watershed_downsample_xy": 2,
-        "shell_merge_depth":     5.0,
-        "shell_merge_max_dist_px": 20.0,
-        "high_mask_threshold":   0.96,
-        "min_high_mask_fraction": 0.05,
-        "min_cell_volume_vox":   4188,
-        "sdf_sigma_px":          1.5,
-        "sdf_max_dist_px":       10.0,
+        "cell_diameter_px": _DEFAULT_DIAMETER,
+        "mask_threshold": 0.55,
+        **PipelineConfig.derive_defaults(_DEFAULT_DIAMETER),
     }
 
     # All scalar fields the UI may send (matches manifest.json settings keys)
