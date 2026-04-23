@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Optional, Set, Tuple
+
+import numpy as np
+
+_DEFAULT_MODEL_PATH = str(Path(__file__).parent / "best_model_v18.pth")
+_UNSET = object()
+
+
+@dataclass
+class PipelineConfig:
+    model_path: str = _DEFAULT_MODEL_PATH
+    device: str = "cuda:0"
+
+    patch_size: Tuple[int, int, int] = (64, 176, 176)
+    overlap: Tuple[int, int, int] = (24, 24, 24)
+    inference_batch_size: int = 4
+    use_torch_compile: bool = False
+
+    cell_diameter_px: Optional[float] = 100.0
+
+    mask_threshold: float = 0.55
+
+    center_smooth_sigma: float = _UNSET
+    center_peak_threshold: float = _UNSET
+    seed_min_dist_vox: float = _UNSET
+    min_island_vox_fallback: int = _UNSET
+
+    height_center_weight: float = 2.0
+    height_div_weight: float = _UNSET
+    watershed_compactness: float = 0.0
+    boundary_shell_depth: float = _UNSET
+
+    watershed_downsample_xy: int = _UNSET
+
+    shell_merge_depth: float = _UNSET
+    shell_merge_max_dist_px: float = _UNSET
+
+    high_mask_threshold: float = _UNSET
+    min_high_mask_fraction: float = _UNSET
+
+    min_cell_volume_vox: int = _UNSET
+    sdf_sigma_px: float = _UNSET
+    sdf_max_dist_px: float = _UNSET
+
+    anisotropy: Tuple[float, float, float] = (1.8895, 1.0000, 1.0000)
+    verbose: bool = True
+    save_intermediates: bool = False
+    return_cell_info: bool = False
+
+    _DEFAULTS: Dict[str, Any] = field(
+        init=False,
+        default_factory=lambda: dict(
+            center_smooth_sigma=12.0,
+            center_peak_threshold=0.013,
+            seed_min_dist_vox=21.0,
+            min_island_vox_fallback=1256,
+            height_div_weight=0.53,
+            boundary_shell_depth=2.0,
+            watershed_downsample_xy=2,
+            shell_merge_depth=5.0,
+            shell_merge_max_dist_px=20.0,
+            high_mask_threshold=0.92,
+            min_high_mask_fraction=0.08,
+            min_cell_volume_vox=4188,
+            sdf_sigma_px=1.5,
+            sdf_max_dist_px=10.0,
+        ),
+    )
+
+    _AUTO_FIELDS: Tuple[str, ...] = field(
+        init=False,
+        default=(
+            "center_smooth_sigma",
+            "center_peak_threshold",
+            "seed_min_dist_vox",
+            "min_island_vox_fallback",
+            "height_div_weight",
+            "boundary_shell_depth",
+            "watershed_downsample_xy",
+            "shell_merge_depth",
+            "shell_merge_max_dist_px",
+            "high_mask_threshold",
+            "min_high_mask_fraction",
+            "min_cell_volume_vox",
+            "sdf_sigma_px",
+            "sdf_max_dist_px",
+        ),
+    )
+
+    _auto_tuned_fields: Set[str] = field(init=False, default_factory=set)
+
+    def __post_init__(self) -> None:
+        self._auto_tuned_fields = {
+            name for name in self._AUTO_FIELDS if getattr(self, name) is _UNSET
+        }
+
+        if self.cell_diameter_px is not None:
+            self._derive_from_diameter(self.cell_diameter_px, force_auto=True)
+
+        for name, default in self._DEFAULTS.items():
+            if getattr(self, name) is _UNSET:
+                setattr(self, name, default)
+
+    def _is_unset(self, name: str) -> bool:
+        return getattr(self, name) is _UNSET
+
+    def _set_auto_or_unset(
+        self, name: str, value: Any, force_auto: bool = False
+    ) -> None:
+        if self._is_unset(name):
+            setattr(self, name, value)
+            return
+        if force_auto and name in self._auto_tuned_fields:
+            setattr(self, name, value)
+
+    def _derive_from_diameter(self, d: float, force_auto: bool = False) -> None:
+        d = float(d)
+        r = d / 2.0
+
+        min_cell_volume_vox = max(
+            200,
+            int((4.0 / 3.0) * math.pi * max(5.0, r * 0.20) ** 3),
+        )
+
+        self._set_auto_or_unset(
+            "center_smooth_sigma", min(12.0, max(5.0, r / 3.0)), force_auto
+        )
+        self._set_auto_or_unset(
+            "seed_min_dist_vox", min(21.0, max(5.0, r * 0.55)), force_auto
+        )
+        self._set_auto_or_unset(
+            "center_peak_threshold",
+            float(np.clip(0.004 + 0.00020 * r, 0.003, 0.015)),
+            force_auto,
+        )
+        self._set_auto_or_unset(
+            "height_div_weight",
+            float(np.clip(0.20 + 0.007 * r, 0.18, 0.900)),
+            force_auto,
+        )
+        self._set_auto_or_unset(
+            "boundary_shell_depth",
+            float(np.clip(r * 0.04, 1.5, 4.0)),
+            force_auto,
+        )
+        self._set_auto_or_unset(
+            "shell_merge_depth", float(np.clip(r * 0.10, 3.0, 12.0)), force_auto
+        )
+        self._set_auto_or_unset(
+            "shell_merge_max_dist_px", float(r * 0.40), force_auto
+        )
+        self._set_auto_or_unset(
+            "min_cell_volume_vox", int(min_cell_volume_vox), force_auto
+        )
+        self._set_auto_or_unset(
+            "sdf_max_dist_px", float(max(5.0, d * 0.10)), force_auto
+        )
+        self._set_auto_or_unset(
+            "sdf_sigma_px", float(max(0.5, d * 0.015)), force_auto
+        )
+        self._set_auto_or_unset(
+            "min_island_vox_fallback",
+            int(max(200, int(min_cell_volume_vox * 0.30))),
+            force_auto,
+        )
+        self._set_auto_or_unset("high_mask_threshold", 0.92, force_auto)
+        self._set_auto_or_unset("min_high_mask_fraction", 0.08, force_auto)
+        self._set_auto_or_unset("watershed_downsample_xy", 2, force_auto)
+
+        if self.verbose:
+            print(
+                f"   [cell_diameter={d:.1f}px] "
+                f"sigma={self.center_smooth_sigma:.1f}px | "
+                f"nms={self.seed_min_dist_vox:.1f}px | "
+                f"peak_thr={self.center_peak_threshold:.4f} | "
+                f"div_w={self.height_div_weight:.3f} | "
+                f"center_w={self.height_center_weight:.1f} | "
+                f"shell={self.boundary_shell_depth:.2f}px | "
+                f"merge_dist={self.shell_merge_max_dist_px:.1f}px | "
+                f"min_vol={self.min_cell_volume_vox}vox | "
+                f"sdf_max={self.sdf_max_dist_px:.1f}px | "
+                f"sdf_sigma={self.sdf_sigma_px:.2f}px | "
+                f"high_mask={self.high_mask_threshold:.2f}>"
+                f"{self.min_high_mask_fraction:.0%} | "
+                f"ws_ds={self.watershed_downsample_xy}x",
+                flush=True,
+            )
+
+    @staticmethod
+    def derive_defaults(cell_diameter_px: float) -> Dict[str, Any]:
+        d = float(cell_diameter_px)
+        r = d / 2.0
+        min_cell_volume_vox = max(
+            200, int((4.0 / 3.0) * math.pi * max(5.0, r * 0.20) ** 3)
+        )
+        return {
+            "cell_diameter_px": d,
+            "center_smooth_sigma": min(12.0, max(5.0, r / 3.0)),
+            "center_peak_threshold": float(np.clip(0.004 + 0.00020 * r, 0.003, 0.015)),
+            "seed_min_dist_vox": min(21.0, max(5.0, r * 0.55)),
+            "min_island_vox_fallback": max(200, int(min_cell_volume_vox * 0.30)),
+            "height_div_weight": float(np.clip(0.2 + 0.007 * r, 0.2, 0.900)),
+            "boundary_shell_depth": float(np.clip(r * 0.04, 1.5, 4.0)),
+            "watershed_downsample_xy": 2,
+            "shell_merge_depth": float(np.clip(r * 0.10, 3.0, 12.0)),
+            "shell_merge_max_dist_px": float(r * 0.40),
+            "high_mask_threshold": 0.92,
+            "min_high_mask_fraction": 0.08,
+            "min_cell_volume_vox": min_cell_volume_vox,
+            "sdf_sigma_px": max(0.5, d * 0.015),
+            "sdf_max_dist_px": max(5.0, d * 0.10),
+        }
+
+
+__all__ = ["PipelineConfig"]
