@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
-import tifffile
 from scipy.ndimage import (
     binary_dilation,
     binary_propagation,
@@ -237,51 +236,6 @@ class PipelineConfig:
             "sdf_sigma_px": max(0.5, d * 0.015),
             "sdf_max_dist_px": max(5.0, d * 0.10),
         }
-
-
-def make_config(cell_diameter_px: float = 100.0) -> PipelineConfig:
-    return PipelineConfig(cell_diameter_px=cell_diameter_px)
-
-
-def make_config_skin() -> PipelineConfig:
-    return PipelineConfig(cell_diameter_px=60)
-
-
-def make_config_lung() -> PipelineConfig:
-    return PipelineConfig(cell_diameter_px=80)
-
-
-def make_config_pancreas() -> PipelineConfig:
-    return PipelineConfig(cell_diameter_px=100)
-
-
-def make_config_liver() -> PipelineConfig:
-    return PipelineConfig(cell_diameter_px=120)
-
-
-def make_config_kidney() -> PipelineConfig:
-    return PipelineConfig(cell_diameter_px=90)
-
-
-def make_config_strict() -> PipelineConfig:
-    cfg = PipelineConfig(cell_diameter_px=100)
-    cfg.min_high_mask_fraction = 0.10
-    cfg.high_mask_threshold = 0.97
-    cfg.watershed_downsample_xy = 1
-    cfg.verbose = True
-    cfg._auto_tuned_fields.discard("min_high_mask_fraction")
-    cfg._auto_tuned_fields.discard("high_mask_threshold")
-    cfg._auto_tuned_fields.discard("watershed_downsample_xy")
-    return cfg
-
-
-TISSUE_PRESETS = {
-    "skin": dict(cell_diameter_px=60),
-    "lung": dict(cell_diameter_px=80),
-    "pancreas": dict(cell_diameter_px=100),
-    "liver": dict(cell_diameter_px=120),
-    "kidney": dict(cell_diameter_px=90),
-}
 
 
 # =============================================================================
@@ -1480,68 +1434,3 @@ class InstanceEngine:
         }
 
 
-# =============================================================================
-# PIPELINE
-# =============================================================================
-
-class TitanCellPipeline:
-    def __init__(self, model_path: str, device: str = "cuda:0", config: Optional[PipelineConfig] = None):
-        self.config = config or make_config()
-        self.config.model_path = model_path
-        self.config.device = device
-
-        self._inference: Optional[InferenceEngine] = None
-        self._instance: Optional[InstanceEngine] = None
-
-        if self.config.verbose:
-            print("TitanCell v42.13 adaptive+vectorized initialized", flush=True)
-
-    def _ensure_loaded(self):
-        if self._inference is None:
-            self._inference = InferenceEngine(self.config)
-        if self._instance is None:
-            self._instance = InstanceEngine(self.config)
-
-    def predict(self, volume: np.ndarray) -> Dict[str, np.ndarray]:
-        self._ensure_loaded()
-        return self._inference.predict(volume)
-
-    def segment(self, outputs: Dict[str, np.ndarray]) -> Dict[str, Any]:
-        self._ensure_loaded()
-        return self._instance.process(outputs)
-
-    def save(self, outputs: Dict[str, np.ndarray], result: Dict[str, Any], output_dir: str, base: str, save_all: bool = False):
-        out = Path(output_dir)
-        out.mkdir(parents=True, exist_ok=True)
-
-        tifffile.imwrite(str(out / f"{base}_instances.tif"), result["instances"].astype(np.uint32))
-        tifffile.imwrite(str(out / f"{base}_mask.tif"), result["mask"].astype(np.uint8))
-        tifffile.imwrite(str(out / f"{base}_quality_map.tif"), result["quality_map"].astype(np.float32))
-
-        if save_all:
-            for name in ("mask", "center", "sdf", "boundary"):
-                if name in outputs:
-                    tifffile.imwrite(str(out / f"{base}_{name}.tif"), outputs[name].astype(np.float32))
-            for name, arr in result.get("intermediates", {}).items():
-                if isinstance(arr, np.ndarray):
-                    tifffile.imwrite(str(out / f"{base}_{name}.tif"), arr)
-
-    def run(self, input_path: str, output_dir: str, save_all: bool = False) -> Dict[str, Any]:
-        t0 = time.time()
-
-        image = tifffile.imread(input_path)
-        if image.ndim == 2:
-            image = image[np.newaxis]
-        image = image.astype(np.float32)
-
-        print("\n" + "=" * 72, flush=True)
-        print(f"PROCESSING: {Path(input_path).name}  shape={image.shape}", flush=True)
-        print("=" * 72, flush=True)
-
-        outputs = self.predict(image)
-        result = self.segment(outputs)
-        self.save(outputs, result, output_dir, Path(input_path).stem, save_all=save_all)
-
-        n_cells = result["statistics"]["n_instances"]
-        print(f"DONE in {time.time() - t0:.1f}s — {n_cells} cells", flush=True)
-        return {"outputs": outputs, "result": result}
