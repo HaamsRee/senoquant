@@ -136,7 +136,6 @@ class TitanCellModel(SenoQuantSegmentationModel):
         "high_mask_threshold",
         "min_high_mask_fraction",
         "min_cell_volume_vox",
-        "sdf_interior_recovery",
         "sdf_sigma_px",
         "sdf_max_dist_px",
     })
@@ -150,8 +149,6 @@ class TitanCellModel(SenoQuantSegmentationModel):
     _MANIFEST_DEFAULTS: dict[str, Any] = {
         "cell_diameter_px":      100.0,
         "mask_threshold":        0.55,
-        "mask_interior_mix":     0.02,
-        "sdf_interior_recovery": -2.0,
         "center_smooth_sigma":   12.0,
         "center_peak_threshold": 0.014,
         "seed_min_dist_vox":     21.0,
@@ -179,7 +176,6 @@ class TitanCellModel(SenoQuantSegmentationModel):
         "cell_diameter_px",
         # Binary mask (NOT auto-derived)
         "mask_threshold",
-        "mask_interior_mix",
         # Seeding (auto-derived from cell_diameter_px)
         "center_smooth_sigma",
         "center_peak_threshold",
@@ -200,7 +196,6 @@ class TitanCellModel(SenoQuantSegmentationModel):
         "min_high_mask_fraction",
         # Misc
         "min_cell_volume_vox",
-        "sdf_interior_recovery",
         "sdf_sigma_px",
         "sdf_max_dist_px",
         # Flags

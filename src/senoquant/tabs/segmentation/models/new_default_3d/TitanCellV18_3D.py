@@ -64,7 +64,6 @@ class PipelineConfig:
     cell_diameter_px: Optional[float] = 100.0
 
     mask_threshold: float = 0.55
-    mask_interior_mix: float = 0.02
 
     center_smooth_sigma: float = _UNSET
     center_peak_threshold: float = _UNSET
@@ -85,7 +84,6 @@ class PipelineConfig:
     min_high_mask_fraction: float = _UNSET
 
     min_cell_volume_vox: int = _UNSET
-    sdf_interior_recovery: float = _UNSET
     sdf_sigma_px: float = _UNSET
     sdf_max_dist_px: float = _UNSET
 
@@ -109,7 +107,6 @@ class PipelineConfig:
             high_mask_threshold=0.92,
             min_high_mask_fraction=0.08,
             min_cell_volume_vox=4188,
-            sdf_interior_recovery=-2.0,
             sdf_sigma_px=1.5,
             sdf_max_dist_px=10.0,
         ),
@@ -130,7 +127,6 @@ class PipelineConfig:
             "high_mask_threshold",
             "min_high_mask_fraction",
             "min_cell_volume_vox",
-            "sdf_interior_recovery",
             "sdf_sigma_px",
             "sdf_max_dist_px",
         ),
@@ -192,7 +188,6 @@ class PipelineConfig:
         self._set_auto_or_unset("min_cell_volume_vox", int(min_cell_volume_vox), force_auto)
         self._set_auto_or_unset("sdf_max_dist_px", float(max(5.0, d * 0.10)), force_auto)
         self._set_auto_or_unset("sdf_sigma_px", float(max(0.5, d * 0.015)), force_auto)
-        self._set_auto_or_unset("sdf_interior_recovery", float(-max(1.0, r * 0.04)), force_auto)
         self._set_auto_or_unset(
             "min_island_vox_fallback",
             int(max(200, int(min_cell_volume_vox * 0.30))),
@@ -239,7 +234,6 @@ class PipelineConfig:
             "high_mask_threshold": 0.92,
             "min_high_mask_fraction": 0.08,
             "min_cell_volume_vox": min_cell_volume_vox,
-            "sdf_interior_recovery": -max(1.0, r * 0.04),
             "sdf_sigma_px": max(0.5, d * 0.015),
             "sdf_max_dist_px": max(5.0, d * 0.10),
         }
@@ -333,7 +327,7 @@ class AttentionGate3D(nn.Module):
 class TitanCellV18_3D(nn.Module):
     DIMS = (64, 128, 256, 512)
 
-    def __init__(self, anisotropy=(1.0, 1.0, 1.0)):
+    def __init__(self):
         super().__init__()
         D = self.DIMS
         self.stem = nn.Sequential(
@@ -498,7 +492,7 @@ class InferenceEngine:
             if model_sdf_max_dist_px is not None and "sdf_max_dist_px" in self.cfg._auto_tuned_fields:
                 self.cfg.sdf_max_dist_px = model_sdf_max_dist_px
 
-        self.model = TitanCellV18_3D(self.cfg.anisotropy)
+        self.model = TitanCellV18_3D()
 
         if "model_state_dict" in ckpt:
             sd = ckpt["model_state_dict"]
@@ -1267,7 +1261,7 @@ class InstanceEngine:
                 image=height_crop_i32,
                 markers=seed_crop,
                 mask=mask_crop,
-                compactness=0.0,
+                compactness=float(self.cfg.watershed_compactness),
                 watershed_line=False,
             ).astype(np.uint32)
 
@@ -1305,7 +1299,7 @@ class InstanceEngine:
             image=height_ds,
             markers=markers_ds,
             mask=mask_ds,
-            compactness=0.0,
+            compactness=float(self.cfg.watershed_compactness),
             watershed_line=False,
         ).astype(np.uint32)
 

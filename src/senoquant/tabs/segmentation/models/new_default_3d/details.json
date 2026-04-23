@@ -29,26 +29,6 @@
       "max": 1.0,
       "default": 0.55
     },
-    {
-      "key": "mask_interior_mix",
-      "label": "SDF interior mix",
-      "tooltip": "Weight of SDF interior evidence mixed into the binary mask score. 0.0 = pure mask probability, 1.0 = pure SDF interior. Small values (0.01-0.05) recover dim cell interiors.",
-      "type": "float",
-      "decimals": 2,
-      "min": 0.0,
-      "max": 1.0,
-      "default": 0.02
-    },
-    {
-      "key": "sdf_interior_recovery",
-      "label": "SDF interior recovery (px)",
-      "tooltip": "Recover voxels deep inside cells (SDF < this value) that were excluded by the mask threshold. Negative values = inside the cell. More negative = recover deeper interiors only.",
-      "type": "float",
-      "decimals": 1,
-      "min": -20.0,
-      "max": 0.0,
-      "default": -2.0
-    },
 
     {
       "key": "center_smooth_sigma",
