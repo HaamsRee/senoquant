@@ -8,7 +8,9 @@ import numpy as np
 
 from senoquant.utils import layer_data_asarray
 from ..base import SenoQuantSegmentationModel
-from .TitanCellV18_3D import PipelineConfig, InferenceEngine, InstanceEngine
+from .config import PipelineConfig
+from .inference import InferenceEngine
+from .postprocess import InstanceEngine
 
 
 class TitanCellModel(SenoQuantSegmentationModel):
