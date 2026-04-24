@@ -63,9 +63,7 @@ Use channel mappings to define reusable channel names for all dropdowns in the t
 - For models where nuclear input is optional, the label updates to `Nuclear channel (optional)` and includes `(none)` as a valid choice.
 - For models where nuclear input is required, the label updates to `Nuclear channel (required)`.
 - Batch settings dialogs mirror Segmentation-tab model settings.
-- Some model behaviors are fixed and not shown as controls:
-  - StarDist (`default_2d`/`default_3d`) normalization is always enabled.
-  - CPSAM auto-detects 2D vs 3D from input dimensionality and always normalizes.
+- Some model behaviors are fixed and not shown as controls.
 
 ### Spot detection section
 

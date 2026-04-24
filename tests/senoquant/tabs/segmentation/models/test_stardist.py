@@ -40,23 +40,6 @@ def test_stardist_2d_helpers(module_path: str) -> None:
         model._extract_layer_data(None, required=True)
 
 
-def test_stardist_3d_scale_input() -> None:
-    """Scale 3D input with valid diameter.
-
-    Returns
-    -------
-    None
-    """
-    module = importlib.import_module(
-        "senoquant.tabs.segmentation.models.default_3d.model"
-    )
-    model = module.StarDistOnnxModel(models_root=None)
-    image = np.zeros((3, 3, 3), dtype=np.float32)
-    scaled, scale = model._scale_input(image, {"object_diameter_px": 30})
-    assert scaled.shape == image.shape
-    assert scale is None
-
-
 def test_stardist_2d_infer_tiling_uses_graph_divisibility(monkeypatch) -> None:
     """Use inferred ONNX divisibility constraints for tile sizing."""
     module = importlib.import_module(

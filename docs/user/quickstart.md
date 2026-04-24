@@ -59,7 +59,7 @@ The plugin window opens as a docked widget with 8 tabs:
 
 1. Switch to the **Segmentation** tab.
 2. In the Nuclear segmentation box, select **Nuclear layer**: Choose the DAPI or nuclear stain channel.
-3. Select **Model**: `default_2d` (for 2D images) or `default_3d` (for Z-stacks). `cpsam` is also available for nuclear+cytoplasmic segmentation.
+3. Select **Model**: `default_2d` for 2D images or `default_3d` for Z-stacks. `cpsam` is also available for nuclear+cytoplasmic segmentation.
 4. Adjust model settings if needed (e.g., `Object diameter (px)`).
 
     > To quickly estimate object diameter, create a napari Shapes layer, draw a line across a representative nucleus, then use `Layers` → `Measure` → `Toggle shapes dimensions measurement (napari builtins)`. See <https://napari.org/stable/howtos/layers/shapes.html> for details.

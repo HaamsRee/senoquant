@@ -1,7 +1,7 @@
 # StarDist ONNX conversion
 
 This guide documents the StarDist-to-ONNX conversion utility used by the
-default StarDist segmentation models.
+built-in `default_2d` StarDist segmentation model.
 
 ## Location
 
@@ -95,11 +95,10 @@ When `--output` points to a directory, generated filenames follow:
 - `stardist2d_<model_name>.onnx`
 - `stardist3d_<model_name>.onnx`
 
-For automatic discovery by SenoQuant default models, place ONNX files in the
-model folders, preferably:
+For automatic discovery by SenoQuant's built-in StarDist model, place ONNX files
+in the model folder, preferably:
 
 - `src/senoquant/tabs/segmentation/models/default_2d/onnx_models/default_2d.onnx`
-- `src/senoquant/tabs/segmentation/models/default_3d/onnx_models/default_3d.onnx`
 
 ## Optional inspection helpers
 
