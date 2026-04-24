@@ -32,7 +32,7 @@ try:
 except Exception:
     _HAS_CV2 = False
 
-from senoquant.tabs.segmentation.models.new_default_3d.config import PipelineConfig
+from senoquant.tabs.segmentation.models.default_3d.config import PipelineConfig
 
 _STRUCT6 = generate_binary_structure(3, 1)
 

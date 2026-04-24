@@ -30,7 +30,7 @@ The Segmentation tab provides two sections for segmenting nuclei and cytoplasm i
 | Model | Description | Dimensionality |
 | --- | --- | --- |
 | `default_2d` | Fine-tuned StarDist model for 2D nuclei. | 2D |
-| `default_3d` | Fine-tuned StarDist model for 3D nuclei. | 3D |
+| `default_3d` | Improved 3D nuclear instance segmentation. | 3D |
 | `cpsam` | Cellpose SAM model for nuclei. | 2D/3D |
 
 ### Cytoplasmic segmentation models
@@ -69,19 +69,16 @@ This section mirrors the model metadata in the plugin. Use it as a guide for cho
 
 Normalization is always applied internally using percentile clipping (`pmin=1.0`, `pmax=99.8`) and is not exposed in the UI.
 
-### default_3d (StarDist 3D)
+### default_3d (Improved 3D Model)
 
 **Best for:** 3D stacks where nuclei extend across multiple z-planes.
 
-**How it works:** StarDist 3D predicts star-convex polyhedra in volumetric data.
-
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| **Object diameter (px)** | float | 30.0 | 1.0 - 500.0 | Expected diameter of nuclei in pixels. |
-| **Prob threshold** | float | 0.445 | 0.0 - 1.0 | Confidence threshold for accepting nuclei. |
-| **NMS threshold** | float | 0.3 | 0.0 - 1.0 | Non-maximum suppression threshold for separating instances. |
-
-Normalization is always applied internally using percentile clipping (`pmin=1.0`, `pmax=99.8`) and is not exposed in the UI.
+| **Cell diameter (px)** | float | 100.0 | 0.0 - 300.0 | Average nuclear diameter used to derive the internal postprocessing parameters. |
+| **Mask threshold** | float | 0.55 | 0.0 - 1.0 | Base probability threshold for the foreground mask. |
+| **High mask threshold** | float | 0.92 | 0.5 - 1.0 | Threshold for counting high-confidence voxels inside each instance. |
+| **Min high-mask fraction** | float | 0.08 | 0.0 - 1.0 | Minimum fraction of high-confidence voxels required to keep an instance. |
 
 ### cpsam (Cellpose SAM)
 
