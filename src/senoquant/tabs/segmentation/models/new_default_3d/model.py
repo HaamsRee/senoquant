@@ -80,19 +80,13 @@ class TitanCellModel(SenoQuantSegmentationModel):
 
     def _build_config(self, settings: dict[str, Any]) -> PipelineConfig:
         """Build PipelineConfig from the reduced UI surface."""
-        kwargs: dict[str, Any] = {"model_path": self._model_path}
-
-        diameter = settings.get("cell_diameter_px")
-        if diameter is None or diameter <= 0:
-            kwargs["cell_diameter_px"] = None
-        else:
-            kwargs["cell_diameter_px"] = float(diameter)
-
-        for field_name in ("mask_threshold", "high_mask_threshold", "min_high_mask_fraction"):
-            if field_name in settings:
-                kwargs[field_name] = settings[field_name]
-
-        return PipelineConfig(**kwargs)
+        return PipelineConfig(
+            model_path=self._model_path,
+            cell_diameter_px=float(settings["cell_diameter_px"]),
+            mask_threshold=float(settings["mask_threshold"]),
+            high_mask_threshold=float(settings["high_mask_threshold"]),
+            min_high_mask_fraction=float(settings["min_high_mask_fraction"]),
+        )
 
     def _ensure_loaded(self, config: PipelineConfig) -> None:
         if self._inference is None:

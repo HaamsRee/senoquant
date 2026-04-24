@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 
@@ -11,7 +11,7 @@ _DEFAULT_MODEL_PATH = str(Path(__file__).parent / "best_model_v18.pth")
 DEFAULT_CELL_DIAMETER_PX = 100.0
 
 
-def _derive_defaults_for_diameter(cell_diameter_px: float) -> Dict[str, Any]:
+def _derive_defaults_for_diameter(cell_diameter_px: float) -> Dict[str, float | int]:
     d = float(cell_diameter_px)
     r = d / 2.0
     min_cell_volume_vox = max(
@@ -47,102 +47,50 @@ class PipelineConfig:
     inference_batch_size: int = 4
     use_torch_compile: bool = False
 
-    cell_diameter_px: Optional[float] = DEFAULT_CELL_DIAMETER_PX
-
+    cell_diameter_px: float = DEFAULT_CELL_DIAMETER_PX
     mask_threshold: float = 0.55
-
-    center_smooth_sigma: Optional[float] = None
-    center_peak_threshold: Optional[float] = None
-    seed_min_dist_vox: Optional[float] = None
-    min_island_vox_fallback: Optional[int] = None
+    high_mask_threshold: float = 0.92
+    min_high_mask_fraction: float = 0.08
 
     height_center_weight: float = 2.0
-    height_div_weight: Optional[float] = None
     watershed_compactness: float = 0.0
-    boundary_shell_depth: Optional[float] = None
-
-    watershed_downsample_xy: Optional[int] = None
-
-    shell_merge_depth: Optional[float] = None
-    shell_merge_max_dist_px: Optional[float] = None
-
-    high_mask_threshold: Optional[float] = None
-    min_high_mask_fraction: Optional[float] = None
-
-    min_cell_volume_vox: Optional[int] = None
-    sdf_sigma_px: Optional[float] = None
-    sdf_max_dist_px: Optional[float] = None
 
     anisotropy: Tuple[float, float, float] = (1.8895, 1.0000, 1.0000)
     verbose: bool = True
     save_intermediates: bool = False
     return_cell_info: bool = False
 
-    _DEFAULTS: Dict[str, Any] = field(
-        init=False,
-        default_factory=lambda: {
-            k: v
-            for k, v in _derive_defaults_for_diameter(DEFAULT_CELL_DIAMETER_PX).items()
-            if k != "cell_diameter_px"
-        },
-    )
-
-    _AUTO_FIELDS: Tuple[str, ...] = field(
-        init=False,
-        default=(
-            "center_smooth_sigma",
-            "center_peak_threshold",
-            "seed_min_dist_vox",
-            "min_island_vox_fallback",
-            "height_div_weight",
-            "boundary_shell_depth",
-            "watershed_downsample_xy",
-            "shell_merge_depth",
-            "shell_merge_max_dist_px",
-            "high_mask_threshold",
-            "min_high_mask_fraction",
-            "min_cell_volume_vox",
-            "sdf_sigma_px",
-            "sdf_max_dist_px",
-        ),
-    )
-
-    _auto_tuned_fields: Set[str] = field(init=False, default_factory=set)
+    center_smooth_sigma: float = field(init=False)
+    center_peak_threshold: float = field(init=False)
+    seed_min_dist_vox: float = field(init=False)
+    min_island_vox_fallback: int = field(init=False)
+    height_div_weight: float = field(init=False)
+    boundary_shell_depth: float = field(init=False)
+    watershed_downsample_xy: int = field(init=False)
+    shell_merge_depth: float = field(init=False)
+    shell_merge_max_dist_px: float = field(init=False)
+    min_cell_volume_vox: int = field(init=False)
+    sdf_sigma_px: float = field(init=False)
+    sdf_max_dist_px: float = field(init=False)
 
     def __post_init__(self) -> None:
-        self._auto_tuned_fields = {
-            name for name in self._AUTO_FIELDS if getattr(self, name) is None
-        }
-
-        if self.cell_diameter_px is not None:
-            self._derive_from_diameter(self.cell_diameter_px, force_auto=True)
-
-        for name, default in self._DEFAULTS.items():
-            if getattr(self, name) is None:
-                setattr(self, name, default)
-
-    def _is_unset(self, name: str) -> bool:
-        return getattr(self, name) is None
-
-    def _set_auto_or_unset(
-        self, name: str, value: Any, force_auto: bool = False
-    ) -> None:
-        if self._is_unset(name):
-            setattr(self, name, value)
-            return
-        if force_auto and name in self._auto_tuned_fields:
-            setattr(self, name, value)
-
-    def _derive_from_diameter(self, d: float, force_auto: bool = False) -> None:
-        derived = _derive_defaults_for_diameter(d)
-        d = float(derived["cell_diameter_px"])
-
-        for name in self._AUTO_FIELDS:
-            self._set_auto_or_unset(name, derived[name], force_auto)
+        derived = _derive_defaults_for_diameter(self.cell_diameter_px)
+        self.center_smooth_sigma = float(derived["center_smooth_sigma"])
+        self.center_peak_threshold = float(derived["center_peak_threshold"])
+        self.seed_min_dist_vox = float(derived["seed_min_dist_vox"])
+        self.min_island_vox_fallback = int(derived["min_island_vox_fallback"])
+        self.height_div_weight = float(derived["height_div_weight"])
+        self.boundary_shell_depth = float(derived["boundary_shell_depth"])
+        self.watershed_downsample_xy = int(derived["watershed_downsample_xy"])
+        self.shell_merge_depth = float(derived["shell_merge_depth"])
+        self.shell_merge_max_dist_px = float(derived["shell_merge_max_dist_px"])
+        self.min_cell_volume_vox = int(derived["min_cell_volume_vox"])
+        self.sdf_sigma_px = float(derived["sdf_sigma_px"])
+        self.sdf_max_dist_px = float(derived["sdf_max_dist_px"])
 
         if self.verbose:
             print(
-                f"   [cell_diameter={d:.1f}px] "
+                f"   [cell_diameter={self.cell_diameter_px:.1f}px] "
                 f"sigma={self.center_smooth_sigma:.1f}px | "
                 f"nms={self.seed_min_dist_vox:.1f}px | "
                 f"peak_thr={self.center_peak_threshold:.4f} | "
@@ -160,7 +108,7 @@ class PipelineConfig:
             )
 
     @staticmethod
-    def derive_defaults(cell_diameter_px: float) -> Dict[str, Any]:
+    def derive_defaults(cell_diameter_px: float) -> Dict[str, float | int]:
         return _derive_defaults_for_diameter(cell_diameter_px)
 
 

@@ -50,31 +50,6 @@ class InferenceEngine:
         if "anisotropy" in ckpt:
             self.cfg.anisotropy = tuple(ckpt["anisotropy"])
 
-        model_sdf_sigma_px = None
-        model_sdf_max_dist_px = None
-
-        if "sdf_config" in ckpt:
-            sc = ckpt["sdf_config"]
-            pxy = float(self.cfg.anisotropy[2])
-
-            if "sigma_px" in sc:
-                model_sdf_sigma_px = float(sc["sigma_px"])
-            elif "sigma_um" in sc:
-                model_sdf_sigma_px = float(sc["sigma_um"]) / pxy
-
-            if "max_dist_px" in sc:
-                model_sdf_max_dist_px = float(sc["max_dist_px"])
-            elif "max_dist_um" in sc:
-                model_sdf_max_dist_px = float(sc["max_dist_um"]) / pxy
-
-        if self.cfg.cell_diameter_px is not None:
-            self.cfg._derive_from_diameter(self.cfg.cell_diameter_px, force_auto=True)
-        else:
-            if model_sdf_sigma_px is not None and "sdf_sigma_px" in self.cfg._auto_tuned_fields:
-                self.cfg.sdf_sigma_px = model_sdf_sigma_px
-            if model_sdf_max_dist_px is not None and "sdf_max_dist_px" in self.cfg._auto_tuned_fields:
-                self.cfg.sdf_max_dist_px = model_sdf_max_dist_px
-
         self.model = TitanCellV18_3D()
 
         if "model_state_dict" in ckpt:
