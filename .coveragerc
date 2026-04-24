@@ -11,6 +11,10 @@ omit =
     src/senoquant/tabs/segmentation/stardist_onnx_utils/**
     src/senoquant/tabs/segmentation/models/default_2d/model.py
     src/senoquant/tabs/segmentation/models/default_3d/model.py
+    src/senoquant/tabs/segmentation/models/default_3d/config.py
+    src/senoquant/tabs/segmentation/models/default_3d/inference.py
+    src/senoquant/tabs/segmentation/models/default_3d/network.py
+    src/senoquant/tabs/segmentation/models/default_3d/postprocess.py
     src/senoquant/tabs/segmentation/models/cpsam/model.py    
     src/senoquant/tabs/spots/models/udwt/model.py
     src/senoquant/tabs/spots/models/rmp/model.py

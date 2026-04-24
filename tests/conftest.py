@@ -1236,6 +1236,7 @@ def _ensure_torch(force: bool = True) -> None:
             pass
 
     torch = types.ModuleType("torch")
+    amp = types.ModuleType("torch.amp")
     nn = types.ModuleType("torch.nn")
     functional = types.ModuleType("torch.nn.functional")
     onnx = types.ModuleType("torch.onnx")
@@ -1250,6 +1251,16 @@ def _ensure_torch(force: bool = True) -> None:
         return shape
 
     class _NoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, *_args) -> bool:
+            return False
+
+    class _Autocast:
+        def __init__(self, *_args, **_kwargs) -> None:
+            return None
+
         def __enter__(self):
             return None
 
@@ -1508,6 +1519,7 @@ def _ensure_torch(force: bool = True) -> None:
         device=_get_device(value),
     )
     torch.no_grad = lambda: _NoGrad()
+    torch.inference_mode = lambda: _NoGrad()
     torch.load = lambda *_args, **_kwargs: {}
     torch.save = lambda *_args, **_kwargs: None
     torch.set_grad_enabled = lambda *_args, **_kwargs: None
@@ -1517,6 +1529,8 @@ def _ensure_torch(force: bool = True) -> None:
     )
     torch.hub = types.SimpleNamespace(download_url_to_file=lambda *_a, **_k: None)
     torch.jit = types.SimpleNamespace(trace=lambda model, *_a, **_k: model)
+    amp.autocast = _Autocast
+    torch.amp = amp
 
     onnx.export = lambda *_args, **_kwargs: None
     torch.onnx = onnx
@@ -1563,6 +1577,7 @@ def _ensure_torch(force: bool = True) -> None:
     torch.utils = utils
 
     sys.modules["torch"] = torch
+    sys.modules["torch.amp"] = amp
     sys.modules["torch.nn"] = nn
     sys.modules["torch.nn.functional"] = functional
     sys.modules["torch.onnx"] = onnx
