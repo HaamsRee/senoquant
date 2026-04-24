@@ -23,11 +23,14 @@ class TitanCellModel(SenoQuantSegmentationModel):
 
         model_path = Path(self.model_dir) / "best_model_v18.pth"
         if not model_path.exists():
-            model_path = ensure_hf_model(
-                "best_model_v18.pth",
-                self.model_dir,
-                repo_id=DEFAULT_REPO_ID,
-            )
+            try:
+                model_path = ensure_hf_model(
+                    "best_model_v18.pth",
+                    self.model_dir,
+                    repo_id=DEFAULT_REPO_ID,
+                )
+            except RuntimeError:
+                pass
 
         self._model_path = str(model_path)
         self._inference: InferenceEngine | None = None
