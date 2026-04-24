@@ -9,6 +9,7 @@ import numpy as np
 
 from senoquant.utils import layer_data_asarray
 from ..base import SenoQuantSegmentationModel
+from ..hf import DEFAULT_REPO_ID, ensure_hf_model
 from .config import PipelineConfig
 from .inference import InferenceEngine
 from .postprocess import InstanceEngine
@@ -22,11 +23,12 @@ class TitanCellModel(SenoQuantSegmentationModel):
     def __init__(self, models_root=None) -> None:
         super().__init__("new_default_3d", models_root=models_root)
 
-        model_path = Path(__file__).parent / "best_model_v18.pth"
+        model_path = Path(self.model_dir) / "best_model_v18.pth"
         if not model_path.exists():
-            raise FileNotFoundError(
-                f"TitanCell model weights not found at {model_path}. "
-                "Place best_model_v18.pth in the same directory as this file."
+            model_path = ensure_hf_model(
+                "best_model_v18.pth",
+                self.model_dir,
+                repo_id=DEFAULT_REPO_ID,
             )
 
         self._model_path = str(model_path)
