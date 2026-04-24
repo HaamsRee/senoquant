@@ -18,8 +18,6 @@ from .postprocess import InstanceEngine
 class TitanCellModel(SenoQuantSegmentationModel):
     """TitanCell 3D segmentation model wrapper."""
 
-    _SUPPORTED_TASKS = {"nuclear"}
-
     def __init__(self, models_root=None) -> None:
         super().__init__("default_3d", models_root=models_root)
 
@@ -34,12 +32,6 @@ class TitanCellModel(SenoQuantSegmentationModel):
         self._model_path = str(model_path)
         self._inference: InferenceEngine | None = None
         self._instance: InstanceEngine | None = None
-
-    def supports_task(self, task: str) -> bool:
-        return task in self._SUPPORTED_TASKS
-
-    def display_order(self) -> float | None:
-        return 10.0
 
     def run(self, **kwargs) -> dict[str, Any]:
         layer = kwargs.get("layer")

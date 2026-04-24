@@ -2,7 +2,7 @@
   "name": "default_3d",
    "description": "Improved 3D nuclear instance segmentation using watershed, high-mask fraction filtering, flow divergence, and shell merging.",
   "version": "42.5.0",
-  "order": 10,
+  "order": 2,
   "tasks": {
     "nuclear": { "supported": true },
     "cytoplasmic": { "supported": false }
