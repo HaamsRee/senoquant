@@ -58,8 +58,6 @@ def _filter_labels_by_size(
     numpy.ndarray
         Filtered labeled mask with regions outside size range removed.
     """
-    from skimage.measure import regionprops
-
     if mask is None or mask.size == 0:
         return mask
 
@@ -89,25 +87,36 @@ def _filter_labels_by_size(
         min_threshold = float(min_size)
         max_threshold = float(max_size)
 
-    # Get region properties
-    regions = regionprops(mask)
-    if not regions:
+    labels = np.asarray(mask)
+    positive = labels > 0
+    if not np.any(positive):
         return mask
 
-    # Build a mask of labels to keep
+    label_values = labels[positive]
+    max_label = int(label_values.max())
+
+    if max_label <= label_values.size * 4:
+        # Dense case
+        counts = np.bincount(label_values.ravel(), minlength=max_label + 1)
+        label_sizes = counts.astype(float)
+        keep_by_label = label_sizes >= min_threshold
+        if max_threshold > 0:
+            keep_by_label &= label_sizes <= max_threshold
+        keep_by_label[0] = False
+        keep_pixels = np.zeros(labels.shape, dtype=bool)
+        keep_pixels[positive] = keep_by_label[label_values]
+    else:
+        # Sparse case
+        label_ids, counts = np.unique(label_values, return_counts=True)
+        label_sizes = counts.astype(float)
+        keep = label_sizes >= min_threshold
+        if max_threshold > 0:
+            keep &= label_sizes <= max_threshold
+        keep_ids = label_ids[keep]
+        keep_pixels = np.isin(labels, keep_ids)
+
     filtered_mask = np.zeros_like(mask)
-    for region in regions:
-        effective_size = float(region.area)
-        keep = True
-
-        if min_threshold > 0 and effective_size < min_threshold:
-            keep = False
-        if max_threshold > 0 and effective_size > max_threshold:
-            keep = False
-
-        if keep:
-            filtered_mask[mask == region.label] = region.label
-
+    filtered_mask[keep_pixels] = mask[keep_pixels]
     return filtered_mask
 
 

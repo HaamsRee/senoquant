@@ -89,3 +89,21 @@ def test_filter_3d_uses_effective_volume() -> None:
     expected = np.zeros_like(mask)
     expected[0:2, 0:2, 0:2] = 1
     np.testing.assert_array_equal(result, expected)
+
+
+def test_filter_handles_sparse_label_ids() -> None:
+    """Test filtering when labels are not compactly numbered."""
+    mask = np.array([
+        [1000, 1000, 0, 9000, 9000, 9000],
+        [1000, 1000, 0, 9000, 9000, 9000],
+        [0, 0, 0, 9000, 9000, 9000],
+    ])
+
+    result = _filter_labels_by_size(mask, min_size=3, max_size=0)
+
+    expected = np.array([
+        [0, 0, 0, 9000, 9000, 9000],
+        [0, 0, 0, 9000, 9000, 9000],
+        [0, 0, 0, 9000, 9000, 9000],
+    ])
+    np.testing.assert_array_equal(result, expected)
