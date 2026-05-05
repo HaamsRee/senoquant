@@ -56,10 +56,13 @@ install_args = sys.argv[2:]
 child_env = os.environ.copy()
 child_env.pop("SSL_CERT_FILE", None)
 child_env.pop("SSL_CERT_DIR", None)
-child_env["UV_NATIVE_TLS"] = "true"
+child_env["UV_SYSTEM_CERTS"] = "true"
 
 raise SystemExit(
-    subprocess.call([uv_exe, "pip", "install", "--native-tls", *install_args], env=child_env)
+    subprocess.call(
+        [uv_exe, "pip", "install", "--system-certs", "--python", sys.executable, *install_args],
+        env=child_env,
+    )
 )
 '@
     Set-Content -Path $tempScript -Value $pythonCode -Encoding ASCII
@@ -126,7 +129,7 @@ if (!(Test-Path $envDir)) {
 Invoke-Checked "Upgrading pip" { & $micromambaExe run -p $envDir python -m pip install --upgrade pip }
 
 Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install uv }
-Write-Host "[SenoQuant] uv installs will use native TLS and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment."
+Write-Host "[SenoQuant] uv installs will use system certificates and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment."
 Invoke-Checked "Installing pip-system-certs" { Invoke-UvPipInstall @("pip-system-certs") }
 
 # Install scyjava for BioFormats Java dependency
