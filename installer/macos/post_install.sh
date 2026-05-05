@@ -26,8 +26,8 @@ log_exec() {
 }
 
 uv_pip_install() {
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env -u SSL_CERT_FILE -u SSL_CERT_DIR UV_NATIVE_TLS=true \
-        uv pip install --native-tls "$@"
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env -u SSL_CERT_FILE -u SSL_CERT_DIR UV_SYSTEM_CERTS=true \
+        uv pip install --system-certs --python "${ENV_DIR}/bin/python" "$@"
 }
 
 echo "[SenoQuant] Starting post-install at $(date)" > "${LOG_PATH}"
@@ -51,21 +51,32 @@ case "${HOST_ARCH}" in
         ;;
 esac
 
-PREFERRED_MICROMAMBA_BIN="${TOOLS_DIR}/micromamba-${MICROMAMBA_ARCH}"
+PREFERRED_MICROMAMBA_BIN="${TOOLS_DIR}/${MICROMAMBA_ARCH}/micromamba"
+OLD_NAMED_MICROMAMBA_BIN="${TOOLS_DIR}/micromamba-${MICROMAMBA_ARCH}"
 LEGACY_MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
 if [ -f "${PREFERRED_MICROMAMBA_BIN}" ]; then
-    MICROMAMBA_BIN="${PREFERRED_MICROMAMBA_BIN}"
+    BUNDLED_MICROMAMBA_BIN="${PREFERRED_MICROMAMBA_BIN}"
+elif [ -f "${OLD_NAMED_MICROMAMBA_BIN}" ]; then
+    BUNDLED_MICROMAMBA_BIN="${OLD_NAMED_MICROMAMBA_BIN}"
 elif [ -f "${LEGACY_MICROMAMBA_BIN}" ]; then
-    MICROMAMBA_BIN="${LEGACY_MICROMAMBA_BIN}"
+    BUNDLED_MICROMAMBA_BIN="${LEGACY_MICROMAMBA_BIN}"
 else
     echo "ERROR: micromamba not found for ${MICROMAMBA_ARCH} at ${PREFERRED_MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
     exit 1
 fi
 
-if [ ! -f "${MICROMAMBA_BIN}" ]; then
-    echo "ERROR: micromamba not found at ${MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
+if [ ! -f "${BUNDLED_MICROMAMBA_BIN}" ]; then
+    echo "ERROR: micromamba not found at ${BUNDLED_MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
     exit 1
 fi
+
+RUNTIME_TOOLS_DIR="${APP_SUPPORT}/tools/${MICROMAMBA_ARCH}"
+MICROMAMBA_BIN="${RUNTIME_TOOLS_DIR}/micromamba"
+mkdir -p "${RUNTIME_TOOLS_DIR}"
+if ! cmp -s "${BUNDLED_MICROMAMBA_BIN}" "${MICROMAMBA_BIN}"; then
+    cp "${BUNDLED_MICROMAMBA_BIN}" "${MICROMAMBA_BIN}"
+fi
+chmod +x "${MICROMAMBA_BIN}"
 
 if command -v file >/dev/null 2>&1; then
     MICROMAMBA_FILE_DESC="$(file -b "${MICROMAMBA_BIN}")"
@@ -86,6 +97,7 @@ if command -v file >/dev/null 2>&1; then
 fi
 
 echo "[SenoQuant] Detected macOS architecture: ${HOST_ARCH} (${MICROMAMBA_ARCH})" | tee -a "${LOG_PATH}"
+echo "[SenoQuant] Bundled micromamba: ${BUNDLED_MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
 echo "[SenoQuant] Using micromamba: ${MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
 
 # Find the newest bundled SenoQuant wheel.
@@ -139,7 +151,7 @@ log_exec "Upgrading pip" \
 log_exec "Installing uv" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" python -m pip install uv
 
-echo "[SenoQuant] uv installs will use native TLS and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment." | tee -a "${LOG_PATH}"
+echo "[SenoQuant] uv installs will use system certificates and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment." | tee -a "${LOG_PATH}"
 
 # Install pip-system-certs for SSL certificate handling
 log_exec "Installing pip-system-certs" \

@@ -40,7 +40,8 @@ echo "[SenoQuant] Using version: ${VERSION}"
 MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
 download_micromamba() {
     local ARCH="$1"
-    local OUTPUT_BIN="${TOOLS_DIR}/micromamba-${ARCH}"
+    local OUTPUT_DIR="${TOOLS_DIR}/${ARCH}"
+    local OUTPUT_BIN="${OUTPUT_DIR}/micromamba"
     local ARCH_WORK_DIR="${TOOLS_DIR}/extract-${ARCH}"
 
     if [ -f "${OUTPUT_BIN}" ]; then
@@ -50,6 +51,7 @@ download_micromamba() {
     echo "[SenoQuant] Downloading micromamba for ${ARCH}..."
     local MICROMAMBA_URL="https://micro.mamba.pm/api/micromamba/${ARCH}/latest"
     rm -rf "${ARCH_WORK_DIR}"
+    mkdir -p "${OUTPUT_DIR}"
     mkdir -p "${ARCH_WORK_DIR}"
     curl -fL "${MICROMAMBA_URL}" -o "${ARCH_WORK_DIR}/micromamba.tar.bz2"
 
@@ -81,13 +83,13 @@ download_micromamba "osx-64"
 if [ ! -f "${MICROMAMBA_BIN}" ]; then
     case "$(uname -m)" in
         arm64)
-            cp "${TOOLS_DIR}/micromamba-osx-arm64" "${MICROMAMBA_BIN}"
+            cp "${TOOLS_DIR}/osx-arm64/micromamba" "${MICROMAMBA_BIN}"
             ;;
         x86_64)
-            cp "${TOOLS_DIR}/micromamba-osx-64" "${MICROMAMBA_BIN}"
+            cp "${TOOLS_DIR}/osx-64/micromamba" "${MICROMAMBA_BIN}"
             ;;
         *)
-            cp "${TOOLS_DIR}/micromamba-osx-64" "${MICROMAMBA_BIN}"
+            cp "${TOOLS_DIR}/osx-64/micromamba" "${MICROMAMBA_BIN}"
             ;;
     esac
     chmod +x "${MICROMAMBA_BIN}"
