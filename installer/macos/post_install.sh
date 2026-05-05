@@ -26,7 +26,8 @@ log_exec() {
 }
 
 uv_pip_install() {
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env -u SSL_CERT_FILE -u SSL_CERT_DIR UV_SYSTEM_CERTS=true \
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env -u SSL_CERT_FILE -u SSL_CERT_DIR \
+        JAVA_HOME="${ENV_DIR}" PATH="${ENV_DIR}/bin:${PATH}" UV_SYSTEM_CERTS=true \
         uv pip install --system-certs --python "${ENV_DIR}/bin/python" "$@"
 }
 
@@ -140,8 +141,14 @@ fi
 
 if [ ! -d "${ENV_DIR}" ]; then
     log_exec "Creating environment: ${ENV_DIR}" \
-        "${MICROMAMBA_BIN}" create -y -p "${ENV_DIR}" python=3.11 pip
+        "${MICROMAMBA_BIN}" create -y -p "${ENV_DIR}" -c conda-forge python=3.11 pip openjdk=21 jpype1 scyjava
 fi
+
+log_exec "Ensuring bundled OpenJDK, JPype, and scyjava" \
+    "${MICROMAMBA_BIN}" install -y -p "${ENV_DIR}" -c conda-forge openjdk=21 jpype1 scyjava
+
+log_exec "Validating bundled Java" \
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env JAVA_HOME="${ENV_DIR}" java -version
 
 # Upgrade pip
 log_exec "Upgrading pip" \
@@ -156,10 +163,6 @@ echo "[SenoQuant] uv installs will use system certificates and ignore SSL_CERT_F
 # Install pip-system-certs for SSL certificate handling
 log_exec "Installing pip-system-certs" \
     uv_pip_install pip-system-certs
-
-# Install scyjava for BioFormats Java dependency
-log_exec "Installing scyjava (BioFormats dependency)" \
-    uv_pip_install scyjava
 
 # Install napari
 log_exec "Installing napari" \

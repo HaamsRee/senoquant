@@ -50,7 +50,7 @@ pip install senoquant
 
 ### BioFormats (Java) setup
 
-SenoQuant uses format-specific BioIO readers (for example `bioio-czi`, `bioio-ome-tiff`, and `bioio-ome-zarr`) for fast data loading and uses BioFormats via `bioio-bioformats` for metadata extraction when available. BioFormats requires Java, which is automatically installed as a dependency of SenoQuant.
+SenoQuant uses format-specific BioIO readers (for example `bioio-czi`, `bioio-ome-tiff`, and `bioio-ome-zarr`) for fast data loading and uses BioFormats via `bioio-bioformats` for metadata extraction when available. BioFormats requires Java. The bundled installers install OpenJDK, JPype, and scyjava into their dedicated environments; manual conda installs should include `openjdk`, `jpype1`, and `scyjava`.
 
 If you get a `JVMNotFoundException` when reading images, set `JAVA_HOME` manually:
 

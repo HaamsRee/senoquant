@@ -66,6 +66,12 @@ if (!(Test-Path $envDir)) {
     Invoke-PostInstall -TargetVersion $packagedVersion
 }
 
+$javaExe = Join-Path $envDir "Library\bin\java.exe"
+if (!(Test-Path $javaExe)) {
+    Write-Host "[SenoQuant] Bundled Java missing. Refreshing environment."
+    Invoke-PostInstall -TargetVersion $packagedVersion
+}
+
 $pythonExe = Join-Path $envDir "python.exe"
 if (!(Test-Path $pythonExe)) {
     $pythonExe = Join-Path $envDir "Scripts\python.exe"
@@ -96,9 +102,13 @@ if ($pathPrefixes.Count -gt 0) {
     $env:Path = (($pathPrefixes -join ";") + ";" + $env:Path)
 }
 
-# Set JAVA_HOME for BioFormats (Windows uses Library subfolder)
-$javaHomeDir = Split-Path $envDir -Parent
-$env:JAVA_HOME = "$javaHomeDir\Library"
+# Set JAVA_HOME for bundled BioFormats/scyjava support.
+$javaHomeDir = Join-Path $envDir "Library"
+$javaBinDir = Join-Path $javaHomeDir "bin"
+$env:JAVA_HOME = $javaHomeDir
+if (Test-Path $javaBinDir) {
+    $env:Path = "$javaBinDir;" + $env:Path
+}
 
 try {
     & $pythonExe -c "import napari" | Out-Null

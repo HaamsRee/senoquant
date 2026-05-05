@@ -57,6 +57,17 @@ child_env = os.environ.copy()
 child_env.pop("SSL_CERT_FILE", None)
 child_env.pop("SSL_CERT_DIR", None)
 child_env["UV_SYSTEM_CERTS"] = "true"
+env_dir = os.path.dirname(sys.executable)
+if os.path.basename(env_dir).lower() == "scripts":
+    env_dir = os.path.dirname(env_dir)
+java_home = os.path.join(env_dir, "Library")
+path_prefixes = [
+    env_dir,
+    os.path.join(env_dir, "Scripts"),
+    os.path.join(java_home, "bin"),
+]
+child_env["JAVA_HOME"] = java_home
+child_env["PATH"] = os.pathsep.join(path_prefixes + [child_env.get("PATH", "")])
 
 raise SystemExit(
     subprocess.call(
@@ -124,16 +135,20 @@ if (Test-Path $envDir) {
 }
 
 if (!(Test-Path $envDir)) {
-    Invoke-Checked "Creating environment: $envDir" { & $micromambaExe create -y -p $envDir python=3.11 pip }
+    Invoke-Checked "Creating environment: $envDir" { & $micromambaExe create -y -p $envDir -c conda-forge python=3.11 pip openjdk=21 jpype1 scyjava }
 }
+Invoke-Checked "Ensuring bundled OpenJDK, JPype, and scyjava" { & $micromambaExe install -y -p $envDir -c conda-forge openjdk=21 jpype1 scyjava }
+
+$javaHome = Join-Path $envDir "Library"
+$env:JAVA_HOME = $javaHome
+$env:Path = ((@($envDir, (Join-Path $envDir "Scripts"), (Join-Path $javaHome "bin")) -join ";") + ";" + $env:Path)
+Invoke-Checked "Validating bundled Java" { & $micromambaExe run -p $envDir java -version }
+
 Invoke-Checked "Upgrading pip" { & $micromambaExe run -p $envDir python -m pip install --upgrade pip }
 
 Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install uv }
 Write-Host "[SenoQuant] uv installs will use system certificates and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment."
 Invoke-Checked "Installing pip-system-certs" { Invoke-UvPipInstall @("pip-system-certs") }
-
-# Install scyjava for BioFormats Java dependency
-Invoke-Checked "Installing scyjava (BioFormats dependency)" { Invoke-UvPipInstall @("scyjava") }
 
 Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
 

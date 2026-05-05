@@ -4,13 +4,13 @@ This page documents the native installer pipelines for Windows and macOS, includ
 
 ## Overview
 
-SenoQuant provides native installers for Windows (`.exe`) and macOS (`.pkg`) that bundle the application with a dedicated Python environment.
+SenoQuant provides native installers for Windows (`.exe`) and macOS (`.pkg`) that bundle the application with dedicated Python, OpenJDK, JPype, and scyjava environments.
 
 Both installers follow the same high-level pattern:
 
 1. Bundle the SenoQuant wheel, micromamba, and launcher scripts.
 2. Run a post-install script on first launch to create the Python environment.
-3. Install napari, PyTorch, and dependencies.
+3. Install OpenJDK, JPype, scyjava, napari, PyTorch, and dependencies.
 4. Launch napari with the SenoQuant plugin.
 
 ## Version management
@@ -47,7 +47,7 @@ Key components:
 The installer is built via `.github/workflows/macos-installer.yml`:
 
 1. Build the SenoQuant wheel.
-2. Download micromamba for the target architecture (`arm64` or `x86_64`).
+2. Download micromamba for both macOS architectures (`arm64` and `x86_64`).
 3. Convert the SVG icon to ICNS format using `librsvg`.
 4. Assemble the app bundle with launcher scripts and resources.
 5. Create a component PKG with bundle relocation disabled.
@@ -84,6 +84,8 @@ SenoQuant.app/
       environment.macos.yml
       tools/
         micromamba
+        osx-arm64/micromamba
+        osx-64/micromamba
       wheels/
         senoquant-*.whl
 ```
@@ -94,14 +96,14 @@ SenoQuant.app/
 2. The user launches the app, which runs `launch_senoquant.sh`.
 3. If launched from Finder, the launcher opens Terminal so logs are visible.
 4. If `~/Library/Application Support/SenoQuant/env` does not exist, the launcher runs post-install.
-5. Post-install creates the Python environment and installs dependencies.
+5. Post-install creates the Python/OpenJDK/JPype/scyjava environment and installs dependencies.
 6. The launcher starts napari with the SenoQuant plugin.
 
 ### Writable data locations
 
 To avoid self-modification inside `~/Applications`, SenoQuant writes runtime data to Application Support:
 
-- Python environment: `~/Library/Application Support/SenoQuant/env`.
+- Python/OpenJDK/JPype/scyjava environment: `~/Library/Application Support/SenoQuant/env`.
 - Launch log: `~/Library/Application Support/SenoQuant/launch.log`.
 - Post-install log: `~/Library/Application Support/SenoQuant/post_install.log`.
 
@@ -222,8 +224,9 @@ senoquant/
 
 `post_install.ps1` runs after installation to:
 
-- Create a Python 3.11 environment under `env/`.
+- Create a Python 3.11, OpenJDK 21, JPype, and scyjava environment under `env/`.
 - Install `napari[all]`, PyTorch (CUDA 12.1), and SenoQuant from the local wheel.
+- Set `JAVA_HOME` to the bundled environment so BioFormats/scyjava does not depend on system Java.
 - Run `uv` installs with `--system-certs` and clear `SSL_CERT_FILE` / `SSL_CERT_DIR` inside the micromamba child process so enterprise proxy trust uses the OS certificate store.
 - Validate imports.
 

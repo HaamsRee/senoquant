@@ -50,6 +50,8 @@ The installer is created at:
 ## What Gets Installed
 
 - Python 3.11 environment with micromamba
+- OpenJDK 21 inside the bundled environment
+- JPype and scyjava from conda-forge for BioFormats
 - napari and all dependencies
 - PyTorch
 - SenoQuant plugin and its dependencies

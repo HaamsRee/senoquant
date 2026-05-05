@@ -111,6 +111,11 @@ if [ -d "${ENV_DIR}" ]; then
     fi
 fi
 
+if [ -d "${ENV_DIR}" ] && [ ! -x "${ENV_DIR}/bin/java" ]; then
+    log "Bundled Java missing. Refreshing environment."
+    SETUP_REQUIRED=1
+fi
+
 if [ $SETUP_REQUIRED -eq 1 ]; then
     log "Running post-install setup (this may take several minutes)..."
     run_post_install
