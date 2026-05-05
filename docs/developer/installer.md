@@ -47,7 +47,7 @@ Key components:
 The installer is built via `.github/workflows/macos-installer.yml`:
 
 1. Build the SenoQuant wheel.
-2. Download micromamba for both macOS architectures (`arm64` and `x86_64`).
+2. Download micromamba for Apple Silicon macOS.
 3. Convert the SVG icon to ICNS format using `librsvg`.
 4. Assemble the app bundle with launcher scripts and resources.
 5. Create a component PKG with bundle relocation disabled.
@@ -85,7 +85,6 @@ SenoQuant.app/
       tools/
         micromamba
         osx-arm64/micromamba
-        osx-64/micromamba
       wheels/
         senoquant-*.whl
 ```
@@ -125,10 +124,7 @@ The build uses a staging directory (`pkg_staging/`) with `SenoQuant.app` at the 
 
 ### Architecture support
 
-The build script downloads both macOS micromamba binaries and the post-install script selects the matching binary at runtime:
-
-- Apple Silicon (`arm64`) uses ARM64 micromamba.
-- Intel (`x86_64`) uses x86_64 micromamba.
+The macOS installer targets Apple Silicon (`arm64`) and uses ARM64 micromamba.
 
 PyTorch is installed from standard channels and includes MPS support on Apple Silicon.
 

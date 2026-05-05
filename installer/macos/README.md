@@ -24,7 +24,7 @@ bash installer/macos/build_macos_installer.sh
 This will:
 
 1. Build the SenoQuant wheel package
-2. Download micromamba for both macOS architectures (Intel and Apple Silicon)
+2. Download micromamba for Apple Silicon macOS
 3. Convert the icon from SVG to ICNS format (if ImageMagick is available)
 4. Create a macOS app bundle structure
 5. Package everything into a PKG installer
@@ -110,10 +110,6 @@ If the app doesn't launch:
 
 ## Architecture Support
 
-The installer bundles both macOS micromamba builds and selects the matching binary at first launch:
-- Apple Silicon (M1/M2/M3): Uses ARM64 micromamba
-- Intel: Uses x86_64 micromamba
+The macOS installer targets Apple Silicon Macs and uses ARM64 micromamba.
 
-Both architectures will get the standard PyTorch package, which supports:
-- Apple Silicon: MPS (Metal Performance Shaders) acceleration
-- Intel: CPU-only operation
+PyTorch is installed from standard channels and includes MPS (Metal Performance Shaders) acceleration.

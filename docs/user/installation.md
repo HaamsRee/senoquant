@@ -13,16 +13,14 @@ Before installing, make sure your system meets these requirements:
 ### Platform support
 
 - **Windows installer**: 64-bit Windows (`x64`).
-- **macOS installer**: macOS 10.15 or later.
-- **macOS hardware**: Apple Silicon and Intel are both supported.
+- **macOS installer**: Apple Silicon Macs running macOS 10.15 or later.
 - **Linux**: Installer support is under construction.
 
 ### Runtime notes
 
 - **Manual installs** require Python 3.11.
 - **Windows** can use GPU acceleration when a compatible PyTorch/CUDA setup is available.
-- **Apple Silicon** can use MPS acceleration.
-- **Intel Macs** currently run CPU-only.
+- **Apple Silicon Macs** can use MPS acceleration.
 
 ### Recommended hardware
 
@@ -71,10 +69,7 @@ The **macOS installer** provides a native PKG installer that sets up SenoQuant w
 
 > The Python environment and logs are stored in `~/Library/Application Support/SenoQuant/`, while the app bundle remains at `~/Applications/SenoQuant.app`.
 
-**Architecture Support:**
-
-- **Apple Silicon (M1/M2/M3)**: Includes MPS (Metal Performance Shaders) acceleration for improved performance.
-- **Intel Macs**: CPU-only operation.
+**Architecture Support:** Apple Silicon Macs include MPS (Metal Performance Shaders) acceleration for improved performance.
 
 ### Linux
 
