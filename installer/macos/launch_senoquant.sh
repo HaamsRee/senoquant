@@ -25,6 +25,7 @@ mkdir -p "${APP_SUPPORT}"
 ENV_DIR="${APP_SUPPORT}/env"
 LOG_FILE="${APP_SUPPORT}/launch.log"
 VERSION_FILE="${APP_SUPPORT}/installed_version"
+ARCH_FILE="${APP_SUPPORT}/installed_arch"
 APP_VERSION=""
 
 if [ -f "${INFO_PLIST}" ]; then
@@ -75,6 +76,37 @@ if [ -n "${APP_VERSION}" ]; then
         SETUP_REQUIRED=1
     elif [ -z "${INSTALLED_VERSION}" ] && [ -d "${ENV_DIR}" ]; then
         log "Version marker missing. Refreshing environment for ${APP_VERSION}."
+        SETUP_REQUIRED=1
+    fi
+fi
+
+HOST_ARCH="$(uname -m)"
+case "${HOST_ARCH}" in
+    arm64)
+        EXPECTED_ARCH="osx-arm64"
+        ;;
+    x86_64)
+        EXPECTED_ARCH="osx-64"
+        ;;
+    *)
+        log "ERROR: Unsupported macOS architecture: ${HOST_ARCH}"
+        read -p "Press ENTER to close this window..."
+        exit 1
+        ;;
+esac
+
+INSTALLED_ARCH=""
+if [ -f "${ARCH_FILE}" ]; then
+    INSTALLED_ARCH="$(tr -d '[:space:]' < "${ARCH_FILE}")"
+fi
+
+if [ -d "${ENV_DIR}" ]; then
+    if [ -n "${INSTALLED_ARCH}" ] && [ "${INSTALLED_ARCH}" != "${EXPECTED_ARCH}" ]; then
+        log "Architecture change detected (${INSTALLED_ARCH} -> ${EXPECTED_ARCH}). Rebuilding environment."
+        rm -rf "${ENV_DIR}"
+        SETUP_REQUIRED=1
+    elif [ -z "${INSTALLED_ARCH}" ]; then
+        log "Architecture marker missing. Refreshing environment for ${EXPECTED_ARCH}."
         SETUP_REQUIRED=1
     fi
 fi

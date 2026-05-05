@@ -123,10 +123,10 @@ The build uses a staging directory (`pkg_staging/`) with `SenoQuant.app` at the 
 
 ### Architecture support
 
-The build script auto-detects the host architecture and downloads the matching micromamba binary:
+The build script downloads both macOS micromamba binaries and the post-install script selects the matching binary at runtime:
 
-- Apple Silicon (`arm64`) gets ARM64 micromamba.
-- Intel (`x86_64`) gets x86_64 micromamba.
+- Apple Silicon (`arm64`) uses ARM64 micromamba.
+- Intel (`x86_64`) uses x86_64 micromamba.
 
 PyTorch is installed from standard channels and includes MPS support on Apple Silicon.
 

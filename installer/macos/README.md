@@ -24,7 +24,7 @@ bash installer/macos/build_macos_installer.sh
 This will:
 
 1. Build the SenoQuant wheel package
-2. Download micromamba for the current architecture (Intel or Apple Silicon)
+2. Download micromamba for both macOS architectures (Intel and Apple Silicon)
 3. Convert the icon from SVG to ICNS format (if ImageMagick is available)
 4. Create a macOS app bundle structure
 5. Package everything into a PKG installer
@@ -63,7 +63,7 @@ When you launch SenoQuant:
    - Post-install script runs automatically
    - Creates Python environment with dependencies
    - May take **5-10 minutes** depending on internet speed
-   - Log shown in Terminal: `SenoQuant.app/Contents/Resources/post_install.log`
+   - Log shown in Terminal and written to `~/Library/Application Support/SenoQuant/post_install.log`
 3. **napari opens** once setup completes
 4. **Terminal remains open** while napari runs
    - Close it when you're done with SenoQuant
@@ -96,7 +96,7 @@ The script will continue without an icon if no SVG converter is found. You can a
 
 If the app doesn't launch:
 
-1. Check the post-install log: `SenoQuant.app/Contents/Resources/post_install.log`
+1. Check the post-install log: `~/Library/Application Support/SenoQuant/post_install.log`
 2. Try running the post-install script manually:
    ```bash
    bash SenoQuant.app/Contents/Resources/post_install.sh
@@ -108,9 +108,9 @@ If the app doesn't launch:
 
 ## Architecture Support
 
-The installer automatically detects your Mac architecture:
-- Apple Silicon (M1/M2/M3): Downloads ARM64 micromamba
-- Intel: Downloads x86_64 micromamba
+The installer bundles both macOS micromamba builds and selects the matching binary at first launch:
+- Apple Silicon (M1/M2/M3): Uses ARM64 micromamba
+- Intel: Uses x86_64 micromamba
 
 Both architectures will get the standard PyTorch package, which supports:
 - Apple Silicon: MPS (Metal Performance Shaders) acceleration

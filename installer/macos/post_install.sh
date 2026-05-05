@@ -34,14 +34,58 @@ echo "[SenoQuant] Starting post-install at $(date)" > "${LOG_PATH}"
 
 TOOLS_DIR="${RESOURCES_DIR}/tools"
 WHEEL_DIR="${RESOURCES_DIR}/wheels"
-MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
 VERSION_FILE="${APP_SUPPORT}/installed_version"
+ARCH_FILE="${APP_SUPPORT}/installed_arch"
+
+HOST_ARCH="$(uname -m)"
+case "${HOST_ARCH}" in
+    arm64)
+        MICROMAMBA_ARCH="osx-arm64"
+        ;;
+    x86_64)
+        MICROMAMBA_ARCH="osx-64"
+        ;;
+    *)
+        echo "ERROR: Unsupported macOS architecture: ${HOST_ARCH}" | tee -a "${LOG_PATH}"
+        exit 1
+        ;;
+esac
+
+PREFERRED_MICROMAMBA_BIN="${TOOLS_DIR}/micromamba-${MICROMAMBA_ARCH}"
+LEGACY_MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
+if [ -f "${PREFERRED_MICROMAMBA_BIN}" ]; then
+    MICROMAMBA_BIN="${PREFERRED_MICROMAMBA_BIN}"
+elif [ -f "${LEGACY_MICROMAMBA_BIN}" ]; then
+    MICROMAMBA_BIN="${LEGACY_MICROMAMBA_BIN}"
+else
+    echo "ERROR: micromamba not found for ${MICROMAMBA_ARCH} at ${PREFERRED_MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
+    exit 1
+fi
 
 if [ ! -f "${MICROMAMBA_BIN}" ]; then
     echo "ERROR: micromamba not found at ${MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
     exit 1
 fi
 
+if command -v file >/dev/null 2>&1; then
+    MICROMAMBA_FILE_DESC="$(file -b "${MICROMAMBA_BIN}")"
+    case "${HOST_ARCH}" in
+        arm64)
+            if [[ "${MICROMAMBA_FILE_DESC}" != *"arm64"* ]]; then
+                echo "ERROR: bundled micromamba is not compatible with Apple Silicon (${MICROMAMBA_FILE_DESC})" | tee -a "${LOG_PATH}"
+                exit 1
+            fi
+            ;;
+        x86_64)
+            if [[ "${MICROMAMBA_FILE_DESC}" != *"x86_64"* ]]; then
+                echo "ERROR: bundled micromamba is not compatible with Intel macOS (${MICROMAMBA_FILE_DESC})" | tee -a "${LOG_PATH}"
+                exit 1
+            fi
+            ;;
+    esac
+fi
+
+echo "[SenoQuant] Detected macOS architecture: ${HOST_ARCH} (${MICROMAMBA_ARCH})" | tee -a "${LOG_PATH}"
 echo "[SenoQuant] Using micromamba: ${MICROMAMBA_BIN}" | tee -a "${LOG_PATH}"
 
 # Find the newest bundled SenoQuant wheel.
@@ -62,11 +106,18 @@ INSTALLED_VERSION=""
 if [ -f "${VERSION_FILE}" ]; then
     INSTALLED_VERSION="$(tr -d '[:space:]' < "${VERSION_FILE}")"
 fi
+INSTALLED_ARCH=""
+if [ -f "${ARCH_FILE}" ]; then
+    INSTALLED_ARCH="$(tr -d '[:space:]' < "${ARCH_FILE}")"
+fi
 
 # Create environment in Application Support
 ENV_DIR="${APP_SUPPORT}/env"
 if [ -d "${ENV_DIR}" ]; then
-    if [ -z "${INSTALLED_VERSION}" ]; then
+    if [ -n "${INSTALLED_ARCH}" ] && [ "${INSTALLED_ARCH}" != "${MICROMAMBA_ARCH}" ]; then
+        echo "[SenoQuant] Architecture change detected (${INSTALLED_ARCH} -> ${MICROMAMBA_ARCH}). Rebuilding environment." | tee -a "${LOG_PATH}"
+        rm -rf "${ENV_DIR}"
+    elif [ -z "${INSTALLED_VERSION}" ]; then
         echo "[SenoQuant] Version marker missing. Rebuilding environment for ${TARGET_VERSION}." | tee -a "${LOG_PATH}"
         rm -rf "${ENV_DIR}"
     elif [ "${INSTALLED_VERSION}" != "${TARGET_VERSION}" ]; then
@@ -114,6 +165,7 @@ log_exec "Validating napari import" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" python -c "import napari; print('napari version:', napari.__version__)"
 
 echo "${TARGET_VERSION}" > "${VERSION_FILE}"
+echo "${MICROMAMBA_ARCH}" > "${ARCH_FILE}"
 echo "[SenoQuant] Recorded installed version: ${TARGET_VERSION}" | tee -a "${LOG_PATH}"
 
 echo "[SenoQuant] Post-install complete at $(date)" | tee -a "${LOG_PATH}"

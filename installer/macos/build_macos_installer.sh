@@ -38,36 +38,59 @@ VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomlli
 echo "[SenoQuant] Using version: ${VERSION}"
 
 MICROMAMBA_BIN="${TOOLS_DIR}/micromamba"
-if [ ! -f "${MICROMAMBA_BIN}" ]; then
-    echo "[SenoQuant] Downloading micromamba..."
-    
-    # Detect architecture
-    if [ "$(uname -m)" = "arm64" ]; then
-        ARCH="osx-arm64"
-    else
-        ARCH="osx-64"
+download_micromamba() {
+    local ARCH="$1"
+    local OUTPUT_BIN="${TOOLS_DIR}/micromamba-${ARCH}"
+    local ARCH_WORK_DIR="${TOOLS_DIR}/extract-${ARCH}"
+
+    if [ -f "${OUTPUT_BIN}" ]; then
+        return 0
     fi
-    
-    MICROMAMBA_URL="https://micro.mamba.pm/api/micromamba/${ARCH}/latest"
-    curl -L "${MICROMAMBA_URL}" -o "${TOOLS_DIR}/micromamba.tar.bz2"
-    
+
+    echo "[SenoQuant] Downloading micromamba for ${ARCH}..."
+    local MICROMAMBA_URL="https://micro.mamba.pm/api/micromamba/${ARCH}/latest"
+    rm -rf "${ARCH_WORK_DIR}"
+    mkdir -p "${ARCH_WORK_DIR}"
+    curl -fL "${MICROMAMBA_URL}" -o "${ARCH_WORK_DIR}/micromamba.tar.bz2"
+
     # Extract micromamba
-    cd "${TOOLS_DIR}"
+    cd "${ARCH_WORK_DIR}"
     tar -xjf micromamba.tar.bz2
-    
+
     # Find and move the binary
     if [ -f "./bin/micromamba" ]; then
-        mv ./bin/micromamba ./micromamba
-        rm -rf ./bin
+        mv ./bin/micromamba "${OUTPUT_BIN}"
     fi
-    
-    chmod +x "${MICROMAMBA_BIN}"
-    rm -f micromamba.tar.bz2
-    
-    if [ ! -f "${MICROMAMBA_BIN}" ]; then
-        echo "ERROR: micromamba binary not found after extraction"
+
+    rm -rf "${ARCH_WORK_DIR}"
+
+    if [ ! -f "${OUTPUT_BIN}" ]; then
+        echo "ERROR: micromamba binary not found after extracting ${ARCH}"
         exit 1
     fi
+
+    chmod +x "${OUTPUT_BIN}"
+    cd "${REPO_ROOT}"
+}
+
+download_micromamba "osx-arm64"
+download_micromamba "osx-64"
+
+# Keep the historical path populated for tooling that inspects the bundle.
+# Runtime setup uses the architecture-specific binaries above.
+if [ ! -f "${MICROMAMBA_BIN}" ]; then
+    case "$(uname -m)" in
+        arm64)
+            cp "${TOOLS_DIR}/micromamba-osx-arm64" "${MICROMAMBA_BIN}"
+            ;;
+        x86_64)
+            cp "${TOOLS_DIR}/micromamba-osx-64" "${MICROMAMBA_BIN}"
+            ;;
+        *)
+            cp "${TOOLS_DIR}/micromamba-osx-64" "${MICROMAMBA_BIN}"
+            ;;
+    esac
+    chmod +x "${MICROMAMBA_BIN}"
 fi
 
 # Create icon from SVG
