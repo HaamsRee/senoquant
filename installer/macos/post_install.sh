@@ -173,7 +173,10 @@ log_exec "Installing PyTorch" \
     uv_pip_install torch torchvision torchaudio
 
 log_exec "Installing SenoQuant wheel: $(basename "${WHEEL}")" \
-    uv_pip_install --force-reinstall "${WHEEL}"
+    uv_pip_install --reinstall-package senoquant "${WHEEL}"
+
+log_exec "Validating Java bridge imports" \
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env JAVA_HOME="${ENV_DIR}" python -c "import jpype, scyjava, senoquant; print('jpype:', jpype.__version__)"
 
 # Validate napari installation
 log_exec "Validating napari import" \
