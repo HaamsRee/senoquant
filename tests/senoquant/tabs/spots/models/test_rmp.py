@@ -12,6 +12,7 @@ import pytest
 from scipy import ndimage as ndi
 
 from senoquant.tabs.spots.models.rmp import model as rmp
+from senoquant.tabs.spots.models.rmp import anisotropy as rmp_anisotropy
 from senoquant.tabs.spots.models.rmp import markers as rmp_markers
 
 
@@ -224,6 +225,32 @@ def test_estimate_apparent_z_anisotropy_ratio_detects_elongation() -> None:
     ratio = rmp._estimate_apparent_z_anisotropy_ratio(volume)
     assert ratio is not None
     assert ratio > 1.2
+
+
+def test_candidate_local_maxima_coords_matches_maximum_filter() -> None:
+    """Candidate-local maxima should match the old 3x3x3 max-filter criterion."""
+    image = np.zeros((5, 6, 7), dtype=np.float32)
+    image[0, 0, 0] = 3.0
+    image[2, 3, 4] = 5.0
+    image[2, 3, 5] = 4.0
+    image[4, 5, 6] = 2.0
+    candidate_mask = np.zeros_like(image, dtype=bool)
+    candidate_mask[0, 0, 0] = True
+    candidate_mask[2, 3, 4] = True
+    candidate_mask[2, 3, 5] = True
+    candidate_mask[4, 5, 6] = True
+
+    expected_mask = candidate_mask & (
+        image >= ndi.maximum_filter(image, size=(3, 3, 3), mode="nearest")
+    )
+    actual_coords = rmp_anisotropy._candidate_local_maxima_coords(
+        image,
+        candidate_mask,
+    )
+    actual_mask = np.zeros_like(candidate_mask)
+    actual_mask[tuple(actual_coords.T)] = True
+
+    assert np.array_equal(actual_mask, expected_mask)
 
 
 def test_spot_call_with_anisotropy_correction_preserves_shape() -> None:

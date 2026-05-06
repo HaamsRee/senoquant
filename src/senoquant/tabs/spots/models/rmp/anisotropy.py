@@ -27,6 +27,46 @@ from .shape_utils import _zoom_to_shape
 logger = logging.getLogger(__name__)
 
 
+def _candidate_local_maxima_coords(
+    data: np.ndarray,
+    candidate_mask: np.ndarray,
+) -> np.ndarray:
+    """Return candidate coordinates that are not lower than any 3x3x3 neighbor.
+
+    Parameters
+    ----------
+    data
+        3D reference image used for anisotropy peak scoring.
+    candidate_mask
+        Boolean mask limiting local-maxima evaluation to bright, valid foreground
+        candidates.
+
+    Returns
+    -------
+    np.ndarray
+        Integer coordinate array with shape ``(N, 3)``.
+    """
+    coords = np.argwhere(candidate_mask)
+    if coords.size == 0:
+        return coords
+
+    candidate_values = data[tuple(coords.T)]
+    keep = np.ones(coords.shape[0], dtype=bool)
+    for dz in (-1, 0, 1):
+        z = np.clip(coords[:, 0] + dz, 0, data.shape[0] - 1)
+        for dy in (-1, 0, 1):
+            y = np.clip(coords[:, 1] + dy, 0, data.shape[1] - 1)
+            for dx in (-1, 0, 1):
+                if dz == 0 and dy == 0 and dx == 0:
+                    continue
+                x = np.clip(coords[:, 2] + dx, 0, data.shape[2] - 1)
+                keep &= data[z, y, x] <= candidate_values
+                if not np.any(keep):
+                    return coords[:0]
+
+    return coords[keep]
+
+
 def _estimate_apparent_z_anisotropy_ratio(
     reference_image: np.ndarray,
     valid_mask: np.ndarray | None = None,
@@ -56,9 +96,7 @@ def _estimate_apparent_z_anisotropy_ratio(
     if not np.any(peak_candidates):
         return None
 
-    local_max = data >= ndi.maximum_filter(data, size=(3, 3, 3), mode="nearest")
-    maxima_mask = peak_candidates & local_max
-    coords = np.argwhere(maxima_mask)
+    coords = _candidate_local_maxima_coords(data, peak_candidates)
     if coords.size == 0:
         return None
 
