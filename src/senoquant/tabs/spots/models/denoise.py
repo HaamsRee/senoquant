@@ -12,13 +12,32 @@ def wavelet_denoise_input(
     enabled: bool,
     sigma: float | None = None,
 ) -> np.ndarray:
-    """Optionally denoise image with a wavelet denoiser."""
+    """Optionally denoise image with a wavelet denoiser.
+
+    Uses slice-wise filtering for 3D stacks to avoid full-volume temporaries.
+    """
     if not enabled:
         return image.astype(np.float32, copy=False)
     data = image.astype(np.float32, copy=False)
     sigma_value = None if sigma is None else float(sigma)
     if sigma_value is not None and sigma_value <= 0:
         sigma_value = None
+    if data.ndim == 3:
+        out = np.empty_like(data, dtype=np.float32)
+        for z in range(data.shape[0]):
+            out[z] = np.asarray(
+                denoise_wavelet(
+                    data[z],
+                    sigma=sigma_value,
+                    method="BayesShrink",
+                    mode="soft",
+                    rescale_sigma=True,
+                    channel_axis=None,
+                ),
+                dtype=np.float32,
+            )
+        return out
+
     denoised = denoise_wavelet(
         data,
         sigma=sigma_value,

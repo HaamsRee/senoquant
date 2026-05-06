@@ -74,6 +74,18 @@ def normalize_uri(path: str | Path) -> str:
     return str(Path(text).expanduser())
 
 
+def native_display_path(path: str | Path) -> str:
+    """Return a local path string using the current platform's separators.
+
+    URI-style paths are preserved because rewriting separators inside a URI can
+    change its meaning. This helper is intended for UI display, not storage.
+    """
+    text = str(path)
+    if not text or "://" in text or is_remote(text):
+        return text
+    return str(Path(text).expanduser())
+
+
 def join(base: str | Path, *parts: str | Path) -> str:
     """Join path fragments for local and remote targets."""
     base_text = normalize_uri(base)

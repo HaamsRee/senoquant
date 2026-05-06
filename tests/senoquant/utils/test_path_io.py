@@ -19,6 +19,13 @@ def test_normalize_uri_converts_unc_to_smb() -> None:
     assert normalized == "smb://server/share/folder/file.tif"
 
 
+def test_native_display_path_uses_platform_separators() -> None:
+    """Format local paths for display without changing URI strings."""
+    assert path_io.native_display_path("C:/tmp/input") == str(Path("C:/tmp/input"))
+    assert path_io.native_display_path("/tmp/input") == str(Path("/tmp/input"))
+    assert path_io.native_display_path("memory://bucket/input") == "memory://bucket/input"
+
+
 def test_join_handles_local_and_remote(tmp_path: Path) -> None:
     """Join path fragments for both filesystem types."""
     local = path_io.join(tmp_path, "out", "file.txt")

@@ -99,11 +99,15 @@ def test_build_settings_bundle_json_safe_path_and_item_values() -> None:
     payload = build_settings_bundle(
         batch_job={
             "input_path": Path("/tmp/input"),
+            "windows_style_path": Path("C:/tmp/input"),
             "threshold": _ScalarLike(0.75),
+            Path("/tmp/key"): "path-key",
         }
     )
 
     assert payload["batch_job"]["input_path"] == "/tmp/input"
+    assert payload["batch_job"]["windows_style_path"] == "C:/tmp/input"
+    assert payload["batch_job"]["/tmp/key"] == "path-key"
     assert payload["batch_job"]["threshold"] == pytest.approx(0.75)
 
 

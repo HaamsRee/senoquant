@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from tests.conftest import DummyLayer, DummyViewer
 from senoquant.tabs.batch.config import BatchJobConfig
 from senoquant.tabs.batch.frontend import BatchTab
@@ -35,8 +37,8 @@ def test_batch_frontend_apply_job_config_populates_ui() -> None:
 
     tab.apply_job_config(job)
 
-    assert tab._input_path.text() == "/input"
-    assert tab._output_path.text() == "/output"
+    assert tab._input_path.text() == str(Path("/input"))
+    assert tab._output_path.text() == str(Path("/output"))
     assert tab._extensions.text() == ".tif,.czi"
     assert tab._include_subfolders.isChecked() is True
     assert tab._process_scenes.isChecked() is True
