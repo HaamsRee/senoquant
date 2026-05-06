@@ -131,6 +131,34 @@ def _normalized_component_distance_local_edt(
     return normalized_distance
 
 
+def _local_minimum_at_coords(image: np.ndarray, coords: np.ndarray) -> np.ndarray:
+    """Return 3-pixel-neighborhood minima at selected coordinates.
+
+    Parameters
+    ----------
+    image
+        Reference image used for local prominence scoring.
+    coords
+        Integer coordinate array with shape ``(N, image.ndim)``.
+
+    Returns
+    -------
+    np.ndarray
+        Float32 local minimum for each coordinate. Coordinates at image edges use
+        the clipped in-bounds neighborhood, equivalent to ``mode="nearest"`` for
+        a minimum filter.
+    """
+    local_minima = np.empty(coords.shape[0], dtype=np.float32)
+    shape = image.shape
+    for index, coord in enumerate(coords):
+        neighborhood = tuple(
+            slice(max(0, int(value) - 1), min(shape[axis], int(value) + 2))
+            for axis, value in enumerate(coord)
+        )
+        local_minima[index] = float(np.min(image[neighborhood]))
+    return local_minima
+
+
 def _markers_from_local_maxima(
     enhanced: np.ndarray,
     threshold: float,
@@ -219,30 +247,33 @@ def _markers_from_local_maxima(
         if (not np.isfinite(intensity_scale)) or intensity_scale <= EPS:
             return np.zeros(enhanced_float.shape, dtype=np.int32)
 
-    relative_intensity = np.zeros_like(reference_float, dtype=np.float32)
-    relative_intensity[valid_component_mask] = (
-        reference_float[valid_component_mask] / max(intensity_scale, EPS)
-    )
-
-    # Require each marker to stand out from its immediate neighborhood.
-    prominence_floor = ndi.minimum_filter(reference_float, size=3, mode="nearest")
-    relative_prominence = (reference_float - prominence_floor) / np.maximum(
-        reference_float,
-        EPS,
-    )
-    relative_prominence = np.clip(relative_prominence, 0.0, None)
-
-    mask = mask & valid_component_mask
-    mask = mask & (relative_intensity >= PEAK_RELATIVE_INTENSITY_MIN)
-    mask = mask & (relative_prominence >= PEAK_RELATIVE_PROMINENCE_MIN)
-    if not np.any(mask):
-        return np.zeros(enhanced_float.shape, dtype=np.int32)
-
     markers = np.zeros(enhanced_float.shape, dtype=np.int32)
-    coords = np.argwhere(mask)
+    coords = np.argwhere(mask & valid_component_mask)
     if coords.size == 0:
         return markers
 
+    coord_index = tuple(coords.T)
+    candidate_values = reference_float[coord_index]
+    relative_intensity = candidate_values / max(intensity_scale, EPS)
+    keep = relative_intensity >= PEAK_RELATIVE_INTENSITY_MIN
+    if not np.any(keep):
+        return markers
+
+    coords = coords[keep]
+    candidate_values = candidate_values[keep]
+
+    # Prominence only needs to be evaluated for surviving candidate markers. This
+    # avoids a full-volume 3x3 minimum filter and full-volume prominence array.
+    prominence_floor = _local_minimum_at_coords(reference_float, coords)
+    relative_prominence = (candidate_values - prominence_floor) / np.maximum(
+        candidate_values,
+        EPS,
+    )
+    keep = np.clip(relative_prominence, 0.0, None) >= PEAK_RELATIVE_PROMINENCE_MIN
+    if not np.any(keep):
+        return markers
+
+    coords = coords[keep]
     max_indices = np.asarray(enhanced_float.shape) - 1
     coords = np.clip(coords, 0, max_indices)
     markers[tuple(coords.T)] = 1

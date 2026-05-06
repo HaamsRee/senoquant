@@ -182,6 +182,25 @@ def test_local_edt_matches_full_volume_component_distance() -> None:
     assert np.allclose(actual, expected)
 
 
+def test_local_minimum_at_coords_matches_minimum_filter() -> None:
+    """Coordinate-local minima should match a 3-pixel nearest-mode minimum filter."""
+    image = np.arange(3 * 5 * 6, dtype=np.float32).reshape(3, 5, 6)
+    image[1, 2, 3] = -5.0
+    coords = np.asarray(
+        [
+            [0, 0, 0],
+            [1, 2, 3],
+            [2, 4, 5],
+        ],
+        dtype=np.int64,
+    )
+    expected = ndi.minimum_filter(image, size=3, mode="nearest")[tuple(coords.T)]
+
+    actual = rmp_markers._local_minimum_at_coords(image, coords)
+
+    assert np.allclose(actual, expected)
+
+
 def test_estimate_apparent_z_anisotropy_ratio_detects_elongation() -> None:
     """Estimate anisotropy ratio > 1 for clearly z-elongated synthetic spots."""
     shape = (28, 48, 48)
