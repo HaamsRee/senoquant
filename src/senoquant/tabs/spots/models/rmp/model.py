@@ -115,7 +115,7 @@ class RMPDetector(SenoQuantSpotDetector):
             sigma=WAVELET_SIGMA,
         )
 
-        use_distributed = _distributed_available()
+        use_distributed = False # This results in faster execution in most cases.
         use_tiled = _dask_available()
         top_hat_input = denoised
         top_hat_crop_slices: tuple[slice, ...] | None = None
