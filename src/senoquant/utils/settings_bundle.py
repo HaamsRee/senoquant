@@ -133,9 +133,9 @@ def _json_safe(value: object):
     if value is None or isinstance(value, (str, bool, int, float)):
         return value
     if isinstance(value, Path):
-        return str(value)
+        return value.as_posix()
     if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
+        return {_json_safe_key(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set)):
         return [_json_safe(item) for item in value]
     if hasattr(value, "item") and callable(getattr(value, "item")):
@@ -144,3 +144,10 @@ def _json_safe(value: object):
         except Exception:
             pass
     return deepcopy(str(value))
+
+
+def _json_safe_key(key: object) -> str:
+    """Convert mapping keys to platform-neutral JSON strings."""
+    if isinstance(key, Path):
+        return key.as_posix()
+    return str(key)

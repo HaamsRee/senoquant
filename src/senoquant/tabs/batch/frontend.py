@@ -57,6 +57,7 @@ from ..quantification.frontend import QuantificationTab
 from ..segmentation.backend import SegmentationBackend
 from ..spots.backend import SpotsBackend
 from senoquant.reader import core as reader_core
+from senoquant.utils.path_io import native_display_path
 from senoquant.utils.setting_tooltips import build_setting_tooltip
 
 
@@ -1192,8 +1193,8 @@ class BatchTab(QWidget):
         self._refresh_segmentation_models()
         self._refresh_cyto_models()
         self._refresh_detectors()
-        self._input_path.setText(job.input_path)
-        self._output_path.setText(job.output_path)
+        self._input_path.setText(native_display_path(job.input_path))
+        self._output_path.setText(native_display_path(job.output_path))
         self._extensions.setText(",".join(job.extensions))
         self._include_subfolders.setChecked(job.include_subfolders)
         self._process_scenes.setChecked(job.process_all_scenes)
