@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy import ndimage as ndi
 
 from senoquant.tabs.spots.models.rmp import model as rmp
+from senoquant.tabs.spots.models.rmp import markers as rmp_markers
 
 
 class DummyLayer:
@@ -143,6 +145,41 @@ def test_markers_from_local_maxima_uses_reference_image_for_peak_scoring() -> No
 
     assert markers[5, 6] > 0
     assert markers[5, 4] == 0
+
+
+def test_local_edt_matches_full_volume_component_distance() -> None:
+    """Local component EDT should match full-volume normalized component distance."""
+    foreground = np.zeros((6, 8, 9), dtype=bool)
+    foreground[0:3, 1:4, 2:5] = True
+    foreground[3:6, 5:8, 6:9] = True
+    valid_component_mask = foreground.copy()
+    valid_component_mask[1, 2, 3] = False
+
+    structure = ndi.generate_binary_structure(3, 1)
+    component_labels, num_components = ndi.label(foreground, structure=structure)
+    distance_to_boundary = ndi.distance_transform_edt(foreground)
+    label_ids = np.arange(num_components + 1, dtype=np.int32)
+    max_distance_by_label = np.asarray(
+        ndi.maximum(
+            distance_to_boundary,
+            labels=component_labels,
+            index=label_ids,
+        ),
+        dtype=np.float32,
+    )
+    component_scale = max_distance_by_label[component_labels]
+    expected = np.zeros(foreground.shape, dtype=np.float32)
+    expected[valid_component_mask] = (
+        distance_to_boundary[valid_component_mask]
+        / np.maximum(component_scale[valid_component_mask], rmp_markers.EPS)
+    )
+
+    actual = rmp_markers._normalized_component_distance_local_edt(
+        component_labels,
+        valid_component_mask,
+    )
+
+    assert np.allclose(actual, expected)
 
 
 def test_estimate_apparent_z_anisotropy_ratio_detects_elongation() -> None:
