@@ -46,6 +46,8 @@ extra_css:
 extra:
   version:
     provider: mike
+    default: latest
+    alias: true
 
 nav:
   - Home: index.md

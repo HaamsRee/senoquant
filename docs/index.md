@@ -32,4 +32,4 @@ Watch the walkthrough here or open it directly on YouTube:
   </iframe>
 </div>
 
-[Watch on YouTube](https://www.youtube.com/watch?v=WIjnY6j8xmI)
+[Watch on YouTube](https://www.youtube.com/watch?v=WIjnY6j8xmI) · [Browse all SenoQuant tutorials](https://www.youtube.com/@Senoquant)

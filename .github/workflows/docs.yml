@@ -53,6 +53,7 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "release" ]]; then
             version="${{ github.event.release.tag_name }}"
+            version="${version#senoquant-v}"
             version="${version#v}"
             aliases="latest"
             default="latest"

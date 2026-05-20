@@ -15,6 +15,8 @@ Watch the tutorial for a guided walkthrough of the main workflow:
 
 [![Watch the SenoQuant tutorial](https://img.youtube.com/vi/WIjnY6j8xmI/hqdefault.jpg)](https://www.youtube.com/watch?v=WIjnY6j8xmI)
 
+[Browse all SenoQuant tutorials on YouTube](https://www.youtube.com/@Senoquant)
+
 ## Features
 
 - Read microscopy formats via BioIO, including OME-TIFF, OME-ZARR, ND2, LIF, CZI, and more.

@@ -108,7 +108,8 @@ mkdocs build --strict
 Published documentation is versioned with `mike`.
 
 - Pushes to `main` or `master` publish the `dev` documentation version.
-- Published GitHub releases publish the release tag as an immutable docs version, strip a leading `v` from the tag name, update the `latest` alias, and make `latest` the default route.
+- Published GitHub releases publish the release tag as an immutable docs version, strip the `senoquant-v` prefix from the tag name, update the `latest` alias, and make `latest` the default route for `https://haamsree.github.io/senoquant/`.
+- The version selector shows `dev` above ordinary release versions. The newest release is marked with the `latest` alias in the selector.
 - Manual runs of the Docs workflow can backfill a version or move aliases through the workflow inputs.
 
 Use `mike serve` when you need to preview the version selector locally.
