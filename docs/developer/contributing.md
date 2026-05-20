@@ -80,7 +80,7 @@ Tests run without a display server.
 Install documentation dependencies.
 
 ```bash
-pip install mkdocs mkdocs-material mkdocstrings[python]
+pip install -r docs/requirements.txt
 ```
 
 Serve documentation locally for live preview.
@@ -96,6 +96,23 @@ Build the static site.
 ```bash
 mkdocs build
 ```
+
+Build strictly before publishing changes.
+
+```bash
+mkdocs build --strict
+```
+
+### Versioned documentation
+
+Published documentation is versioned with `mike`.
+
+- Pushes to `main` or `master` publish the `dev` documentation version.
+- Published GitHub releases publish the release tag as an immutable docs version, strip a leading `v` from the tag name, update the `latest` alias, and make `latest` the default route.
+- Manual runs of the Docs workflow can backfill a version or move aliases through the workflow inputs.
+
+Use `mike serve` when you need to preview the version selector locally.
+Do not use `mkdocs gh-deploy`; it bypasses the version manifest and aliases managed by `mike`.
 
 ### Documentation structure
 

@@ -8,7 +8,7 @@ Use this tab to run models that produce prediction layers in napari
 
 The Prediction tab is designed to be developer-friendly. It's model-agnostic, modular, and flexible, allowing each model to define its own user interface and input selection method. This enables support for a wide range of prediction tasks and model architectures without being constrained by a fixed set of input controls.
 
-Currently, the Prediction tab includes a `demo_model` placeholder to illustrate the model interface and output structure. If you're interested in contributing a new prediction model, see the [developer guide](https://haamsree.github.io/senoquant/developer/prediction/) for implementation details.
+Currently, the Prediction tab includes a `demo_model` placeholder to illustrate the model interface and output structure. If you're interested in contributing a new prediction model, see the [developer guide](../developer/prediction.md) for implementation details.
 
 ## Interface overview
 

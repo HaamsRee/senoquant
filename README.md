@@ -49,36 +49,36 @@ Installer support for Linux is under construction.
 
 ### Manual installation
 
-For conda/pip/uv setup, see the [developer installation guide](https://haamsree.github.io/senoquant/developer/installation/).
+For conda/pip/uv setup, see the [developer installation guide](https://haamsree.github.io/senoquant/latest/developer/installation/).
 
 ## Quick start
 
 Use the documentation workflow for the most up-to-date instructions.
 
-- Start with the [installation guide](https://haamsree.github.io/senoquant/user/installation/).
-- Follow the [quick start guide](https://haamsree.github.io/senoquant/user/quickstart/).
-- Then use tab-specific guides for [SenNet Portal](https://haamsree.github.io/senoquant/user/sennet-portal/), [segmentation](https://haamsree.github.io/senoquant/user/segmentation/), [spots](https://haamsree.github.io/senoquant/user/spots/), [prediction](https://haamsree.github.io/senoquant/user/prediction/), [quantification](https://haamsree.github.io/senoquant/user/quantification/), [visualization](https://haamsree.github.io/senoquant/user/visualization/), [batch](https://haamsree.github.io/senoquant/user/batch/), and [settings](https://haamsree.github.io/senoquant/user/settings/).
+- Start with the [installation guide](https://haamsree.github.io/senoquant/latest/user/installation/).
+- Follow the [quick start guide](https://haamsree.github.io/senoquant/latest/user/quickstart/).
+- Then use tab-specific guides for [SenNet Portal](https://haamsree.github.io/senoquant/latest/user/sennet-portal/), [segmentation](https://haamsree.github.io/senoquant/latest/user/segmentation/), [spots](https://haamsree.github.io/senoquant/latest/user/spots/), [prediction](https://haamsree.github.io/senoquant/latest/user/prediction/), [quantification](https://haamsree.github.io/senoquant/latest/user/quantification/), [visualization](https://haamsree.github.io/senoquant/latest/user/visualization/), [batch](https://haamsree.github.io/senoquant/latest/user/batch/), and [settings](https://haamsree.github.io/senoquant/latest/user/settings/).
 
 ## Documentation
 
 Full documentation is available at [https://haamsree.github.io/senoquant/](https://haamsree.github.io/senoquant/).
 
-- [Installation guide](https://haamsree.github.io/senoquant/user/installation/).
-- [Quick start tutorial](https://haamsree.github.io/senoquant/user/quickstart/).
-- [Segmentation models](https://haamsree.github.io/senoquant/user/segmentation/).
-- [Spot detection](https://haamsree.github.io/senoquant/user/spots/).
-- [Prediction tab](https://haamsree.github.io/senoquant/user/prediction/).
-- [SenNet Portal tab](https://haamsree.github.io/senoquant/user/sennet-portal/).
-- [Quantification features](https://haamsree.github.io/senoquant/user/quantification/).
-- [Visualization tab](https://haamsree.github.io/senoquant/user/visualization/).
-- [Batch processing](https://haamsree.github.io/senoquant/user/batch/).
-- [Settings persistence](https://haamsree.github.io/senoquant/user/settings/).
-- [Prediction model development](https://haamsree.github.io/senoquant/developer/prediction/).
-- [API reference](https://haamsree.github.io/senoquant/api/).
+- [Installation guide](https://haamsree.github.io/senoquant/latest/user/installation/).
+- [Quick start tutorial](https://haamsree.github.io/senoquant/latest/user/quickstart/).
+- [Segmentation models](https://haamsree.github.io/senoquant/latest/user/segmentation/).
+- [Spot detection](https://haamsree.github.io/senoquant/latest/user/spots/).
+- [Prediction tab](https://haamsree.github.io/senoquant/latest/user/prediction/).
+- [SenNet Portal tab](https://haamsree.github.io/senoquant/latest/user/sennet-portal/).
+- [Quantification features](https://haamsree.github.io/senoquant/latest/user/quantification/).
+- [Visualization tab](https://haamsree.github.io/senoquant/latest/user/visualization/).
+- [Batch processing](https://haamsree.github.io/senoquant/latest/user/batch/).
+- [Settings persistence](https://haamsree.github.io/senoquant/latest/user/settings/).
+- [Prediction model development](https://haamsree.github.io/senoquant/latest/developer/prediction/).
+- [API reference](https://haamsree.github.io/senoquant/latest/api/).
 
 ## Development
 
-See the [contributing guide](https://haamsree.github.io/senoquant/developer/contributing/) for development setup instructions.
+See the [contributing guide](https://haamsree.github.io/senoquant/latest/developer/contributing/) for development setup instructions.
 
 ## How to cite
 

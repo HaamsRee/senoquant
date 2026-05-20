@@ -3,10 +3,30 @@ name: Docs
 on:
   push:
     branches: [main, master]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Docs version to deploy. Defaults to dev for manual runs."
+        required: false
+        type: string
+      aliases:
+        description: "Optional space-separated aliases to update, for example latest."
+        required: false
+        type: string
+      set_default:
+        description: "Set the deployed version as the default docs route."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -14,16 +34,67 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install MkDocs
+      - name: Install docs dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs-material "mkdocstrings[python]"
+          pip install -r docs/requirements.txt
 
-      - name: Deploy
-        run: mkdocs gh-deploy --force
+      - name: Resolve docs version
+        id: docs
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            version="${{ github.event.release.tag_name }}"
+            version="${version#v}"
+            aliases="latest"
+            default="latest"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+            aliases="${{ inputs.aliases }}"
+            default=""
+            if [[ -z "$version" ]]; then
+              version="dev"
+            fi
+            if [[ "${{ inputs.set_default }}" == "true" ]]; then
+              default="$version"
+            fi
+          else
+            version="dev"
+            aliases=""
+            default=""
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "aliases=$aliases" >> "$GITHUB_OUTPUT"
+          echo "default=$default" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate docs
+        run: mkdocs build --strict
+
+      - name: Deploy versioned docs
+        shell: bash
+        run: |
+          deploy_args=("${{ steps.docs.outputs.version }}")
+          if [[ -n "${{ steps.docs.outputs.aliases }}" ]]; then
+            read -ra aliases <<< "${{ steps.docs.outputs.aliases }}"
+            deploy_args+=("${aliases[@]}")
+          fi
+
+          mike deploy --push --update-aliases "${deploy_args[@]}"
+
+          if [[ -n "${{ steps.docs.outputs.default }}" ]]; then
+            mike set-default --push "${{ steps.docs.outputs.default }}"
+          fi

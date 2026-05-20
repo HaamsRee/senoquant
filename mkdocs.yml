@@ -1,5 +1,6 @@
 site_name: SenoQuant
 site_description: SenoQuant is a versatile napari plugin designed for comprehensive, accurate, and unbiased spatial quantification and prediction of senescence markers across diverse tissue contexts.
+site_url: https://haamsree.github.io/senoquant/
 
 theme:
   name: material
@@ -41,6 +42,10 @@ markdown_extensions:
 
 extra_css:
   - assets/stylesheets/api-reference.css
+
+extra:
+  version:
+    provider: mike
 
 nav:
   - Home: index.md
