@@ -2128,7 +2128,8 @@ pytest
 <p>Published documentation is versioned with <code>mike</code>.</p>
 <ul>
 <li>Pushes to <code>main</code> or <code>master</code> publish the <code>dev</code> documentation version.</li>
-<li>Published GitHub releases publish the release tag as an immutable docs version, strip a leading <code>v</code> from the tag name, update the <code>latest</code> alias, and make <code>latest</code> the default route.</li>
+<li>Published GitHub releases publish the release tag as an immutable docs version, strip the <code>senoquant-v</code> prefix from the tag name, update the <code>latest</code> alias, and make <code>latest</code> the default route for <code>https://haamsree.github.io/senoquant/</code>.</li>
+<li>The version selector shows <code>dev</code> above ordinary release versions. The newest release is marked with the <code>latest</code> alias in the selector.</li>
 <li>Manual runs of the Docs workflow can backfill a version or move aliases through the workflow inputs.</li>
 </ul>
 <p>Use <code>mike serve</code> when you need to preview the version selector locally.
@@ -2312,7 +2313,7 @@ Do not use <code>mkdocs gh-deploy</code>; it bypasses the version manifest and a
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
