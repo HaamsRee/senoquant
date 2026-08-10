@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -666,10 +666,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#default_3d-improved-3d-model" class="md-nav__link">
+  <a href="#default_3d_stardist-stardist-3d" class="md-nav__link">
     <span class="md-ellipsis">
       
-        default_3d (Improved 3D Model)
+        default_3d_stardist (StarDist 3D)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default_3d_multihead-3d-nuclear-model-with-a-custom-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_3d_multihead (3D nuclear model with a custom architecture)
       
     </span>
   </a>
@@ -1524,10 +1535,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#default_3d-improved-3d-model" class="md-nav__link">
+  <a href="#default_3d_stardist-stardist-3d" class="md-nav__link">
     <span class="md-ellipsis">
       
-        default_3d (Improved 3D Model)
+        default_3d_stardist (StarDist 3D)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default_3d_multihead-3d-nuclear-model-with-a-custom-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_3d_multihead (3D nuclear model with a custom architecture)
       
     </span>
   </a>
@@ -1626,8 +1648,13 @@
 <td>2D</td>
 </tr>
 <tr>
-<td><code>default_3d</code></td>
-<td>Improved 3D nuclear instance segmentation.</td>
+<td><code>default_3d_stardist</code></td>
+<td>Fine-tuned StarDist model for 3D nuclei.</td>
+<td>3D</td>
+</tr>
+<tr>
+<td><code>default_3d_multihead</code></td>
+<td>Multi-head 3D nuclear segmentation model.</td>
 <td>3D</td>
 </tr>
 <tr>
@@ -1715,8 +1742,7 @@ This reduces first-run latency for model execution.</p>
 </tr>
 </tbody>
 </table>
-<p>Normalization is always applied internally using percentile clipping (<code>pmin=1.0</code>, <code>pmax=99.8</code>) and is not exposed in the UI.</p>
-<h3 id="default_3d-improved-3d-model">default_3d (Improved 3D Model)<a class="headerlink" href="#default_3d-improved-3d-model" title="Permanent link">&para;</a></h3>
+<h3 id="default_3d_stardist-stardist-3d">default_3d_stardist (StarDist 3D)<a class="headerlink" href="#default_3d_stardist-stardist-3d" title="Permanent link">&para;</a></h3>
 <p><strong>Best for:</strong> 3D stacks where nuclei extend across multiple z-planes.</p>
 <table>
 <thead>
@@ -1730,7 +1756,43 @@ This reduces first-run latency for model execution.</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>Cell diameter (px)</strong></td>
+<td><strong>Object diameter (px)</strong></td>
+<td>float</td>
+<td>30.0</td>
+<td>1.0 - 500.0</td>
+<td>Expected diameter of nuclei in pixels. Adjust as needed.</td>
+</tr>
+<tr>
+<td><strong>Prob threshold</strong></td>
+<td>float</td>
+<td>0.445</td>
+<td>0.0 - 1.0</td>
+<td>Confidence threshold for accepting nuclei. Lower detects more, higher is stricter.</td>
+</tr>
+<tr>
+<td><strong>NMS threshold</strong></td>
+<td>float</td>
+<td>0.3</td>
+<td>0.0 - 1.0</td>
+<td>Non-maximum suppression threshold for separating instances. Lower splits more.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="default_3d_multihead-3d-nuclear-model-with-a-custom-architecture">default_3d_multihead (3D nuclear model with a custom architecture)<a class="headerlink" href="#default_3d_multihead-3d-nuclear-model-with-a-custom-architecture" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong> 3D stacks where nuclei extend across multiple z-planes.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Object diameter (px)</strong></td>
 <td>float</td>
 <td>100.0</td>
 <td>0.0 - 300.0</td>
@@ -1918,7 +1980,7 @@ This reduces first-run latency for model execution.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
