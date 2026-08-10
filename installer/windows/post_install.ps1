@@ -161,7 +161,8 @@ Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" {
         "https://download.pytorch.org/whl/cu121",
         "torch==2.5.1",
         "torchvision==0.20.1",
-        "torchaudio==2.5.1"
+        "torchaudio==2.5.1",
+        "numpy>=1.23,<=1.26.4"
     )
 }
 

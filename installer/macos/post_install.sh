@@ -170,7 +170,7 @@ log_exec "Installing napari" \
 
 # Install PyTorch (CPU version for macOS - no CUDA)
 log_exec "Installing PyTorch" \
-    uv_pip_install torch torchvision torchaudio
+    uv_pip_install torch torchvision torchaudio "numpy>=1.23,<=1.26.4"
 
 log_exec "Installing SenoQuant wheel: $(basename "${WHEEL}")" \
     uv_pip_install --reinstall-package senoquant "${WHEEL}"
