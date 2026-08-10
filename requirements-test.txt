@@ -1,0 +1,16 @@
+pytest==9.1.1
+pytest-cov==7.1.0
+numpy==1.26.4
+scipy
+scikit-image
+pandas
+matplotlib==3.10.9
+umap-learn
+igraph
+leidenalg
+jsonschema
+PyWavelets
+pathvalidate
+openpyxl
+dask[array]
+dask[distributed]

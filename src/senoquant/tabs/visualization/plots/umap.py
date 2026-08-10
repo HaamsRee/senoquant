@@ -166,7 +166,7 @@ class UMAPPlot(SenoQuantPlot):
                 )
 
             # Define a color map (tab20 can handle up to 20 distinct clusters)
-            cmap = plt.cm.get_cmap('tab20', len(unique_clusters))
+            cmap = plt.get_cmap("tab20", len(unique_clusters))
 
             # Scatter plot each cluster
             for cluster in unique_clusters:

@@ -154,7 +154,16 @@ Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
 
 Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { Invoke-UvPipInstall @("--reinstall-package", "senoquant", $wheel.FullName) }
 
-Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" { Invoke-UvPipInstall @("--force-reinstall", "--index-url", "https://download.pytorch.org/whl/cu121", "torch", "torchvision", "torchaudio") }
+Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" {
+    Invoke-UvPipInstall @(
+        "--force-reinstall",
+        "--index-url",
+        "https://download.pytorch.org/whl/cu121",
+        "torch==2.5.1",
+        "torchvision==0.20.1",
+        "torchaudio==2.5.1"
+    )
+}
 
 Invoke-Checked "Validating Java bridge imports" { & $micromambaExe run -p $envDir python -c "import jpype, scyjava, senoquant; print('jpype:', jpype.__version__)" }
 

@@ -4,17 +4,18 @@ source =
 omit =
     src/senoquant/_reader.py
     src/senoquant/tabs/*/frontend.py
+    src/senoquant/tabs/*/_frontend/*
     src/senoquant/tabs/quantification/features/*/dialog.py
     src/senoquant/tabs/quantification/features/*/rows.py
     src/senoquant/tabs/quantification/features/roi.py
     src/senoquant/tabs/segmentation/stardist_onnx_utils/*
     src/senoquant/tabs/segmentation/stardist_onnx_utils/**
     src/senoquant/tabs/segmentation/models/default_2d/model.py
-    src/senoquant/tabs/segmentation/models/default_3d/model.py
-    src/senoquant/tabs/segmentation/models/default_3d/config.py
-    src/senoquant/tabs/segmentation/models/default_3d/inference.py
-    src/senoquant/tabs/segmentation/models/default_3d/network.py
-    src/senoquant/tabs/segmentation/models/default_3d/postprocess.py
-    src/senoquant/tabs/segmentation/models/cpsam/model.py    
+    src/senoquant/tabs/segmentation/models/default_3d_multihead/model.py
+    src/senoquant/tabs/segmentation/models/default_3d_multihead/config.py
+    src/senoquant/tabs/segmentation/models/default_3d_multihead/inference.py
+    src/senoquant/tabs/segmentation/models/default_3d_multihead/network.py
+    src/senoquant/tabs/segmentation/models/default_3d_multihead/postprocess.py
+    src/senoquant/tabs/segmentation/models/cpsam/model.py
     src/senoquant/tabs/spots/models/udwt/model.py
     src/senoquant/tabs/spots/models/rmp/model.py

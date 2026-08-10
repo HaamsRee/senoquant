@@ -221,7 +221,7 @@ senoquant/
 `post_install.ps1` runs after installation to:
 
 - Create a Python 3.11, OpenJDK 21, JPype, and scyjava environment under `env/`.
-- Install `napari[all]`, PyTorch (CUDA 12.1), and SenoQuant from the local wheel.
+- Install `napari[all]`, PyTorch 2.5.1 (CUDA 12.1), and SenoQuant from the local wheel.
 - Set `JAVA_HOME` to the bundled environment so BioFormats/scyjava does not depend on system Java.
 - Run `uv` installs with `--system-certs` and clear `SSL_CERT_FILE` / `SSL_CERT_DIR` inside the micromamba child process so enterprise proxy trust uses the OS certificate store.
 - Validate imports.
@@ -242,9 +242,9 @@ The SenoQuant wheel pulls in runtime dependencies, including `senoquant-stardist
 
 **GPU not detected.**
 
-- Verify CUDA toolkit installation.
-- Check PyTorch with `python -c "import torch; print(torch.cuda.is_available())"`.
-- Confirm the installer pulled the CUDA 12.1-compatible PyTorch build.
+- Verify that a current NVIDIA driver is installed with `nvidia-smi`.
+- Check PyTorch with `python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"`.
+- Confirm the installer pulled PyTorch 2.5.1 with its CUDA 12.1 runtime. A separate CUDA Toolkit installation is not required for the packaged application.
 
 ---
 

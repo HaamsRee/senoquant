@@ -238,7 +238,7 @@ def test_stardist_3d_postprocessing_returns_to_input_coordinates(
     )
 
     assert labels.shape == (5, 6, 7)
-    assert info["points"] == pytest.approx([[4.0, 3.0, 2.5]])
-    assert captured["points"] == pytest.approx([[4.0, 3.0, 2.5]])
+    np.testing.assert_allclose(info["points"], [[4.0, 3.0, 2.5]])
+    np.testing.assert_allclose(captured["points"], [[4.0, 3.0, 2.5]])
     assert captured["ray_scale"] == pytest.approx((0.5, 1 / 3, 0.25))
     assert captured["shape"] == (5, 6, 7)
