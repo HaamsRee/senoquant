@@ -1,10 +1,10 @@
 [build-system]
-requires = ["scikit-build-core>=0.9", "numpy>=1.23"]
+requires = ["scikit-build-core>=0.9", "numpy>=1.23,<2"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "senoquant-stardist-ext"
-version = "0.1.3"
+version = "0.1.4"
 description = "Prebuilt StarDist C/C++ extensions for SenoQuant"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -34,3 +34,6 @@ Issues = "https://github.com/HaamsRee/senoquant/issues"
 cmake.version = ">=3.18"
 build.verbose = true
 wheel.packages = []
+
+[tool.cibuildwheel]
+build = "cp311-* cp312-*"
