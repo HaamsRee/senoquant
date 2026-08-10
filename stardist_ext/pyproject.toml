@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "senoquant-stardist-ext"
-version = "0.1.2"
+version = "0.1.3"
 description = "Prebuilt StarDist C/C++ extensions for SenoQuant"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,14 +31,6 @@ Repository = "https://github.com/HaamsRee/senoquant"
 Issues = "https://github.com/HaamsRee/senoquant/issues"
 
 [tool.scikit-build]
-cmake.minimum-version = "3.18"
+cmake.version = ">=3.18"
 build.verbose = true
 wheel.packages = []
-
-[tool.scikit-build.sdist]
-include = [
-  "../src/senoquant/tabs/segmentation/stardist_onnx_utils/_stardist/lib/**",
-  "CMakeLists.txt",
-  "LICENSE",
-  "README.md",
-]
