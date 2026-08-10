@@ -190,7 +190,7 @@ class StarDistOnnxBaseModel(StarDistOnnxRuntimeMixin, SenoQuantSegmentationModel
             )
 
         image = image.astype(np.float32, copy=False)
-        image, scale = self._scale_input(image, settings)
+        image, scale = self._scale_input(image, settings, layer=layer)
         image = self._scale_intensity(image)
         if settings.get("normalize", True):
             pmin = float(settings.get("pmin", 1.0))
@@ -262,7 +262,7 @@ class StarDistOnnxBaseModel(StarDistOnnxRuntimeMixin, SenoQuantSegmentationModel
 
             if not self._has_stardist_3d_lib:
                 raise RuntimeError(self._variant.compiled_ops_error)
-            rays = self._get_rays_class()(n=dist.shape[-1])
+            rays = self._create_rays(dist.shape[-1])
             labels, info = instances_from_prediction_3d(
                 prob,
                 dist,
@@ -291,6 +291,10 @@ class StarDistOnnxBaseModel(StarDistOnnxRuntimeMixin, SenoQuantSegmentationModel
             )
 
         return {"masks": labels, "prob": prob, "dist": dist, "info": info}
+
+    def _create_rays(self, n_rays: int):
+        """Create the ray geometry used to interpret 3D distance channels."""
+        return self._get_rays_class()(n=n_rays)
 
     def _predict(
         self,
@@ -349,6 +353,8 @@ class StarDistOnnxBaseModel(StarDistOnnxRuntimeMixin, SenoQuantSegmentationModel
         self,
         image: np.ndarray,
         settings: dict,
+        *,
+        layer=None,
     ) -> tuple[np.ndarray, dict[str, float] | None]:
         """Scale an input image to match the model training diameter.
 
@@ -358,6 +364,9 @@ class StarDistOnnxBaseModel(StarDistOnnxRuntimeMixin, SenoQuantSegmentationModel
             Input image in model-native dimensionality.
         settings : dict
             Runtime settings; ``object_diameter_px`` is used if present.
+        layer : object or None, optional
+            Source layer. The shared implementation does not inspect it, but
+            model-specific subclasses may use its metadata.
 
         Returns
         -------

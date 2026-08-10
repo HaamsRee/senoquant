@@ -1,4 +1,4 @@
-"""TitanCell 3D segmentation model implementation."""
+"""Multi-head PyTorch 3D segmentation model implementation."""
 
 from __future__ import annotations
 
@@ -7,31 +7,27 @@ from typing import Any
 
 import numpy as np
 
+from senoquant.tabs.segmentation.models.base import SenoQuantSegmentationModel
+from senoquant.tabs.segmentation.models.default_3d_multihead.config import (
+    PipelineConfig,
+)
+from senoquant.tabs.segmentation.models.default_3d_multihead.inference import (
+    InferenceEngine,
+)
+from senoquant.tabs.segmentation.models.default_3d_multihead.postprocess import (
+    InstanceEngine,
+)
+from senoquant.tabs.segmentation.models.hf import DEFAULT_REPO_ID, ensure_hf_model
 from senoquant.utils import layer_data_asarray
-from ..base import SenoQuantSegmentationModel
-from ..hf import DEFAULT_REPO_ID, ensure_hf_model
-from .config import PipelineConfig
-from .inference import InferenceEngine
-from .postprocess import InstanceEngine
 
 
-class TitanCellModel(SenoQuantSegmentationModel):
-    """TitanCell 3D segmentation model wrapper."""
+class MultiHead3DModel(SenoQuantSegmentationModel):
+    """Multi-head PyTorch 3D segmentation model wrapper."""
 
     def __init__(self, models_root=None) -> None:
-        super().__init__("default_3d", models_root=models_root)
+        super().__init__("default_3d_multihead", models_root=models_root)
 
         model_path = Path(self.model_dir) / "best_model_v18.pth"
-        if not model_path.exists():
-            try:
-                model_path = ensure_hf_model(
-                    "best_model_v18.pth",
-                    self.model_dir,
-                    repo_id=DEFAULT_REPO_ID,
-                )
-            except RuntimeError:
-                pass
-
         self._model_path = str(model_path)
         self._inference: InferenceEngine | None = None
         self._instance: InstanceEngine | None = None
@@ -59,19 +55,21 @@ class TitanCellModel(SenoQuantSegmentationModel):
         }
 
     @staticmethod
-    def get_derived_params(cell_diameter_px: float) -> dict[str, Any]:
+    def get_derived_params(object_diameter_px: float) -> dict[str, Any]:
         """Return the internally derived settings for a given diameter."""
-        return PipelineConfig.derive_defaults(cell_diameter_px)
+        return PipelineConfig.derive_defaults(object_diameter_px)
 
     def _extract_layer_data(self, layer) -> np.ndarray:
         if layer is None:
-            raise ValueError("A valid image layer is required for TitanCell.")
+            raise ValueError("A valid image layer is required for the multi-head model.")
 
         data = layer_data_asarray(layer)
         if data.ndim == 2:
             data = data[np.newaxis]
         if data.ndim != 3:
-            raise ValueError(f"TitanCell expects a 3-D volume, got shape {data.shape}.")
+            raise ValueError(
+                f"The multi-head model expects a 3-D volume, got shape {data.shape}."
+            )
 
         return data.astype(np.float32)
 
@@ -79,7 +77,7 @@ class TitanCellModel(SenoQuantSegmentationModel):
         """Build PipelineConfig from the reduced UI surface."""
         return PipelineConfig(
             model_path=self._model_path,
-            cell_diameter_px=float(settings["cell_diameter_px"]),
+            object_diameter_px=float(settings["object_diameter_px"]),
             mask_threshold=float(settings["mask_threshold"]),
             high_mask_threshold=float(settings["high_mask_threshold"]),
             min_high_mask_fraction=float(settings["min_high_mask_fraction"]),
@@ -87,6 +85,15 @@ class TitanCellModel(SenoQuantSegmentationModel):
 
     def _ensure_loaded(self, config: PipelineConfig) -> None:
         if self._inference is None:
+            model_path = Path(self._model_path)
+            if not model_path.exists():
+                model_path = ensure_hf_model(
+                    "best_model_v18.pth",
+                    self.model_dir,
+                    repo_id=DEFAULT_REPO_ID,
+                )
+                self._model_path = str(model_path)
+                config.model_path = self._model_path
             self._inference = InferenceEngine(config)
         else:
             self._inference.cfg = config

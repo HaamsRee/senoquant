@@ -28,7 +28,9 @@ This page summarizes the current repository layout and where core behavior is im
 
 - `segmentation/`: segmentation tab UI/backend and segmentation models.
 - `segmentation/_frontend/`: split frontend mixins and widgets used by segmentation tab.
-- `segmentation/models/`: built-in models (`default_2d`, `default_3d`, `cpsam`, `nuclear_dilation`, `perinuclear_rings`).
+- `segmentation/models/`: built-in models (`default_2d`,
+  `default_3d_stardist`, `default_3d_multihead`, `cpsam`,
+  `nuclear_dilation`, `perinuclear_rings`).
 - `segmentation/stardist_onnx_utils/`: StarDist runtime helpers, conversion/runtime support, vendored StarDist/CSBDeep compatibility code.
 - `spots/`: spots tab UI/backend and detector orchestration.
 - `spots/models/`: built-in detectors (`rmp`, `ufish`) plus shared detector base classes.

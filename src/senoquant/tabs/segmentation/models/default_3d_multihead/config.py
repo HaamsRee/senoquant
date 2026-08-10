@@ -8,18 +8,18 @@ from typing import Dict, Tuple
 import numpy as np
 
 _DEFAULT_MODEL_PATH = str(Path(__file__).parent / "best_model_v18.pth")
-DEFAULT_CELL_DIAMETER_PX = 100.0
+DEFAULT_OBJECT_DIAMETER_PX = 100.0
 
 
-def _derive_defaults_for_diameter(cell_diameter_px: float) -> Dict[str, float | int]:
-    d = float(cell_diameter_px)
+def _derive_defaults_for_diameter(object_diameter_px: float) -> Dict[str, float | int]:
+    d = float(object_diameter_px)
     r = d / 2.0
     min_cell_volume_vox = max(
         200,
         int((4.0 / 3.0) * math.pi * max(5.0, r * 0.20) ** 3),
     )
     return {
-        "cell_diameter_px": d,
+        "object_diameter_px": d,
         "center_smooth_sigma": min(12.0, max(5.0, r / 3.0)),
         "center_peak_threshold": float(np.clip(0.004 + 0.00020 * r, 0.003, 0.015)),
         "seed_min_dist_vox": min(21.0, max(5.0, r * 0.55)),
@@ -47,7 +47,7 @@ class PipelineConfig:
     inference_batch_size: int = 4
     use_torch_compile: bool = False
 
-    cell_diameter_px: float = DEFAULT_CELL_DIAMETER_PX
+    object_diameter_px: float = DEFAULT_OBJECT_DIAMETER_PX
     mask_threshold: float = 0.55
     high_mask_threshold: float = 0.92
     min_high_mask_fraction: float = 0.08
@@ -74,7 +74,7 @@ class PipelineConfig:
     sdf_max_dist_px: float = field(init=False)
 
     def __post_init__(self) -> None:
-        derived = _derive_defaults_for_diameter(self.cell_diameter_px)
+        derived = _derive_defaults_for_diameter(self.object_diameter_px)
         self.center_smooth_sigma = float(derived["center_smooth_sigma"])
         self.center_peak_threshold = float(derived["center_peak_threshold"])
         self.seed_min_dist_vox = float(derived["seed_min_dist_vox"])
@@ -90,7 +90,7 @@ class PipelineConfig:
 
         if self.verbose:
             print(
-                f"   [cell_diameter={self.cell_diameter_px:.1f}px] "
+                f"   [object_diameter={self.object_diameter_px:.1f}px] "
                 f"sigma={self.center_smooth_sigma:.1f}px | "
                 f"nms={self.seed_min_dist_vox:.1f}px | "
                 f"peak_thr={self.center_peak_threshold:.4f} | "
@@ -108,8 +108,8 @@ class PipelineConfig:
             )
 
     @staticmethod
-    def derive_defaults(cell_diameter_px: float) -> Dict[str, float | int]:
-        return _derive_defaults_for_diameter(cell_diameter_px)
+    def derive_defaults(object_diameter_px: float) -> Dict[str, float | int]:
+        return _derive_defaults_for_diameter(object_diameter_px)
 
 
 __all__ = ["PipelineConfig"]

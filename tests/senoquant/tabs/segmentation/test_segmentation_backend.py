@@ -109,6 +109,21 @@ def test_model_base_supports_task() -> None:
     assert model.supports_task("nuclear")
 
 
+def test_restored_3d_models_are_discoverable() -> None:
+    """Expose both renamed 3D implementations as nuclear models."""
+    backend = SegmentationBackend()
+    names = backend.list_model_names(task="nuclear")
+
+    assert "default_3d_stardist" in names
+    assert "default_3d_multihead" in names
+    assert "default_3d" not in names
+
+    multihead_settings = backend.get_model("default_3d_multihead").list_settings()
+    setting_keys = {setting["key"] for setting in multihead_settings}
+    assert "object_diameter_px" in setting_keys
+    assert "cell_diameter_px" not in setting_keys
+
+
 def test_model_base_display_order() -> None:
     """Test model display ordering.
 

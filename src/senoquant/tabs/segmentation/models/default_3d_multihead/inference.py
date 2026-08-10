@@ -7,8 +7,8 @@ import numpy as np
 import torch
 from torch.amp import autocast
 
-from senoquant.tabs.segmentation.models.default_3d.config import PipelineConfig
-from senoquant.tabs.segmentation.models.default_3d.network import TitanCellV18_3D
+from senoquant.tabs.segmentation.models.default_3d_multihead.config import PipelineConfig
+from senoquant.tabs.segmentation.models.default_3d_multihead.network import TitanCellV18_3D
 
 
 class InferenceEngine:

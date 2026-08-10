@@ -1,4 +1,4 @@
-# Third-Party Notices for `default_3d`
+# Third-Party Notices for `default_3d_multihead`
 
 This model uses the following third-party dependency at runtime:
 
@@ -10,7 +10,7 @@ This model uses the following third-party dependency at runtime:
 - Python package: <https://pypi.org/project/connected-components-3d/>
 - License: `LGPL-3.0-or-later`
 
-SenoQuant uses `cc3d` in the `default_3d` model postprocessing pipeline for
+SenoQuant uses `cc3d` in the `default_3d_multihead` model postprocessing pipeline for
 3D connected-components labeling.
 
 The upstream license texts are available at:

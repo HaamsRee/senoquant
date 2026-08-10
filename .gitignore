@@ -19,7 +19,8 @@ site/
 
 # Large model binaries (decide storage strategy)
 src/senoquant/tabs/segmentation/models/cpsam/cpsam
-src/senoquant/tabs/segmentation/models/default_3d/best_model_v18.pth
+src/senoquant/tabs/segmentation/models/default_3d_multihead/best_model_v18.pth
+src/senoquant/tabs/segmentation/models/default_3d_stardist/onnx_models/default_3d.onnx
 src/senoquant/tabs/spots/ufish_utils/ufish.onnx
 
 # IDE
