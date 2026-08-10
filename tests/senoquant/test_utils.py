@@ -81,14 +81,14 @@ def test_append_run_metadata_appends_history() -> None:
 
 
 def test_labels_data_as_dask_wraps_numpy_with_chunks() -> None:
-    """Convert dense label arrays to chunked dask arrays."""
+    """Convert dense label arrays to single-chunk dask arrays."""
     labels = np.ones((3, 6, 7), dtype=np.uint16)
 
     wrapped = labels_data_as_dask(labels)
 
     assert isinstance(wrapped, da.Array)
     assert wrapped.shape == labels.shape
-    assert max(wrapped.chunks[0]) == 1
+    assert wrapped.chunks == ((3,), (6,), (7,))
 
 
 def test_labels_data_as_dask_keeps_existing_dask_array() -> None:

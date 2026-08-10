@@ -70,7 +70,7 @@ def test_spot_labels_metadata_without_name_lookup() -> None:
 
 
 def test_spot_labels_are_added_as_dask_arrays() -> None:
-    """Wrap detector masks as dask arrays, then materialize layer data."""
+    """Insert a one-chunk dask wrapper, then restore the original mask."""
 
     class _RawLayer:
         def __init__(self, data, name: str, metadata=None):
@@ -94,15 +94,17 @@ def test_spot_labels_are_added_as_dask_arrays() -> None:
     tab = spots_frontend.SpotsTab(napari_viewer=viewer)
     source = Image(np.zeros((4, 4), dtype=np.float32), "img")
 
+    mask = np.ones((4, 4), dtype=np.uint16)
     tab._add_labels_layer(
         source,
-        np.ones((4, 4), dtype=np.uint16),
+        mask,
         "detector",
         settings={"threshold": 0.4},
     )
 
     assert isinstance(viewer.received, da.Array)
-    assert isinstance(viewer.layers[-1].data, np.ndarray)
+    assert viewer.received.chunks == ((4,), (4,))
+    assert viewer.layers[-1].data is mask
 
 
 def test_handle_run_result_adds_size_filter_to_run_settings() -> None:

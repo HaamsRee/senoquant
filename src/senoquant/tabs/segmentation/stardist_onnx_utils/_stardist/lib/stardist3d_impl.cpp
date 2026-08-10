@@ -1206,7 +1206,7 @@ void _COMMON_non_maximum_suppression_sparse(
     //   if (suppressed[j])
     //     continue;
     
-    for (size_t neigh=0; neigh<results.size(); neigh++) {
+    for (std::int64_t neigh=0; neigh<static_cast<std::int64_t>(results.size()); neigh++) {
 
       long j = results[neigh].first;
 
@@ -1476,12 +1476,14 @@ void  _COMMON_polyhedron_to_label(const float* dist, const float* points,
 #else
 #pragma omp parallel for schedule(dynamic)
 #endif
-    for (uint64_t z = std::max(0,bbox[0]); z <= (uint64_t) std::min(nz-1,bbox[1]); ++z) {
-      for (uint64_t y = std::max(0,bbox[2]); y <= (uint64_t) std::min(ny-1,bbox[3]); ++y) {
-        for (uint64_t x = std::max(0,bbox[4]); x <= (uint64_t) std::min(nx-1,bbox[5]); ++x) {
+    for (int z = std::max(0,bbox[0]); z <= std::min(nz-1,bbox[1]); ++z) {
+      for (int y = std::max(0,bbox[2]); y <= std::min(ny-1,bbox[3]); ++y) {
+        for (int x = std::max(0,bbox[4]); x <= std::min(nx-1,bbox[5]); ++x) {
 
           bool inside = false;
-          uint64_t offset = x+y*nx+z*(nx*ny);
+          uint64_t offset = static_cast<uint64_t>(x)
+                          + static_cast<uint64_t>(y)*nx
+                          + static_cast<uint64_t>(z)*nx*ny;
 
           switch(render_mode){
           case 0:
@@ -1605,7 +1607,4 @@ void _COMMON_dist_to_centroid(const float * dist, const float * origin,
 	}
   }
 }
-
-
-
 

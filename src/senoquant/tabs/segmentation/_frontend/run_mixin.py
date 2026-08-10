@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 
-import numpy as np
 from qtpy.QtCore import QObject, QThread
 from qtpy.QtWidgets import QPushButton
 
@@ -37,11 +36,13 @@ class SegmentationRunMixin:
             run_button=self._nuclear_run_button,
             run_text="Run",
             task="nuclear",
-            run_callable=lambda: model.run(
-                task="nuclear",
-                layer=layer,
-                settings=settings,
-            ),
+            run_callable=lambda: {
+                "masks": model.run(
+                    task="nuclear",
+                    layer=layer,
+                    settings=settings,
+                ).get("masks")
+            },
             on_success=lambda result: self._add_labels_layer(
                 layer,
                 result.get("masks"),
@@ -70,11 +71,13 @@ class SegmentationRunMixin:
                 run_button=self._cyto_run_button,
                 run_text="Run",
                 task="cytoplasmic",
-                run_callable=lambda: model.run(
-                    task="cytoplasmic",
-                    nuclear_layer=nuclear_layer,
-                    settings=settings,
-                ),
+                run_callable=lambda: {
+                    "masks": model.run(
+                        task="cytoplasmic",
+                        nuclear_layer=nuclear_layer,
+                        settings=settings,
+                    ).get("masks")
+                },
                 on_success=lambda result: self._add_labels_layer(
                     nuclear_layer,
                     result.get("masks"),
@@ -102,12 +105,14 @@ class SegmentationRunMixin:
             run_button=self._cyto_run_button,
             run_text="Run",
             task="cytoplasmic",
-            run_callable=lambda: model.run(
-                task="cytoplasmic",
-                cytoplasmic_layer=cyto_layer,
-                nuclear_layer=nuclear_layer,
-                settings=settings,
-            ),
+            run_callable=lambda: {
+                "masks": model.run(
+                    task="cytoplasmic",
+                    cytoplasmic_layer=cyto_layer,
+                    nuclear_layer=nuclear_layer,
+                    settings=settings,
+                ).get("masks")
+            },
             on_success=lambda result: self._add_labels_layer(
                 cyto_layer,
                 result.get("masks"),
@@ -259,9 +264,9 @@ class SegmentationRunMixin:
         if labels_layer is None:
             return
 
-        # Materialize after insertion: faster display interactions and simpler downstream ops.
+        # Restore the original dense mask for editing and downstream processing.
         try:
-            labels_layer.data = np.asarray(labels_layer.data)
+            labels_layer.data = masks
         except Exception:
             pass
 

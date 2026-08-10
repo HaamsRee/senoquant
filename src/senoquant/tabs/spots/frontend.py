@@ -821,9 +821,9 @@ class SpotsTab(QWidget):
         if labels_layer is None:
             return
 
-        # Materialize after insertion: faster display interactions and simpler downstream ops.
+        # Restore the original dense mask for editing and downstream processing.
         try:
-            labels_layer.data = np.asarray(labels_layer.data)
+            labels_layer.data = mask
         except Exception:
             pass
 

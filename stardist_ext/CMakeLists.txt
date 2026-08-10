@@ -70,11 +70,13 @@ target_link_libraries(stardist2d PRIVATE Python3::Module)
 target_link_libraries(stardist3d PRIVATE Python3::Module)
 
 find_package(OpenMP)
-# MSVC rejects unsigned OpenMP loop indices (C3016) in upstream StarDist code.
-# Disable OpenMP on MSVC to avoid patching vendored sources.
-if(OpenMP_CXX_FOUND AND NOT APPLE AND NOT MSVC)
-    target_link_libraries(stardist2d PRIVATE OpenMP::OpenMP_CXX)
-    target_link_libraries(stardist3d PRIVATE OpenMP::OpenMP_CXX)
+if(OpenMP_CXX_FOUND AND NOT APPLE)
+    if(MSVC)
+        target_link_libraries(stardist3d PRIVATE OpenMP::OpenMP_CXX)
+    else()
+        target_link_libraries(stardist2d PRIVATE OpenMP::OpenMP_CXX)
+        target_link_libraries(stardist3d PRIVATE OpenMP::OpenMP_CXX)
+    endif()
 endif()
 
 # Install extension binaries under a dedicated top-level package path to

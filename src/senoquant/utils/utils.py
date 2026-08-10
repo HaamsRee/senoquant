@@ -28,20 +28,8 @@ def layer_data_asarray(layer, *, squeeze: bool = True) -> np.ndarray:
     return np.squeeze(data) if squeeze else data
 
 
-def _label_chunks(shape: tuple[int, ...], *, tile_xy: int = 512) -> tuple[int, ...]:
-    """Return chunk sizes tuned for label-like 2D/3D arrays."""
-    if len(shape) == 0:
-        return ()
-    if len(shape) == 1:
-        return (min(shape[0], tile_xy),)
-    if len(shape) == 2:
-        return (min(shape[0], tile_xy), min(shape[1], tile_xy))
-    leading = tuple(1 for _ in shape[:-2])
-    return leading + (min(shape[-2], tile_xy), min(shape[-1], tile_xy))
-
-
 def labels_data_as_dask(data):
-    """Wrap label data in a chunked dask array when possible.
+    """Wrap label data in a single-chunk dask array when possible.
 
     Parameters
     ----------
@@ -69,7 +57,7 @@ def labels_data_as_dask(data):
     if array.ndim == 0 or array.size == 0:
         return array
 
-    return da.from_array(array, chunks=_label_chunks(array.shape))
+    return da.from_array(array, chunks=array.shape)
 
 
 def append_run_metadata(
