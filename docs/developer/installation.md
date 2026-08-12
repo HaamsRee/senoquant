@@ -1,8 +1,59 @@
-# Manual installation
+# Development and manual installation
 
 This guide covers manual installation using conda, pip, and uv for users who prefer a command-line setup or are developing SenoQuant.
 
-> **Note:** For most users, the **[installers](../user/installation.md)** are recommended as they simplify setup and ensure GPU support.
+> **Note:** For most users, the **[installers](../user/installation.md)** are recommended because they simplify setup and select the supported runtime for the host platform.
+
+## Automated development setup
+
+The repository provides setup scripts under `scripts/development/`. Each script creates or updates the `senoquant-dev` conda environment with Python 3.11, OpenJDK, JPype, scyjava, napari, the test dependencies, and an editable SenoQuant installation.
+
+Prerequisites:
+
+- A local SenoQuant repository checkout.
+- Miniforge, Miniconda, or Anaconda with `conda` available in the terminal.
+
+Run the script for your operating system from the repository root.
+
+Windows (PowerShell):
+
+```powershell
+.\scripts\development\setup_windows.ps1
+```
+
+macOS:
+
+```bash
+bash scripts/development/setup_macos.sh
+```
+
+Linux:
+
+```bash
+bash scripts/development/setup_linux.sh
+```
+
+After setup:
+
+```bash
+conda activate senoquant-dev
+python -m pytest -q
+napari --with senoquant
+```
+
+The scripts are safe to rerun: they update an existing environment instead of replacing it. To use another environment name, pass it as the first argument on macOS/Linux or use `-EnvironmentName` on Windows:
+
+```bash
+bash scripts/development/setup_linux.sh my-senoquant-env
+```
+
+```powershell
+.\scripts\development\setup_windows.ps1 -EnvironmentName my-senoquant-env
+```
+
+On a Windows ARM64 PC, the Windows script creates a `win-64` conda environment. Python and native dependencies then run through Windows 11 x64 emulation, matching the supported installer configuration. Windows 11 24H2 or later is required.
+
+The following sections describe the equivalent manual process.
 
 ## Create an environment
 
@@ -75,11 +126,11 @@ napari --with senoquant
 
 ## Development installation
 
-For development work, install SenoQuant from the repository in editable mode:
+For development work without the setup scripts, install SenoQuant and the test dependencies from the repository in editable mode:
 
 ```bash
 pip install uv
-uv pip install -e .
+uv pip install "napari[all]" -r requirements-test.txt -e .
 ```
 
 This allows you to make changes to the code and see them reflected immediately without reinstalling.

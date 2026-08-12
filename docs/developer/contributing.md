@@ -6,13 +6,22 @@ Thank you for your interest in contributing to SenoQuant. This guide helps you s
 
 ### Environment creation
 
-```bash
-conda create -n senoquant-dev python=3.11
-conda activate senoquant-dev
-pip install uv
-uv pip install "napari[all]"
-uv pip install -e .
+Use the setup script for your operating system from the repository root:
+
+```powershell
+# Windows
+.\scripts\development\setup_windows.ps1
 ```
+
+```bash
+# macOS
+bash scripts/development/setup_macos.sh
+
+# Linux
+bash scripts/development/setup_linux.sh
+```
+
+The scripts install Python 3.11, Java support, napari, test dependencies, and SenoQuant in editable mode. See the [development installation guide](installation.md#automated-development-setup) for prerequisites, custom environment names, and Windows ARM64 behavior.
 
 ### Verify installation
 

@@ -13,6 +13,8 @@ Both installers follow the same high-level pattern:
 3. Install OpenJDK, JPype, scyjava, napari, PyTorch, and dependencies.
 4. Launch napari with the SenoQuant plugin.
 
+The Windows package also supports ARM64 hosts by running its existing win-64 environment through Windows 11 x64 emulation. This is an emulated CPU configuration, not a native ARM64 build.
+
 ## Version management
 
 All installers read the version from `pyproject.toml` to ensure consistency.
@@ -165,6 +167,7 @@ Key components:
 - Inno Setup script: `installer/windows/senoquant.iss`.
 - Build script: `installer/windows/build_windows_installer.ps1`.
 - Post-install script: `installer/windows/post_install.ps1`.
+- Platform detection helper: `installer/windows/platform.ps1`.
 
 ### Build pipeline
 
@@ -208,6 +211,7 @@ The build script assembles this structure under `dist/windows-installer/senoquan
 senoquant/
   launch_senoquant.bat
   launch_senoquant.ps1
+  platform.ps1
   post_install.ps1
   senoquant_icon.ico
   tools/
@@ -221,12 +225,26 @@ senoquant/
 `post_install.ps1` runs after installation to:
 
 - Create a Python 3.11, OpenJDK 21, JPype, and scyjava environment under `env/`.
-- Install `napari[all]`, PyTorch 2.5.1 (CUDA 12.1), and SenoQuant from the local wheel.
+- Install `napari[all]` and SenoQuant from the local wheel.
+- Install PyTorch 2.5.1 with CUDA 12.1 on x64 Windows or CPU-only PyTorch on a Windows ARM64 host.
 - Set `JAVA_HOME` to the bundled environment so BioFormats/scyjava does not depend on system Java.
 - Run `uv` installs with `--system-certs` and clear `SSL_CERT_FILE` / `SSL_CERT_DIR` inside the micromamba child process so enterprise proxy trust uses the OS certificate store.
 - Validate imports.
 
 The SenoQuant wheel pulls in runtime dependencies, including `senoquant-stardist-ext`.
+
+### Windows architecture behavior
+
+The Inno Setup package uses `ArchitecturesAllowed=x64compatible`, which permits the x64 application payload on both x64 Windows and ARM64 Windows 11. The bundled micromamba executable and environment remain win-64 in both cases.
+
+During post-install, `platform.ps1` checks the process and operating-system architecture indicators. On an ARM64 host, setup:
+
+1. Requires Windows 11 24H2 (build 26100) or later.
+2. Creates the same win-64 Python 3.11 environment used on x64 Windows.
+3. Installs CPU PyTorch instead of the CUDA 12.1 build.
+4. Validates that Python is running as x64, CUDA is unavailable, and ONNX Runtime exposes its CPU execution provider.
+
+This retains the normal SenoQuant feature surface, including StarDist's x64 extension, but inference runs on the CPU through Windows x64 emulation. Native ARM64 wheels, CUDA, and NPU execution are outside the current support scope.
 
 ### Troubleshooting
 
@@ -242,6 +260,7 @@ The SenoQuant wheel pulls in runtime dependencies, including `senoquant-stardist
 
 **GPU not detected.**
 
+- Windows ARM64 intentionally uses CPU inference and does not expose CUDA.
 - Verify that a current NVIDIA driver is installed with `nvidia-smi`.
 - Check PyTorch with `python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"`.
 - Confirm the installer pulled PyTorch 2.5.1 with its CUDA 12.1 runtime. A separate CUDA Toolkit installation is not required for the packaged application.

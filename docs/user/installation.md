@@ -12,7 +12,7 @@ Before installing, make sure your system meets these requirements:
 
 ### Platform support
 
-- **Windows installer**: 64-bit Windows (`x64`).
+- **Windows installer**: x64 Windows, plus Windows ARM64 through x64 emulation on Windows 11 24H2 or later.
 - **macOS installer**: Apple Silicon Macs running macOS 10.15 or later.
 - **Linux**: Installer support is under construction.
 
@@ -20,6 +20,7 @@ Before installing, make sure your system meets these requirements:
 
 - **Manual installs** require Python 3.11.
 - **Windows** can use GPU acceleration when a compatible PyTorch/CUDA setup is available.
+- **Windows ARM64** uses CPU inference through the emulated x64 runtime; CUDA and NPU acceleration are not enabled.
 - **Apple Silicon Macs** can use MPS acceleration.
 
 ### Recommended hardware
@@ -53,6 +54,8 @@ The **Windows installer** is the easiest and most reliable way to install SenoQu
 3. After installation completes, launch **SenoQuant** from the Start Menu or the desktop icon.
 
 > **Note:** The installer sets up a dedicated conda environment and installs GPU-enabled PyTorch where available. This avoids the common issue where `pip` installs CPU-only PyTorch on Windows.
+
+On Windows ARM64, the same installer detects the host architecture and installs an x64 CPU runtime. Windows 11 runs this environment through x64 emulation. Windows 11 24H2 (build 26100) or later is required; native ARM64, CUDA, and NPU execution are not currently supported.
 
 > The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.
 

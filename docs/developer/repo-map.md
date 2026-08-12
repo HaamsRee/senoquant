@@ -10,6 +10,7 @@ This page summarizes the current repository layout and where core behavior is im
 - `stardist_ext/`: compiled StarDist extension source/package.
 - `_vendor/ufish/`: vendored U-FISH code used by spot detection support.
 - `installer/`: installer build assets and scripts.
+- `scripts/development/`: conda-based editable development setup scripts for Windows, macOS, and Linux.
 - `res/`: extra resources used by packaging/install flows.
 
 ## Package entry points (`src/senoquant`)

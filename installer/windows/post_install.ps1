@@ -5,11 +5,31 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+if (-not $AppDir) {
+    $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+$AppDir = $AppDir.Trim('"')
+
 $logPath = Join-Path $AppDir "post_install.log"
 try {
     Start-Transcript -Path $logPath -Append | Out-Null
 } catch {
     # ignore transcript failures
+}
+
+$platformHelpers = Join-Path $PSScriptRoot "platform.ps1"
+if (!(Test-Path $platformHelpers)) {
+    throw "Windows platform helpers not found at $platformHelpers"
+}
+. $platformHelpers
+
+$isWindowsArm64 = Test-SenoQuantWindowsArm64
+if ($isWindowsArm64) {
+    $windowsBuild = [Environment]::OSVersion.Version.Build
+    if ($windowsBuild -lt 26100) {
+        throw "Windows ARM64 requires Windows 11 24H2 (build 26100) or later for the supported x64 emulation path."
+    }
+    Write-Host "[SenoQuant] Windows ARM64 host detected. The win-64 runtime will run through Windows x64 emulation with CPU inference."
 }
 
 Write-Host "[SenoQuant] Starting post-install..."
@@ -84,12 +104,6 @@ raise SystemExit(
     }
 }
 
-if (-not $AppDir) {
-    $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-}
-
-$AppDir = $AppDir.Trim('"')
-
 $envDir = Join-Path $AppDir "env"
 $toolsDir = Join-Path $AppDir "tools"
 $wheelDir = Join-Path $AppDir "wheels"
@@ -154,21 +168,41 @@ Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
 
 Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { Invoke-UvPipInstall @("--reinstall-package", "senoquant", $wheel.FullName) }
 
-Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" {
-    Invoke-UvPipInstall @(
-        "--force-reinstall",
-        "--index-url",
-        "https://download.pytorch.org/whl/cu121",
-        "torch==2.5.1",
-        "torchvision==0.20.1",
-        "torchaudio==2.5.1",
-        "numpy>=1.23,<=1.26.4"
-    )
+if ($isWindowsArm64) {
+    Invoke-Checked "Installing CPU PyTorch for Windows ARM64 x64 emulation" {
+        Invoke-UvPipInstall @(
+            "--force-reinstall",
+            "--index-url",
+            "https://download.pytorch.org/whl/cpu",
+            "torch==2.5.1",
+            "torchvision==0.20.1",
+            "torchaudio==2.5.1",
+            "numpy>=1.23,<=1.26.4"
+        )
+    }
+} else {
+    Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" {
+        Invoke-UvPipInstall @(
+            "--force-reinstall",
+            "--index-url",
+            "https://download.pytorch.org/whl/cu121",
+            "torch==2.5.1",
+            "torchvision==0.20.1",
+            "torchaudio==2.5.1",
+            "numpy>=1.23,<=1.26.4"
+        )
+    }
 }
 
 Invoke-Checked "Validating Java bridge imports" { & $micromambaExe run -p $envDir python -c "import jpype, scyjava, senoquant; print('jpype:', jpype.__version__)" }
 
 Invoke-Checked "Validating napari import" { & $micromambaExe run -p $envDir python -c "import napari" }
+
+if ($isWindowsArm64) {
+    Invoke-Checked "Validating emulated x64 CPU runtime" {
+        & $micromambaExe run -p $envDir python -c "import onnxruntime as ort, platform, torch; assert platform.machine().lower() in {'amd64', 'x86_64'}; assert not torch.cuda.is_available(); assert 'CPUExecutionProvider' in ort.get_available_providers(); print('runtime:', platform.machine(), 'PyTorch CPU, ONNX CPU')"
+    }
+}
 
 Set-Content -Path $versionFile -Value $targetVersion -Encoding ASCII
 Write-Host "[SenoQuant] Recorded installed version: $targetVersion"

@@ -118,6 +118,7 @@ if (!(Test-Path $iconIco)) {
 Copy-Item (Join-Path $repoRoot "installer\windows\launch_senoquant.ps1") (Join-Path $appDir "launch_senoquant.ps1") -Force
 Copy-Item (Join-Path $repoRoot "installer\windows\launch_senoquant.bat") (Join-Path $appDir "launch_senoquant.bat") -Force
 Copy-Item (Join-Path $repoRoot "installer\windows\post_install.ps1") (Join-Path $appDir "post_install.ps1") -Force
+Copy-Item (Join-Path $repoRoot "installer\windows\platform.ps1") (Join-Path $appDir "platform.ps1") -Force
 if ($micromambaExe -ne (Join-Path $toolsDir "micromamba.exe")) {
     Copy-Item $micromambaExe (Join-Path $toolsDir "micromamba.exe") -Force
 }
