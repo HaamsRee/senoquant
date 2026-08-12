@@ -166,8 +166,7 @@ Invoke-Checked "Installing pip-system-certs" { Invoke-UvPipInstall @("pip-system
 
 Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
 
-Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { Invoke-UvPipInstall @("--reinstall-package", "senoquant", $wheel.FullName) }
-
+# Install PyTorch first so Cellpose does not pull the default CUDA build on ARM64.
 if ($isWindowsArm64) {
     Invoke-Checked "Installing CPU PyTorch for Windows ARM64 x64 emulation" {
         Invoke-UvPipInstall @(
@@ -193,6 +192,8 @@ if ($isWindowsArm64) {
         )
     }
 }
+
+Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { Invoke-UvPipInstall @("--reinstall-package", "senoquant", $wheel.FullName) }
 
 Invoke-Checked "Validating Java bridge imports" { & $micromambaExe run -p $envDir python -c "import jpype, scyjava, senoquant; print('jpype:', jpype.__version__)" }
 

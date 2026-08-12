@@ -83,6 +83,10 @@ class TestPlatformScripts(unittest.TestCase):
         self.assertIn("$windowsBuild -lt 26100", post_install)
         self.assertIn("CPUExecutionProvider", post_install)
         self.assertIn("ArchitecturesAllowed=x64compatible", inno_setup)
+        self.assertLess(
+            post_install.index("Installing CPU PyTorch"),
+            post_install.index("Installing SenoQuant wheel"),
+        )
 
     def test_development_setup_scripts_install_editable_package(self) -> None:
         for script_name in (
