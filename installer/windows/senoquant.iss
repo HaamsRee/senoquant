@@ -40,6 +40,9 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 [Run]
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\post_install.ps1"" ""{app}"" ""{#AppVersion}"""; Flags: waituntilterminated; StatusMsg: "Setting up SenoQuant environment..."
 
+[UninstallRun]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall.ps1"" -AppDir ""{app}"""; Flags: waituntilterminated runhidden skipifdoesntexist logoutput; RunOnceId: "SenoQuantRuntimeCleanup"
+
 [Code]
 function IsProgramFilesPath(const Path: string): Boolean;
 var
@@ -66,5 +69,36 @@ begin
 				MB_OK
 			);
 		end;
+	end;
+end;
+
+function InitializeUninstall(): Boolean;
+var
+	resultCode: Integer;
+	scriptPath: string;
+	parameters: string;
+begin
+	Result := True;
+	scriptPath := ExpandConstant('{app}\uninstall.ps1');
+	if not FileExists(scriptPath) then
+		exit;
+
+	parameters := '-NoProfile -ExecutionPolicy Bypass -File "' + scriptPath +
+		'" -AppDir "' + ExpandConstant('{app}') + '" -CheckOnly';
+	if Exec(
+		ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+		parameters,
+		'',
+		SW_HIDE,
+		ewWaitUntilTerminated,
+		resultCode
+	) and (resultCode = 20) then
+	begin
+		MsgBox(
+			'SenoQuant is still running. Close it before uninstalling.',
+			mbError,
+			MB_OK
+		);
+		Result := False;
 	end;
 end;

@@ -59,6 +59,12 @@ On Windows ARM64, the same installer detects the host architecture and installs 
 
 > The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.
 
+#### Uninstall on Windows
+
+Close SenoQuant, then open **Settings > Apps > Installed apps**, find **SenoQuant**, and select **Uninstall**. The uninstaller removes the installer-managed Python environment, its dependencies and runtime-local models, the version marker, and the installation log.
+
+The uninstaller does not remove datasets, analysis exports, settings stored outside the install directory, or caches shared with other applications. If SenoQuant's managed Python process is still running, uninstall stops and asks you to close it first.
+
 ### macOS
 
 The **macOS installer** provides a native PKG installer that sets up SenoQuant with all dependencies.

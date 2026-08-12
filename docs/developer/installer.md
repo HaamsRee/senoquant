@@ -168,6 +168,7 @@ Key components:
 - Build script: `installer/windows/build_windows_installer.ps1`.
 - Post-install script: `installer/windows/post_install.ps1`.
 - Platform detection helper: `installer/windows/platform.ps1`.
+- Uninstall cleanup helper: `installer/windows/uninstall.ps1`.
 
 ### Build pipeline
 
@@ -209,10 +210,12 @@ The build script assembles this structure under `dist/windows-installer/senoquan
 
 ```text
 senoquant/
+  .senoquant-managed-install
   launch_senoquant.bat
   launch_senoquant.ps1
   platform.ps1
   post_install.ps1
+  uninstall.ps1
   senoquant_icon.ico
   tools/
     micromamba.exe
@@ -245,6 +248,12 @@ During post-install, `platform.ps1` checks the process and operating-system arch
 4. Validates that Python is running as x64, CUDA is unavailable, and ONNX Runtime exposes its CPU execution provider.
 
 This retains the normal SenoQuant feature surface, including StarDist's x64 extension, but inference runs on the CPU through Windows x64 emulation. Native ARM64 wheels, CUDA, and NPU execution are outside the current support scope.
+
+### Uninstall behavior
+
+Inno Setup registers SenoQuant in Windows Installed Apps. Before uninstalling, it runs `uninstall.ps1 -CheckOnly` and stops if a Python process from the managed environment is active. During uninstall, the helper removes only the generated `env/` directory, `installed_version`, and `post_install.log`; Inno Setup then removes the files it originally installed.
+
+Recursive cleanup requires the `.senoquant-managed-install` ownership marker and refuses linked or redirected `env/` directories. The helper never recursively removes the application root, so unrelated files in a custom install directory are preserved. User-selected datasets, exports, settings outside the install directory, and shared external caches are also outside the uninstall surface.
 
 ### Troubleshooting
 
