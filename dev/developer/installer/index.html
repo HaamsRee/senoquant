@@ -1096,6 +1096,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#uninstall-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uninstall behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#troubleshooting_1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1688,6 +1699,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#uninstall-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uninstall behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#troubleshooting_1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1868,6 +1890,7 @@
 <li>Build script: <code>installer/windows/build_windows_installer.ps1</code>.</li>
 <li>Post-install script: <code>installer/windows/post_install.ps1</code>.</li>
 <li>Platform detection helper: <code>installer/windows/platform.ps1</code>.</li>
+<li>Uninstall cleanup helper: <code>installer/windows/uninstall.ps1</code>.</li>
 </ul>
 <h3 id="build-pipeline_1">Build pipeline<a class="headerlink" href="#build-pipeline_1" title="Permanent link">&para;</a></h3>
 <p>The installer is built via <code>.github/workflows/windows-installer.yml</code>:</p>
@@ -1900,10 +1923,12 @@
 <h3 id="app-bundle-layout">App bundle layout<a class="headerlink" href="#app-bundle-layout" title="Permanent link">&para;</a></h3>
 <p>The build script assembles this structure under <code>dist/windows-installer/senoquant</code>:</p>
 <div class="highlight"><pre><span></span><code>senoquant/
+  .senoquant-managed-install
   launch_senoquant.bat
   launch_senoquant.ps1
   platform.ps1
   post_install.ps1
+  uninstall.ps1
   senoquant_icon.ico
   tools/
     micromamba.exe
@@ -1931,6 +1956,9 @@
 <li>Validates that Python is running as x64, CUDA is unavailable, and ONNX Runtime exposes its CPU execution provider.</li>
 </ol>
 <p>This retains the normal SenoQuant feature surface, including StarDist's x64 extension, but inference runs on the CPU through Windows x64 emulation. Native ARM64 wheels, CUDA, and NPU execution are outside the current support scope.</p>
+<h3 id="uninstall-behavior">Uninstall behavior<a class="headerlink" href="#uninstall-behavior" title="Permanent link">&para;</a></h3>
+<p>Inno Setup registers SenoQuant in Windows Installed Apps. Before uninstalling, it runs <code>uninstall.ps1 -CheckOnly</code> and stops if a Python process from the managed environment is active. During uninstall, the helper removes only the generated <code>env/</code> directory, <code>installed_version</code>, and <code>post_install.log</code>; Inno Setup then removes the files it originally installed.</p>
+<p>Recursive cleanup requires the <code>.senoquant-managed-install</code> ownership marker and refuses linked or redirected <code>env/</code> directories. The helper never recursively removes the application root, so unrelated files in a custom install directory are preserved. User-selected datasets, exports, settings outside the install directory, and shared external caches are also outside the uninstall surface.</p>
 <h3 id="troubleshooting_1">Troubleshooting<a class="headerlink" href="#troubleshooting_1" title="Permanent link">&para;</a></h3>
 <p><strong>Missing StarDist ops.</strong></p>
 <ul>
