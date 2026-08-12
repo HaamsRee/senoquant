@@ -1478,7 +1478,7 @@
 </ul>
 <h3 id="platform-support">Platform support<a class="headerlink" href="#platform-support" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Windows installer</strong>: 64-bit Windows (<code>x64</code>).</li>
+<li><strong>Windows installer</strong>: x64 Windows, plus Windows ARM64 through x64 emulation on Windows 11 24H2 or later.</li>
 <li><strong>macOS installer</strong>: Apple Silicon Macs running macOS 10.15 or later.</li>
 <li><strong>Linux</strong>: Installer support is under construction.</li>
 </ul>
@@ -1486,6 +1486,7 @@
 <ul>
 <li><strong>Manual installs</strong> require Python 3.11.</li>
 <li><strong>Windows</strong> can use GPU acceleration when a compatible PyTorch/CUDA setup is available.</li>
+<li><strong>Windows ARM64</strong> uses CPU inference through the emulated x64 runtime; CUDA and NPU acceleration are not enabled.</li>
 <li><strong>Apple Silicon Macs</strong> can use MPS acceleration.</li>
 </ul>
 <h3 id="recommended-hardware">Recommended hardware<a class="headerlink" href="#recommended-hardware" title="Permanent link">&para;</a></h3>
@@ -1517,6 +1518,9 @@
 </ol>
 <blockquote>
 <p><strong>Note:</strong> The installer sets up a dedicated conda environment and installs GPU-enabled PyTorch where available. This avoids the common issue where <code>pip</code> installs CPU-only PyTorch on Windows.</p>
+</blockquote>
+<p>On Windows ARM64, the same installer detects the host architecture and installs an x64 CPU runtime. Windows 11 runs this environment through x64 emulation. Windows 11 24H2 (build 26100) or later is required; native ARM64, CUDA, and NPU execution are not currently supported.</p>
+<blockquote>
 <p>The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.</p>
 </blockquote>
 <h3 id="macos">macOS<a class="headerlink" href="#macos" title="Permanent link">&para;</a></h3>

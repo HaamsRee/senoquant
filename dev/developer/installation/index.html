@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#manual-installation" class="md-skip">
+        <a href="#development-and-manual-installation" class="md-skip">
           Skip to content
         </a>
       
@@ -824,6 +824,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#automated-development-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automated development setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#create-an-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1312,6 +1323,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#automated-development-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automated development setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#create-an-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1411,11 +1433,40 @@
 
 
 
-<h1 id="manual-installation">Manual installation<a class="headerlink" href="#manual-installation" title="Permanent link">&para;</a></h1>
+<h1 id="development-and-manual-installation">Development and manual installation<a class="headerlink" href="#development-and-manual-installation" title="Permanent link">&para;</a></h1>
 <p>This guide covers manual installation using conda, pip, and uv for users who prefer a command-line setup or are developing SenoQuant.</p>
 <blockquote>
-<p><strong>Note:</strong> For most users, the <strong><a href="../../user/installation/">installers</a></strong> are recommended as they simplify setup and ensure GPU support.</p>
+<p><strong>Note:</strong> For most users, the <strong><a href="../../user/installation/">installers</a></strong> are recommended because they simplify setup and select the supported runtime for the host platform.</p>
 </blockquote>
+<h2 id="automated-development-setup">Automated development setup<a class="headerlink" href="#automated-development-setup" title="Permanent link">&para;</a></h2>
+<p>The repository provides setup scripts under <code>scripts/development/</code>. Each script creates or updates the <code>senoquant-dev</code> conda environment with Python 3.11, OpenJDK, JPype, scyjava, napari, the test dependencies, and an editable SenoQuant installation.</p>
+<p>Prerequisites:</p>
+<ul>
+<li>A local SenoQuant repository checkout.</li>
+<li>Miniforge, Miniconda, or Anaconda with <code>conda</code> available in the terminal.</li>
+</ul>
+<p>Run the script for your operating system from the repository root.</p>
+<p>Windows (PowerShell):</p>
+<div class="highlight"><pre><span></span><code><span class="p">.\</span><span class="n">scripts</span><span class="p">\</span><span class="n">development</span><span class="p">\</span><span class="n">setup_windows</span><span class="p">.</span><span class="n">ps1</span>
+</code></pre></div>
+<p>macOS:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/development/setup_macos.sh
+</code></pre></div>
+<p>Linux:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/development/setup_linux.sh
+</code></pre></div>
+<p>After setup:</p>
+<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>activate<span class="w"> </span>senoquant-dev
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q
+napari<span class="w"> </span>--with<span class="w"> </span>senoquant
+</code></pre></div>
+<p>The scripts are safe to rerun: they update an existing environment instead of replacing it. To use another environment name, pass it as the first argument on macOS/Linux or use <code>-EnvironmentName</code> on Windows:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/development/setup_linux.sh<span class="w"> </span>my-senoquant-env
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="p">.\</span><span class="n">scripts</span><span class="p">\</span><span class="n">development</span><span class="p">\</span><span class="n">setup_windows</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-EnvironmentName</span> <span class="n">my-senoquant-env</span>
+</code></pre></div>
+<p>On a Windows ARM64 PC, the Windows script creates a <code>win-64</code> conda environment. Python and native dependencies then run through Windows 11 x64 emulation, matching the supported installer configuration. Windows 11 24H2 or later is required.</p>
+<p>The following sections describe the equivalent manual process.</p>
 <h2 id="create-an-environment">Create an environment<a class="headerlink" href="#create-an-environment" title="Permanent link">&para;</a></h2>
 <p>In your terminal (Command Prompt/PowerShell on Windows, Terminal on macOS/Linux), create and activate a new conda environment with Python 3.11.</p>
 <div class="highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>senoquant<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
@@ -1464,9 +1515,9 @@ The bundled installers also run <code>uv</code> with <code>--system-certs</code>
 <p>Make sure the terminal remains open while using napari to keep it running. The terminal also displays useful info/warning/error messages.</p>
 </blockquote>
 <h2 id="development-installation">Development installation<a class="headerlink" href="#development-installation" title="Permanent link">&para;</a></h2>
-<p>For development work, install SenoQuant from the repository in editable mode:</p>
+<p>For development work without the setup scripts, install SenoQuant and the test dependencies from the repository in editable mode:</p>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>uv
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;napari[all]&quot;</span><span class="w"> </span>-r<span class="w"> </span>requirements-test.txt<span class="w"> </span>-e<span class="w"> </span>.
 </code></pre></div>
 <p>This allows you to make changes to the code and see them reflected immediately without reinstalling.</p>
 

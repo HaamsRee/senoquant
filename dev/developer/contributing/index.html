@@ -2059,12 +2059,17 @@
 <p>Thank you for your interest in contributing to SenoQuant. This guide helps you set up a development environment and follow the project workflow.</p>
 <h2 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h2>
 <h3 id="environment-creation">Environment creation<a class="headerlink" href="#environment-creation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>senoquant-dev<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
-conda<span class="w"> </span>activate<span class="w"> </span>senoquant-dev
-pip<span class="w"> </span>install<span class="w"> </span>uv
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;napari[all]&quot;</span>
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<p>Use the setup script for your operating system from the repository root:</p>
+<div class="highlight"><pre><span></span><code><span class="c"># Windows</span>
+<span class="p">.\</span><span class="n">scripts</span><span class="p">\</span><span class="n">development</span><span class="p">\</span><span class="n">setup_windows</span><span class="p">.</span><span class="n">ps1</span>
 </code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># macOS</span>
+bash<span class="w"> </span>scripts/development/setup_macos.sh
+
+<span class="c1"># Linux</span>
+bash<span class="w"> </span>scripts/development/setup_linux.sh
+</code></pre></div>
+<p>The scripts install Python 3.11, Java support, napari, test dependencies, and SenoQuant in editable mode. See the <a href="../installation/#automated-development-setup">development installation guide</a> for prerequisites, custom environment names, and Windows ARM64 behavior.</p>
 <h3 id="verify-installation">Verify installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h3>
 <p>Launch napari and open the plugin from the <code>Plugins</code> menu.</p>
 <div class="highlight"><pre><span></span><code>napari
