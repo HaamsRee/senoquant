@@ -98,7 +98,7 @@ raise SystemExit(
 '@
     Set-Content -Path $tempScript -Value $pythonCode -Encoding ASCII
     try {
-        & $micromambaExe run -p $envDir python $tempScript $uvExe @Arguments
+        & $micromambaExe run -p $envDir python $tempScript $uvExe @Arguments 2>&1 | Out-Host
     } finally {
         Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
     }
