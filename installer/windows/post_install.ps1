@@ -93,6 +93,7 @@ raise SystemExit(
     subprocess.call(
         [uv_exe, "pip", "install", "--system-certs", "--python", sys.executable, *install_args],
         env=child_env,
+        stderr=subprocess.STDOUT,
     )
 )
 '@
