@@ -1946,6 +1946,7 @@
 <li>Validate imports.</li>
 </ul>
 <p>The SenoQuant wheel pulls in runtime dependencies, including <code>senoquant-stardist-ext</code>.</p>
+<p>The native launcher sets <code>SENOQUANT_MODEL_DIR</code> to <code>env/models/</code>. Hugging Face downloads models there when they are first used instead of writing inside the installed Python package. Because the cache is part of the managed environment, application upgrades and uninstall cleanup remove it with <code>env/</code>.</p>
 <h3 id="windows-architecture-behavior">Windows architecture behavior<a class="headerlink" href="#windows-architecture-behavior" title="Permanent link">&para;</a></h3>
 <p>The Inno Setup package uses <code>ArchitecturesAllowed=x64compatible</code>, which permits the x64 application payload on both x64 Windows and ARM64 Windows 11. The bundled micromamba executable and environment remain win-64 in both cases.</p>
 <p>During post-install, <code>platform.ps1</code> checks the process and operating-system architecture indicators. On an ARM64 host, setup:</p>
@@ -1957,7 +1958,7 @@
 </ol>
 <p>This retains the normal SenoQuant feature surface, including StarDist's x64 extension, but inference runs on the CPU through Windows x64 emulation. Native ARM64 wheels, CUDA, and NPU execution are outside the current support scope.</p>
 <h3 id="uninstall-behavior">Uninstall behavior<a class="headerlink" href="#uninstall-behavior" title="Permanent link">&para;</a></h3>
-<p>Inno Setup registers SenoQuant in Windows Installed Apps. Before uninstalling, it runs <code>uninstall.ps1 -CheckOnly</code> and stops if a Python process from the managed environment is active. During uninstall, the helper removes only the generated <code>env/</code> directory, <code>installed_version</code>, and <code>post_install.log</code>; Inno Setup then removes the files it originally installed.</p>
+<p>Inno Setup registers SenoQuant in Windows Installed Apps. Before uninstalling, it runs <code>uninstall.ps1 -CheckOnly</code> and stops if a Python process from the managed environment is active. During uninstall, the helper removes the generated <code>env/</code> directory, including its model cache, plus <code>installed_version</code> and <code>post_install.log</code>; Inno Setup then removes the files it originally installed. Version upgrades rebuild <code>env/</code>, so models are downloaded again on first use after an upgrade.</p>
 <p>Recursive cleanup requires the <code>.senoquant-managed-install</code> ownership marker and refuses linked or redirected <code>env/</code> directories. The helper never recursively removes the application root, so unrelated files in a custom install directory are preserved. User-selected datasets, exports, settings outside the install directory, and shared external caches are also outside the uninstall surface.</p>
 <h3 id="troubleshooting_1">Troubleshooting<a class="headerlink" href="#troubleshooting_1" title="Permanent link">&para;</a></h3>
 <p><strong>Missing StarDist ops.</strong></p>

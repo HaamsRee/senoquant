@@ -1555,7 +1555,7 @@
 </blockquote>
 <p>On Windows ARM64, the same installer detects the host architecture and installs an x64 CPU runtime. Windows 11 runs this environment through x64 emulation. Windows 11 24H2 (build 26100) or later is required; native ARM64, CUDA, and NPU execution are not currently supported.</p>
 <blockquote>
-<p>The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.</p>
+<p>The first launch of napari and the SenoQuant plugin will be slower as napari initializes. The first use of a model may also download several gigabytes from Hugging Face. The installer keeps these models in its managed environment. Subsequent uses are faster, while application upgrades clear the environment and download the models again when first used.</p>
 </blockquote>
 <h4 id="uninstall-on-windows">Uninstall on Windows<a class="headerlink" href="#uninstall-on-windows" title="Permanent link">&para;</a></h4>
 <p>Close SenoQuant, then open <strong>Settings &gt; Apps &gt; Installed apps</strong>, find <strong>SenoQuant</strong>, and select <strong>Uninstall</strong>. The uninstaller removes the installer-managed Python environment, its dependencies and runtime-local models, the version marker, and the installation log.</p>
@@ -1570,7 +1570,7 @@
 </ol>
 <blockquote>
 <p><strong>Note:</strong> On first launch, a Terminal window opens showing installation progress. The initial setup creates a Python environment and installs napari, PyTorch, and SenoQuant dependencies. This may take <strong>5-10 minutes</strong> depending on your internet connection. Subsequent launches will be much faster.</p>
-<p>The Python environment and logs are stored in <code>~/Library/Application Support/SenoQuant/</code>, while the app bundle remains at <code>~/Applications/SenoQuant.app</code>.</p>
+<p>The Python environment, downloaded models, and logs are stored in <code>~/Library/Application Support/SenoQuant/</code>, while the app bundle remains at <code>~/Applications/SenoQuant.app</code>. Application upgrades rebuild the environment and clear its downloaded models.</p>
 </blockquote>
 <p><strong>Architecture Support:</strong> Apple Silicon Macs include MPS (Metal Performance Shaders) acceleration for improved performance.</p>
 <h3 id="linux">Linux<a class="headerlink" href="#linux" title="Permanent link">&para;</a></h3>
