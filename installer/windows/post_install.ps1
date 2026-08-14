@@ -70,7 +70,7 @@ function Invoke-UvPipInstall {
     $previousErrorActionPreference = $ErrorActionPreference
     try {
         $ErrorActionPreference = "Continue"
-        & $uvExe pip install --system-certs --python (Join-Path $envDir "python.exe") @Arguments 2>&1 | Out-Host
+        & $uvExe pip install --system-certs --python (Join-Path $envDir "python.exe") @Arguments 2>&1 | ForEach-Object { $_.ToString() } | Out-Host
         $uvExitCode = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previousErrorActionPreference

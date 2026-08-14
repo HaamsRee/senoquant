@@ -83,6 +83,7 @@ class TestPlatformScripts(unittest.TestCase):
         self.assertIn("$windowsBuild -lt 26100", post_install)
         self.assertIn("CPUExecutionProvider", post_install)
         self.assertIn("& $uvExe pip install", post_install)
+        self.assertIn("ForEach-Object { $_.ToString() }", post_install)
         self.assertIn('$ErrorActionPreference = "Continue"', post_install)
         self.assertNotIn("senoquant_uv_install.py", post_install)
         self.assertNotIn('"--force-reinstall"', post_install)
