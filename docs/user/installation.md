@@ -57,7 +57,7 @@ The **Windows installer** is the easiest and most reliable way to install SenoQu
 
 On Windows ARM64, the same installer detects the host architecture and installs an x64 CPU runtime. Windows 11 runs this environment through x64 emulation. Windows 11 24H2 (build 26100) or later is required; native ARM64, CUDA, and NPU execution are not currently supported.
 
-> The first launch of napari and the SenoQuant plugin will be slower as napari initializes and SenoQuant downloads model files (a few GBs) from Hugging Face. Subsequent launches will be faster as models are cached locally.
+> The first launch of napari and the SenoQuant plugin will be slower as napari initializes. The first use of a model may also download several gigabytes from Hugging Face. The installer keeps these models in its managed environment. Subsequent uses are faster, while application upgrades clear the environment and download the models again when first used.
 
 #### Uninstall on Windows
 
@@ -76,7 +76,7 @@ The **macOS installer** provides a native PKG installer that sets up SenoQuant w
 
 > **Note:** On first launch, a Terminal window opens showing installation progress. The initial setup creates a Python environment and installs napari, PyTorch, and SenoQuant dependencies. This may take **5-10 minutes** depending on your internet connection. Subsequent launches will be much faster.
 
-> The Python environment and logs are stored in `~/Library/Application Support/SenoQuant/`, while the app bundle remains at `~/Applications/SenoQuant.app`.
+> The Python environment, downloaded models, and logs are stored in `~/Library/Application Support/SenoQuant/`, while the app bundle remains at `~/Applications/SenoQuant.app`. Application upgrades rebuild the environment and clear its downloaded models.
 
 **Architecture Support:** Apple Silicon Macs include MPS (Metal Performance Shaders) acceleration for improved performance.
 

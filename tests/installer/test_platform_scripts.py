@@ -7,6 +7,7 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 WINDOWS_INSTALLER = REPOSITORY_ROOT / "installer" / "windows"
+MACOS_INSTALLER = REPOSITORY_ROOT / "installer" / "macos"
 
 
 def _powershell() -> str | None:
@@ -115,3 +116,20 @@ class TestPlatformScripts(unittest.TestCase):
                 self.assertIn("editable", script)
                 if script_name == "setup_windows.ps1":
                     self.assertIn('@("--platform", "win-64")', script)
+
+    def test_native_launchers_keep_models_in_managed_environment(self) -> None:
+        windows_launcher = (WINDOWS_INSTALLER / "launch_senoquant.ps1").read_text(
+            encoding="utf-8"
+        )
+        macos_launcher = (MACOS_INSTALLER / "launch_senoquant.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn(
+            '$env:SENOQUANT_MODEL_DIR = Join-Path $envDir "models"',
+            windows_launcher,
+        )
+        self.assertIn(
+            'export SENOQUANT_MODEL_DIR="${ENV_DIR}/models"',
+            macos_launcher,
+        )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -35,22 +35,53 @@ class TestEnsureHfModel:
         """Test ensure_hf_model downloads from Hugging Face when available."""
         from senoquant.tabs.segmentation.models.hf import ensure_hf_model
 
-        # Mock hf_hub_download
-        mock_path = tmp_path / "test_model.onnx"
-        mock_download = __import__("unittest.mock").mock.MagicMock(return_value=str(mock_path))
+        packaged_dir = tmp_path / "package" / "models"
+        cache_dir = tmp_path / "managed-cache"
+        mock_path = cache_dir / "test_model.onnx"
+        mock_download = MagicMock(return_value=str(mock_path))
         monkeypatch.setattr(
             "senoquant.tabs.segmentation.models.hf.hf_hub_download",
             mock_download,
         )
+        monkeypatch.setenv("SENOQUANT_MODEL_DIR", str(cache_dir))
 
         result = ensure_hf_model(
             "test_model.onnx",
-            tmp_path,
+            packaged_dir,
             repo_id="test/repo",
         )
 
         assert result == mock_path
-        mock_download.assert_called_once()
+        mock_download.assert_called_once_with(
+            repo_id="test/repo",
+            filename="test_model.onnx",
+            revision=None,
+            cache_dir=str(cache_dir),
+        )
+        assert not packaged_dir.exists()
+
+    def test_ensure_hf_model_uses_default_hf_cache(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """Leave cache placement to Hugging Face outside native launchers."""
+        from senoquant.tabs.segmentation.models.hf import ensure_hf_model
+
+        mock_path = tmp_path / "test_model.onnx"
+        mock_download = MagicMock(return_value=str(mock_path))
+        monkeypatch.setattr(
+            "senoquant.tabs.segmentation.models.hf.hf_hub_download",
+            mock_download,
+        )
+        monkeypatch.delenv("SENOQUANT_MODEL_DIR", raising=False)
+
+        ensure_hf_model(
+            "test_model.onnx",
+            tmp_path / "package",
+            repo_id="test/repo",
+        )
+
+        assert mock_download.call_args.kwargs["cache_dir"] is None
+        assert "local_dir" not in mock_download.call_args.kwargs
 
     def test_ensure_hf_model_without_huggingface_hub(self, tmp_path) -> None:
         """Test ensure_hf_model raises when huggingface_hub not available."""

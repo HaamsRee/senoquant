@@ -4,6 +4,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $envDir = Join-Path $scriptDir "env"
 $wheelDir = Join-Path $scriptDir "wheels"
 $versionFile = Join-Path $scriptDir "installed_version"
+$env:SENOQUANT_MODEL_DIR = Join-Path $envDir "models"
 
 function Get-PackagedVersion {
     param([string]$Dir)

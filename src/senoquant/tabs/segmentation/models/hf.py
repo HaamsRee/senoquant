@@ -20,6 +20,7 @@ def _resolve_repo_id(default_repo: str) -> str:
 
 
 DEFAULT_REPO_ID = "HaamsRee/senoquant-models"
+MODEL_CACHE_ENV = "SENOQUANT_MODEL_DIR"
 
 
 def ensure_hf_model(
@@ -36,7 +37,7 @@ def ensure_hf_model(
     filename : str
         File name to download from the HF repo.
     target_dir : pathlib.Path
-        Local directory for the model file.
+        Directory to check for a model shipped alongside SenoQuant.
     repo_id : str
         Hugging Face repo id, e.g. "HaamsRee/senoquant-models".
     revision : str or None, optional
@@ -49,7 +50,6 @@ def ensure_hf_model(
 
     """
     target_dir = Path(target_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
     candidate = target_dir / filename
     if candidate.exists():
         return candidate
@@ -62,10 +62,11 @@ def ensure_hf_model(
         raise RuntimeError(message)
 
     resolved_repo = _resolve_repo_id(repo_id)
+    cache_dir = os.environ.get(MODEL_CACHE_ENV, "").strip() or None
     path = hf_hub_download(
         repo_id=resolved_repo,
         filename=filename,
         revision=revision,
-        local_dir=str(target_dir),
+        cache_dir=cache_dir,
     )
     return Path(path)

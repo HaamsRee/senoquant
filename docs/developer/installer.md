@@ -236,6 +236,8 @@ senoquant/
 
 The SenoQuant wheel pulls in runtime dependencies, including `senoquant-stardist-ext`.
 
+The native launcher sets `SENOQUANT_MODEL_DIR` to `env/models/`. Hugging Face downloads models there when they are first used instead of writing inside the installed Python package. Because the cache is part of the managed environment, application upgrades and uninstall cleanup remove it with `env/`.
+
 ### Windows architecture behavior
 
 The Inno Setup package uses `ArchitecturesAllowed=x64compatible`, which permits the x64 application payload on both x64 Windows and ARM64 Windows 11. The bundled micromamba executable and environment remain win-64 in both cases.
@@ -251,7 +253,7 @@ This retains the normal SenoQuant feature surface, including StarDist's x64 exte
 
 ### Uninstall behavior
 
-Inno Setup registers SenoQuant in Windows Installed Apps. Before uninstalling, it runs `uninstall.ps1 -CheckOnly` and stops if a Python process from the managed environment is active. During uninstall, the helper removes only the generated `env/` directory, `installed_version`, and `post_install.log`; Inno Setup then removes the files it originally installed.
+Inno Setup registers SenoQuant in Windows Installed Apps. Before uninstalling, it runs `uninstall.ps1 -CheckOnly` and stops if a Python process from the managed environment is active. During uninstall, the helper removes the generated `env/` directory, including its model cache, plus `installed_version` and `post_install.log`; Inno Setup then removes the files it originally installed. Version upgrades rebuild `env/`, so models are downloaded again on first use after an upgrade.
 
 Recursive cleanup requires the `.senoquant-managed-install` ownership marker and refuses linked or redirected `env/` directories. The helper never recursively removes the application root, so unrelated files in a custom install directory are preserved. User-selected datasets, exports, settings outside the install directory, and shared external caches are also outside the uninstall surface.
 
