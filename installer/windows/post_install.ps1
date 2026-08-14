@@ -171,7 +171,6 @@ Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
 if ($isWindowsArm64) {
     Invoke-Checked "Installing CPU PyTorch for Windows ARM64 x64 emulation" {
         Invoke-UvPipInstall @(
-            "--force-reinstall",
             "--index-url",
             "https://download.pytorch.org/whl/cpu",
             "torch==2.5.1",
@@ -183,7 +182,6 @@ if ($isWindowsArm64) {
 } else {
     Invoke-Checked "Installing GPU PyTorch (CUDA 12.1)" {
         Invoke-UvPipInstall @(
-            "--force-reinstall",
             "--index-url",
             "https://download.pytorch.org/whl/cu121",
             "torch==2.5.1",

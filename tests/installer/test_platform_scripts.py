@@ -84,6 +84,7 @@ class TestPlatformScripts(unittest.TestCase):
         self.assertIn("CPUExecutionProvider", post_install)
         self.assertIn("2>&1 | Out-Host", post_install)
         self.assertIn("stderr=subprocess.STDOUT", post_install)
+        self.assertNotIn('"--force-reinstall"', post_install)
         self.assertIn("ArchitecturesAllowed=x64compatible", inno_setup)
         self.assertLess(
             post_install.index("Installing CPU PyTorch"),
