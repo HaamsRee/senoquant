@@ -88,6 +88,10 @@ class TestPlatformScripts(unittest.TestCase):
         self.assertIn("ArchitecturesAllowed=x64compatible", inno_setup)
         self.assertLess(
             post_install.index("Installing CPU PyTorch"),
+            post_install.index("Installing napari"),
+        )
+        self.assertLess(
+            post_install.index("Installing napari"),
             post_install.index("Installing SenoQuant wheel"),
         )
 

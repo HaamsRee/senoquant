@@ -165,9 +165,7 @@ Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip i
 Write-Host "[SenoQuant] uv installs will use system certificates and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment."
 Invoke-Checked "Installing pip-system-certs" { Invoke-UvPipInstall @("pip-system-certs") }
 
-Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
-
-# Install PyTorch first so Cellpose does not pull the default CUDA build on ARM64.
+# Install PyTorch first so later packages keep the platform-specific build and NumPy.
 if ($isWindowsArm64) {
     Invoke-Checked "Installing CPU PyTorch for Windows ARM64 x64 emulation" {
         Invoke-UvPipInstall @(
@@ -191,6 +189,8 @@ if ($isWindowsArm64) {
         )
     }
 }
+
+Invoke-Checked "Installing napari" { Invoke-UvPipInstall @("napari[all]") }
 
 Invoke-Checked "Installing SenoQuant wheel: $($wheel.Name)" { Invoke-UvPipInstall @("--reinstall-package", "senoquant", $wheel.FullName) }
 
