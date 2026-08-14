@@ -82,8 +82,9 @@ class TestPlatformScripts(unittest.TestCase):
         self.assertIn("https://download.pytorch.org/whl/cpu", post_install)
         self.assertIn("$windowsBuild -lt 26100", post_install)
         self.assertIn("CPUExecutionProvider", post_install)
-        self.assertIn("2>&1 | Out-Host", post_install)
-        self.assertIn("stderr=subprocess.STDOUT", post_install)
+        self.assertIn("& $uvExe pip install", post_install)
+        self.assertIn('$ErrorActionPreference = "Continue"', post_install)
+        self.assertNotIn("senoquant_uv_install.py", post_install)
         self.assertNotIn('"--force-reinstall"', post_install)
         self.assertIn("ArchitecturesAllowed=x64compatible", inno_setup)
         self.assertLess(

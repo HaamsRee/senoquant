@@ -64,44 +64,19 @@ function Invoke-UvPipInstall {
         throw "uv.exe not found in environment: $envDir"
     }
 
-    $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) "senoquant_uv_install.py"
-    $pythonCode = @'
-import os
-import subprocess
-import sys
-
-uv_exe = sys.argv[1]
-install_args = sys.argv[2:]
-
-child_env = os.environ.copy()
-child_env.pop("SSL_CERT_FILE", None)
-child_env.pop("SSL_CERT_DIR", None)
-child_env["UV_SYSTEM_CERTS"] = "true"
-env_dir = os.path.dirname(sys.executable)
-if os.path.basename(env_dir).lower() == "scripts":
-    env_dir = os.path.dirname(env_dir)
-java_home = os.path.join(env_dir, "Library")
-path_prefixes = [
-    env_dir,
-    os.path.join(env_dir, "Scripts"),
-    os.path.join(java_home, "bin"),
-]
-child_env["JAVA_HOME"] = java_home
-child_env["PATH"] = os.pathsep.join(path_prefixes + [child_env.get("PATH", "")])
-
-raise SystemExit(
-    subprocess.call(
-        [uv_exe, "pip", "install", "--system-certs", "--python", sys.executable, *install_args],
-        env=child_env,
-        stderr=subprocess.STDOUT,
-    )
-)
-'@
-    Set-Content -Path $tempScript -Value $pythonCode -Encoding ASCII
+    Remove-Item Env:SSL_CERT_FILE -ErrorAction SilentlyContinue
+    Remove-Item Env:SSL_CERT_DIR -ErrorAction SilentlyContinue
+    $uvExitCode = 1
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
-        & $micromambaExe run -p $envDir python $tempScript $uvExe @Arguments 2>&1 | Out-Host
+        $ErrorActionPreference = "Continue"
+        & $uvExe pip install --system-certs --python (Join-Path $envDir "python.exe") @Arguments 2>&1 | Out-Host
+        $uvExitCode = $LASTEXITCODE
     } finally {
-        Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($uvExitCode -ne 0) {
+        throw "uv pip install failed with exit code $uvExitCode."
     }
 }
 
