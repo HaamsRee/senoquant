@@ -1,0 +1,24 @@
+/* Improve mkdocstrings API readability for variable/attribute sections. */
+.md-typeset .doc .doc-contents .doc-field-list {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.md-typeset .doc .doc-contents .doc-field-list th,
+.md-typeset .doc .doc-contents .doc-field-list td {
+  vertical-align: top;
+  padding: 0.55rem 0.75rem;
+}
+
+.md-typeset .doc .doc-contents .doc-field-list td:first-child {
+  width: 28%;
+}
+
+.md-typeset .doc .doc-contents .doc-field-list code {
+  white-space: normal;
+}
+
+/* Fallback spacing for list-style docstring sections. */
+.md-typeset .doc .doc-contents dl > dt {
+  margin-top: 0.75rem;
+}
