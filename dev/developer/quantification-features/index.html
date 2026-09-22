@@ -1616,7 +1616,7 @@ indirectly).</p>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyFeature</span><span class="p">(</span><span class="n">SenoQuantFeature</span><span class="p">):</span>
-    <span class="n">feature_type</span> <span class="o">=</span> <span class="s2">&quot;My feature&quot;</span>
+    <span class="n">feature_type</span> <span class="o">=</span> <span class="s2">"My feature"</span>
     <span class="n">order</span> <span class="o">=</span> <span class="mi">30</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1635,9 +1635,9 @@ indirectly).</p>
 <p>Update <code>FEATURE_DATA_FACTORY</code> in
 <code>src/senoquant/tabs/quantification/features/__init__.py</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="n">FEATURE_DATA_FACTORY</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;Markers&quot;</span><span class="p">:</span> <span class="n">MarkerFeatureData</span><span class="p">,</span>
-    <span class="s2">&quot;Spots&quot;</span><span class="p">:</span> <span class="n">SpotsFeatureData</span><span class="p">,</span>
-    <span class="s2">&quot;My feature&quot;</span><span class="p">:</span> <span class="n">MyFeatureData</span><span class="p">,</span>
+    <span class="s2">"Markers"</span><span class="p">:</span> <span class="n">MarkerFeatureData</span><span class="p">,</span>
+    <span class="s2">"Spots"</span><span class="p">:</span> <span class="n">SpotsFeatureData</span><span class="p">,</span>
+    <span class="s2">"My feature"</span><span class="p">:</span> <span class="n">MyFeatureData</span><span class="p">,</span>
 <span class="p">}</span>
 </code></pre></div>
 <p>Without this, switching to your feature type creates a generic <code>FeatureData</code>

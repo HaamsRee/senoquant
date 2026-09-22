@@ -1583,8 +1583,8 @@ built-in <code>default_2d</code> StarDist segmentation model.</p>
     <span class="n">convert_pretrained_3d</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">path2d</span> <span class="o">=</span> <span class="n">convert_pretrained_2d</span><span class="p">(</span><span class="s2">&quot;2D_versatile_fluo&quot;</span><span class="p">,</span> <span class="s2">&quot;./onnx_models&quot;</span><span class="p">,</span> <span class="n">opset</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
-<span class="n">path3d</span> <span class="o">=</span> <span class="n">convert_pretrained_3d</span><span class="p">(</span><span class="s2">&quot;3D_demo&quot;</span><span class="p">,</span> <span class="s2">&quot;./onnx_models&quot;</span><span class="p">,</span> <span class="n">opset</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+<span class="n">path2d</span> <span class="o">=</span> <span class="n">convert_pretrained_2d</span><span class="p">(</span><span class="s2">"2D_versatile_fluo"</span><span class="p">,</span> <span class="s2">"./onnx_models"</span><span class="p">,</span> <span class="n">opset</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+<span class="n">path3d</span> <span class="o">=</span> <span class="n">convert_pretrained_3d</span><span class="p">(</span><span class="s2">"3D_demo"</span><span class="p">,</span> <span class="s2">"./onnx_models"</span><span class="p">,</span> <span class="n">opset</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">path2d</span><span class="p">,</span> <span class="n">path3d</span><span class="p">)</span>
 </code></pre></div>
 <p>You can also pass a StarDist model instance to <code>convert_model_to_onnx(...)</code>.</p>

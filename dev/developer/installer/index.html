@@ -1916,7 +1916,7 @@
 <ol>
 <li>Build the installer with Inno Setup.</li>
 </ol>
-<div class="highlight"><pre><span></span><code><span class="nv">$iscc</span> <span class="p">=</span> <span class="s2">&quot;${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="nv">$iscc</span> <span class="p">=</span> <span class="s2">"${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"</span>
 <span class="p">&amp;</span> <span class="nv">$iscc</span> <span class="p">.\</span><span class="n">installer</span><span class="p">\</span><span class="n">windows</span><span class="p">\</span><span class="n">senoquant</span><span class="p">.</span><span class="n">iss</span>
 </code></pre></div>
 <p>The resulting installer is written to <code>installer/windows/Output/SenoQuant-Installer.exe</code>.</p>

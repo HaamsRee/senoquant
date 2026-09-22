@@ -1696,19 +1696,19 @@ Manifest validation is enforced at load time via:</p>
 <h3 id="segmentation-specific-fields">Segmentation-specific fields<a class="headerlink" href="#segmentation-specific-fields" title="Permanent link">&para;</a></h3>
 <p>Example:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Custom segmentation model.&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;tasks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;nuclear&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;supported&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;cytoplasmic&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;supported&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;input_modes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cytoplasmic&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nuclear+cytoplasmic&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nuclear&quot;</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;nuclear_channel_optional&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my_model"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Custom segmentation model."</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0.1.0"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"tasks"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"nuclear"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"supported"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"cytoplasmic"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"supported"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"input_modes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"cytoplasmic"</span><span class="p">,</span><span class="w"> </span><span class="s2">"nuclear+cytoplasmic"</span><span class="p">,</span><span class="w"> </span><span class="s2">"nuclear"</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"nuclear_channel_optional"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">  </span><span class="nt">"settings"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
 <span class="p">}</span>
 </code></pre></div>
 <p><code>input_modes</code> behavior:</p>
@@ -1720,11 +1720,11 @@ Manifest validation is enforced at load time via:</p>
 <h3 id="spots-specific-fields">Spots-specific fields<a class="headerlink" href="#spots-specific-fields" title="Permanent link">&para;</a></h3>
 <p>Example:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_detector&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Custom spot detector.&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my_detector"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Custom spot detector."</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0.1.0"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"settings"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
 <span class="p">}</span>
 </code></pre></div>
 <h2 id="prediction-model-conventions-no-detailsjson">Prediction model conventions (no <code>details.json</code>)<a class="headerlink" href="#prediction-model-conventions-no-detailsjson" title="Permanent link">&para;</a></h2>
@@ -1767,27 +1767,27 @@ see <code>PredictionBackend._normalize_layer_spec(...)</code> in
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MySegmentationModel</span><span class="p">(</span><span class="n">SenoQuantSegmentationModel</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"my_model"</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="n">task</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;task&quot;</span><span class="p">)</span>
-        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
 
-        <span class="k">if</span> <span class="n">task</span> <span class="o">==</span> <span class="s2">&quot;nuclear&quot;</span><span class="p">:</span>
-            <span class="n">layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;layer&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">task</span> <span class="o">==</span> <span class="s2">"nuclear"</span><span class="p">:</span>
+            <span class="n">layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"layer"</span><span class="p">)</span>
             <span class="n">image</span> <span class="o">=</span> <span class="n">layer_data_asarray</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">task</span> <span class="o">==</span> <span class="s2">&quot;cytoplasmic&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">task</span> <span class="o">==</span> <span class="s2">"cytoplasmic"</span><span class="p">:</span>
             <span class="c1"># Segmentation tab passes `cytoplasmic_layer`.</span>
             <span class="c1"># Batch currently passes `layer` for the same input.</span>
-            <span class="n">cyto_layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cytoplasmic_layer&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;layer&quot;</span><span class="p">)</span>
-            <span class="n">nuclear_layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nuclear_layer&quot;</span><span class="p">)</span>
+            <span class="n">cyto_layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"cytoplasmic_layer"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"layer"</span><span class="p">)</span>
+            <span class="n">nuclear_layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nuclear_layer"</span><span class="p">)</span>
             <span class="c1"># pick the inputs your mode requires</span>
             <span class="n">image</span> <span class="o">=</span> <span class="n">layer_data_asarray</span><span class="p">(</span><span class="n">cyto_layer</span> <span class="ow">or</span> <span class="n">nuclear_layer</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported task: </span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported task: </span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="n">masks</span> <span class="o">=</span> <span class="n">my_segmentation_function</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;masks&quot;</span><span class="p">:</span> <span class="n">masks</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"masks"</span><span class="p">:</span> <span class="n">masks</span><span class="p">}</span>
 </code></pre></div>
 <p>Important runtime contracts:</p>
 <ul>
@@ -1814,14 +1814,14 @@ see <code>PredictionBackend._normalize_layer_spec(...)</code> in
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyDetector</span><span class="p">(</span><span class="n">SenoQuantSpotDetector</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;my_detector&quot;</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"my_detector"</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="n">layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;layer&quot;</span><span class="p">)</span>
-        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">layer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"layer"</span><span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">image</span> <span class="o">=</span> <span class="n">layer_data_asarray</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">my_spot_detector</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;mask&quot;</span><span class="p">:</span> <span class="n">mask</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"mask"</span><span class="p">:</span> <span class="n">mask</span><span class="p">}</span>
 </code></pre></div>
 <p>Important runtime contracts:</p>
 <ul>
@@ -1853,16 +1853,16 @@ see <code>PredictionBackend._normalize_layer_spec(...)</code> in
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_viewer</span> <span class="o">=</span> <span class="n">viewer</span>
         <span class="n">layout</span> <span class="o">=</span> <span class="n">QVBoxLayout</span><span class="p">()</span>
-        <span class="n">layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="n">QLabel</span><span class="p">(</span><span class="s2">&quot;Configure my prediction model&quot;</span><span class="p">))</span>
+        <span class="n">layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="n">QLabel</span><span class="p">(</span><span class="s2">"Configure my prediction model"</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setLayout</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;scale&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"scale"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyPredictionModel</span><span class="p">(</span><span class="n">SenoQuantPredictionModel</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"my_model"</span><span class="p">,</span> <span class="n">models_root</span><span class="o">=</span><span class="n">models_root</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">build_widget</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">viewer</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">MyPredictionWidget</span><span class="p">(</span><span class="n">viewer</span><span class="o">=</span><span class="n">viewer</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
@@ -1873,16 +1873,16 @@ see <code>PredictionBackend._normalize_layer_spec(...)</code> in
         <span class="k">return</span> <span class="n">settings_widget</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">,</span> <span class="p">{})</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;layers&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">"layers"</span><span class="p">:</span> <span class="p">[</span>
                 <span class="p">{</span>
-                    <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="o">...</span><span class="p">,</span>  <span class="c1"># numpy array</span>
-                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_prediction_output&quot;</span><span class="p">,</span>
+                    <span class="s2">"data"</span><span class="p">:</span> <span class="o">...</span><span class="p">,</span>  <span class="c1"># numpy array</span>
+                    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"image"</span><span class="p">,</span>
+                    <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"my_prediction_output"</span><span class="p">,</span>
                 <span class="p">}</span>
             <span class="p">],</span>
-            <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">settings</span><span class="p">,</span>
+            <span class="s2">"settings"</span><span class="p">:</span> <span class="n">settings</span><span class="p">,</span>
         <span class="p">}</span>
 </code></pre></div>
 <h2 id="quick-validation-checklist">Quick validation checklist<a class="headerlink" href="#quick-validation-checklist" title="Permanent link">&para;</a></h2>

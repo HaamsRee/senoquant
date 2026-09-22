@@ -1579,11 +1579,11 @@
 <li><strong><code>metadata_reader</code></strong>: Reader class used for metadata extraction.</li>
 </ul>
 <p>Access metadata programmatically:</p>
-<div class="highlight"><pre><span></span><code><span class="n">layer</span> <span class="o">=</span> <span class="n">viewer</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s2">&quot;image.tif - DAPI&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><span class="n">layer</span> <span class="o">=</span> <span class="n">viewer</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s2">"image.tif - DAPI"</span><span class="p">]</span>
 <span class="n">metadata</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">metadata</span>
-<span class="n">scene_name</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;scene_info&quot;</span><span class="p">][</span><span class="s2">&quot;scene_name&quot;</span><span class="p">]</span>
-<span class="n">pixel_size_x</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;physical_pixel_sizes&quot;</span><span class="p">][</span><span class="s2">&quot;X&quot;</span><span class="p">]</span>
-<span class="n">all_channel_names</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;channel_names&quot;</span><span class="p">]</span>
+<span class="n">scene_name</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">"scene_info"</span><span class="p">][</span><span class="s2">"scene_name"</span><span class="p">]</span>
+<span class="n">pixel_size_x</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">"physical_pixel_sizes"</span><span class="p">][</span><span class="s2">"X"</span><span class="p">]</span>
+<span class="n">all_channel_names</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">"channel_names"</span><span class="p">]</span>
 </code></pre></div>
 <h2 id="dimensionality">Dimensionality<a class="headerlink" href="#dimensionality" title="Permanent link">&para;</a></h2>
 <p>SenoQuant supports:</p>

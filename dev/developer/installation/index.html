@@ -1477,14 +1477,14 @@ conda<span class="w"> </span>activate<span class="w"> </span>senoquant
 <p>We strongly recommend using <code>uv</code> instead of <code>pip</code> because standard pip often has difficulty solving complex dependencies. <code>uv</code> is also <em>much</em> faster.</p>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>uv
 uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>pip-system-certs
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;napari[all]&quot;</span>
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span>
 </code></pre></div>
 <blockquote>
 <p><strong>Note:</strong> <code>pip-system-certs</code> enables Python to use your system's certificate store for SSL verification. This helps avoid certificate errors when downloading packages or models, especially on corporate networks or systems with custom certificate authorities.
 The bundled installers also run <code>uv</code> with <code>--system-certs</code> and clear <code>SSL_CERT_FILE</code> / <code>SSL_CERT_DIR</code> inside the micromamba child process so package downloads use the OS trust store during post-install setup.</p>
 </blockquote>
 <p>Alternatively, using standard <code>pip</code>:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;napari[all]&quot;</span>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span>
 </code></pre></div>
 <h2 id="install-senoquant">Install SenoQuant<a class="headerlink" href="#install-senoquant" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>senoquant
@@ -1517,7 +1517,7 @@ The bundled installers also run <code>uv</code> with <code>--system-certs</code>
 <h2 id="development-installation">Development installation<a class="headerlink" href="#development-installation" title="Permanent link">&para;</a></h2>
 <p>For development work without the setup scripts, install SenoQuant and the test dependencies from the repository in editable mode:</p>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>uv
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;napari[all]&quot;</span><span class="w"> </span>-r<span class="w"> </span>requirements-test.txt<span class="w"> </span>-e<span class="w"> </span>.
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span><span class="w"> </span>-r<span class="w"> </span>requirements-test.txt<span class="w"> </span>-e<span class="w"> </span>.
 </code></pre></div>
 <p>This allows you to make changes to the code and see them reflected immediately without reinstalling.</p>
 

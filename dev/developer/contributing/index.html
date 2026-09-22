@@ -2098,8 +2098,8 @@ pytest
 <p>Example test structure:</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_new_feature</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
     <span class="c1"># Arrange.</span>
-    <span class="n">test_file</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;test.tif&quot;</span>
-    <span class="n">test_file</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;fake data&quot;</span><span class="p">)</span>
+    <span class="n">test_file</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">"test.tif"</span>
+    <span class="n">test_file</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="sa">b</span><span class="s2">"fake data"</span><span class="p">)</span>
 
     <span class="c1"># Act.</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">my_function</span><span class="p">(</span><span class="n">test_file</span><span class="p">)</span>
