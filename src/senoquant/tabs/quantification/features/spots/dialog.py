@@ -619,8 +619,10 @@ class SpotsChannelsDialog(QDialog):
         if row not in self._rows:
             return
         self._rows.remove(row)
-        if row.data in self._channels:
-            self._channels.remove(row.data)
+        for index, channel_data in enumerate(self._channels):
+            if channel_data is row.data:
+                del self._channels[index]
+                break
         self._channels_layout.removeWidget(row)
         row.deleteLater()
         self._renumber_rows()
@@ -672,8 +674,10 @@ class SpotsChannelsDialog(QDialog):
         if row not in self._segmentation_rows:
             return
         self._segmentation_rows.remove(row)
-        if row.data in self._segmentations:
-            self._segmentations.remove(row.data)
+        for index, segmentation_data in enumerate(self._segmentations):
+            if segmentation_data is row.data:
+                del self._segmentations[index]
+                break
         self._segmentations_layout.removeWidget(row)
         row.deleteLater()
         self._renumber_segmentations()

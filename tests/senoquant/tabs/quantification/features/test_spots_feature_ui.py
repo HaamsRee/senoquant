@@ -195,6 +195,55 @@ def test_spots_dialog_adds_distinct_blank_rows_to_state() -> None:
     assert data.segmentations[1].label == "cells_nuc_labels"
 
 
+def test_spots_dialog_removes_equal_blank_rows_by_identity() -> None:
+    """Deleting one blank row keeps both surviving rows connected to state."""
+    data = SpotsFeatureData()
+    state = FeatureConfig(name="Spots", type_name="Spots", data=data)
+    viewer = DummyViewer(
+        [
+            Image([[1.0]], "img_a"),
+            Image([[2.0]], "img_b"),
+            Labels([[1]], "cells_a_nuc_labels"),
+            Labels([[1]], "cells_b_nuc_labels"),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _configure_combo=lambda _combo: None,
+    )
+    dialog = SpotsChannelsDialog(SpotsFeature(tab, DummyContext(state)))
+
+    for _ in range(3):
+        dialog._add_channel()
+    first, middle, last = dialog._rows
+    assert first.data == middle.data == last.data
+    dialog._remove_channel(middle)
+    first._name_input.setText("First")
+    last._name_input.setText("Last")
+    assert len(data.channels) == 2
+    assert data.channels[0] is first.data
+    assert data.channels[1] is last.data
+    assert [channel.name for channel in data.channels] == ["First", "Last"]
+
+    for _ in range(3):
+        dialog._add_segmentation()
+    first, middle, last = dialog._segmentation_rows
+    assert first.data == middle.data == last.data
+    dialog._remove_segmentation(middle)
+    dialog._refresh_labels_combo(first._labels_combo)
+    dialog._refresh_labels_combo(last._labels_combo)
+    first._labels_combo.setCurrentText("cells_a_nuc_labels")
+    last._labels_combo.setCurrentText("cells_b_nuc_labels")
+    assert len(data.segmentations) == 2
+    assert data.segmentations[0] is first.data
+    assert data.segmentations[1] is last.data
+    assert [seg.label for seg in data.segmentations] == [
+        "cells_a_nuc_labels",
+        "cells_b_nuc_labels",
+    ]
+
+
 def test_spots_dialog_auto_populates_channels_and_spot_layer_matches() -> None:
     """Auto-populate resolves names and matching spot-label layers."""
     data = SpotsFeatureData()
