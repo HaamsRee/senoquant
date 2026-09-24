@@ -258,8 +258,10 @@ class ROISection:
             return
         self._items.remove(item)
         section, roi = item
-        if roi in self._rois:
-            self._rois.remove(roi)
+        for index, stored_roi in enumerate(self._rois):
+            if stored_roi is roi:
+                del self._rois[index]
+                break
         self._layout.removeWidget(roi_section)
         roi_section.deleteLater()
         if not self._items and self._checkbox is not None:
@@ -279,12 +281,11 @@ class ROISection:
         """Remove all ROI rows and reset layout state."""
         if self._layout is None:
             return
-        for roi_section, roi in list(self._items):
+        for roi_section, _roi in list(self._items):
             self._layout.removeWidget(roi_section)
             roi_section.deleteLater()
-            if roi in self._rois:
-                self._rois.remove(roi)
         self._items.clear()
+        self._rois.clear()
         self.update_titles()
         self._update_scroll_height()
 
