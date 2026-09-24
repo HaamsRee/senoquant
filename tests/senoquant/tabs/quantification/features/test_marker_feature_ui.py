@@ -252,6 +252,63 @@ def test_marker_dialog_adds_distinct_blank_rows_to_state() -> None:
     assert data.segmentations[1].label == "cells_nuc_labels"
 
 
+def test_marker_dialog_removes_matching_blank_row_data() -> None:
+    """Deleting an equal blank row keeps both remaining rows linked to state."""
+    data = MarkerFeatureData()
+    state = FeatureConfig(name="Markers", type_name="Markers", data=data)
+    viewer = DummyViewer(
+        [
+            Image([[1.0]], "img_a"),
+            Image([[2.0]], "img_b"),
+            Labels([[1]], "cells_a_nuc_labels"),
+            Labels([[1]], "cells_b_nuc_labels"),
+        ]
+    )
+    tab = types.SimpleNamespace(
+        _viewer=viewer,
+        _enable_rois=False,
+        _enable_thresholds=False,
+        _configure_combo=lambda _combo: None,
+    )
+    dialog = MarkerChannelsDialog(MarkerFeature(tab, DummyContext(state)))
+
+    for _ in range(3):
+        dialog._add_channel()
+    first_channel, middle_channel, last_channel = dialog._rows
+    assert first_channel.data == middle_channel.data == last_channel.data
+    dialog._remove_channel(middle_channel)
+    first_channel._name_input.setText("First")
+    first_channel._channel_combo.setCurrentText("img_a")
+    last_channel._name_input.setText("Last")
+    last_channel._channel_combo.setCurrentText("img_b")
+    assert data.channels[0] is first_channel.data
+    assert data.channels[1] is last_channel.data
+    assert [(channel.name, channel.channel) for channel in data.channels] == [
+        ("First", "img_a"),
+        ("Last", "img_b"),
+    ]
+
+    for _ in range(3):
+        dialog._add_segmentation()
+    first_segmentation, middle_segmentation, last_segmentation = (
+        dialog._segmentation_rows
+    )
+    assert (
+        first_segmentation.data
+        == middle_segmentation.data
+        == last_segmentation.data
+    )
+    dialog._remove_segmentation(middle_segmentation)
+    first_segmentation._labels_combo.setCurrentText("cells_a_nuc_labels")
+    last_segmentation._labels_combo.setCurrentText("cells_b_nuc_labels")
+    assert data.segmentations[0] is first_segmentation.data
+    assert data.segmentations[1] is last_segmentation.data
+    assert [segmentation.label for segmentation in data.segmentations] == [
+        "cells_a_nuc_labels",
+        "cells_b_nuc_labels",
+    ]
+
+
 def test_marker_dialog_auto_populates_names_and_missing_rows() -> None:
     """Auto-populate fills names and adds missing channel rows."""
     data = MarkerFeatureData(
