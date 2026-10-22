@@ -196,14 +196,16 @@ class StarDistOnnxRuntimeMixin:
             if path.exists():
                 return path
 
+        download_error: Exception | None = None
         try:
             downloaded = ensure_hf_model(
                 self._variant.default_onnx_filename,
                 self.model_dir / "onnx_models",
                 repo_id=DEFAULT_REPO_ID,
             )
-        except RuntimeError:
+        except Exception as exc:
             downloaded = None
+            download_error = exc
         if downloaded is not None and downloaded.exists():
             return downloaded
 
@@ -218,10 +220,11 @@ class StarDistOnnxRuntimeMixin:
             raise ValueError(
                 "Multiple ONNX files found; keep one or use default file names."
             )
-        raise FileNotFoundError(
-            "No ONNX model found. Place the exported model in the model folder "
-            "or allow SenoQuant to download it from the model repository."
-        )
+        expected = self.model_dir / "onnx_models" / self._variant.default_onnx_filename
+        message = f"No ONNX model found for {self._variant.model_key}. Expected {expected}."
+        if download_error is not None:
+            message += f" Download failed ({type(download_error).__name__}): {download_error}"
+        raise FileNotFoundError(message) from download_error
 
     def _resolve_io_names(
         self, session: ort.InferenceSession

@@ -17,6 +17,50 @@ import numpy as np
 import pytest
 
 
+def test_stardist_missing_model_reports_download_error(tmp_path: Path, monkeypatch) -> None:
+    module = importlib.import_module(
+        "senoquant.tabs.segmentation.models.default_3d_stardist.model"
+    )
+    model = module.StarDistOnnxModel(models_root=tmp_path)
+    error = ConnectionError("TLS certificate verification failed")
+
+    def fail_download(*_args, **_kwargs):
+        raise error
+
+    monkeypatch.setattr(
+        "senoquant.tabs.segmentation.stardist_onnx_utils.model_runtime_mixin.ensure_hf_model",
+        fail_download,
+    )
+
+    with pytest.raises(FileNotFoundError) as caught:
+        model._resolve_model_path(3)
+
+    assert "default_3d_stardist" in str(caught.value)
+    assert str(model.model_dir / "onnx_models" / "default_3d.onnx") in str(caught.value)
+    assert "Download failed (ConnectionError): TLS certificate verification failed" in str(caught.value)
+    assert caught.value.__cause__ is error
+
+
+def test_stardist_download_failure_keeps_local_fallback(tmp_path: Path, monkeypatch) -> None:
+    module = importlib.import_module(
+        "senoquant.tabs.segmentation.models.default_3d_stardist.model"
+    )
+    model = module.StarDistOnnxModel(models_root=tmp_path)
+    local_model = model.model_dir / "onnx_models" / "custom.onnx"
+    local_model.parent.mkdir()
+    local_model.touch()
+
+    def fail_download(*_args, **_kwargs):
+        raise RuntimeError("repository unavailable")
+
+    monkeypatch.setattr(
+        "senoquant.tabs.segmentation.stardist_onnx_utils.model_runtime_mixin.ensure_hf_model",
+        fail_download,
+    )
+
+    assert model._resolve_model_path(3) == local_model
+
+
 @pytest.mark.parametrize(
     "module_path",
     [

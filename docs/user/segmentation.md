@@ -51,6 +51,9 @@ The Segmentation tab provides two sections for segmenting nuclei and cytoplasm i
 
 SenoQuant instantiates discovered segmentation models when the tab loads.
 This reduces first-run latency for model execution.
+If a StarDist model cannot be found or downloaded, the run error shows the
+expected ONNX file path and the download error. A trusted copy of the named
+ONNX file can be placed at that path for machines without repository access.
 
 ## Settings reference
 
