@@ -1,6 +1,7 @@
 include README.md
 include LICENSE
 include pyproject.toml
+include constraints.txt
 recursive-include src/senoquant *.yaml
 recursive-include src/senoquant *.json
 recursive-include src/senoquant *.py

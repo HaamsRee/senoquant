@@ -14,6 +14,12 @@ if [ "${HOST_ARCH}" != "arm64" ]; then
     exit 1
 fi
 
+CONSTRAINTS_FILE="${RESOURCES_DIR}/constraints.txt"
+if [ ! -f "${CONSTRAINTS_FILE}" ]; then
+    echo "ERROR: Constraints file not found at ${CONSTRAINTS_FILE}" >&2
+    exit 1
+fi
+
 # Use Application Support for writable data
 APP_SUPPORT="${HOME}/Library/Application Support/SenoQuant"
 mkdir -p "${APP_SUPPORT}"
@@ -31,11 +37,12 @@ log_exec() {
     fi
 }
 
-uv_pip_install() {
+uv_pip_install() (
+    cd "${RESOURCES_DIR}" || exit 1
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env -u SSL_CERT_FILE -u SSL_CERT_DIR \
         JAVA_HOME="${ENV_DIR}" PATH="${ENV_DIR}/bin:${PATH}" UV_SYSTEM_CERTS=true \
-        uv pip install --system-certs --python "${ENV_DIR}/bin/python" "$@"
-}
+        uv pip install --system-certs --python "${ENV_DIR}/bin/python" --constraint constraints.txt "$@"
+)
 
 echo "[SenoQuant] Starting post-install at $(date)" > "${LOG_PATH}"
 

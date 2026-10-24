@@ -117,6 +117,7 @@ if (!(Test-Path $iconIco)) {
 }
 
 # Copy launchers and installer scripts into app dir
+Copy-Item (Join-Path $repoRoot "constraints.txt") (Join-Path $appDir "constraints.txt") -Force
 Copy-Item (Join-Path $repoRoot "installer\windows\launch_senoquant.ps1") (Join-Path $appDir "launch_senoquant.ps1") -Force
 Copy-Item (Join-Path $repoRoot "installer\windows\launch_senoquant.bat") (Join-Path $appDir "launch_senoquant.bat") -Force
 Copy-Item (Join-Path $repoRoot "installer\windows\post_install.ps1") (Join-Path $appDir "post_install.ps1") -Force

@@ -10,6 +10,12 @@ if (-not $AppDir) {
 }
 $AppDir = $AppDir.Trim('"')
 
+$constraintsFile = Join-Path $AppDir "constraints.txt"
+if (!(Test-Path -LiteralPath $constraintsFile -PathType Leaf)) {
+    throw "Constraints file not found at $constraintsFile"
+}
+$constraintsUri = ([System.Uri](Get-Item -LiteralPath $constraintsFile).FullName).AbsoluteUri
+
 $logPath = Join-Path $AppDir "post_install.log"
 try {
     Start-Transcript -Path $logPath -Append | Out-Null
@@ -70,7 +76,7 @@ function Invoke-UvPipInstall {
     $previousErrorActionPreference = $ErrorActionPreference
     try {
         $ErrorActionPreference = "Continue"
-        & $uvExe pip install --system-certs --python (Join-Path $envDir "python.exe") @Arguments 2>&1 | ForEach-Object { $_.ToString() } | Out-Host
+        & $uvExe pip install --system-certs --python (Join-Path $envDir "python.exe") --constraint $constraintsUri @Arguments 2>&1 | ForEach-Object { $_.ToString() } | Out-Host
         $uvExitCode = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previousErrorActionPreference

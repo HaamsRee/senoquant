@@ -151,6 +151,7 @@ fi
 echo "[SenoQuant] Copying launcher scripts..."
 cp "${REPO_ROOT}/installer/macos/launch_senoquant.sh" "${MACOS_DIR}/launch_senoquant.sh"
 cp "${REPO_ROOT}/installer/macos/post_install.sh" "${RESOURCES_DIR}/post_install.sh"
+cp "${REPO_ROOT}/constraints.txt" "${RESOURCES_DIR}/constraints.txt"
 cp "${REPO_ROOT}/installer/macos/environment.macos.yml" "${RESOURCES_DIR}/environment.macos.yml"
 
 chmod +x "${MACOS_DIR}/launch_senoquant.sh"
@@ -182,7 +183,7 @@ cat > "${CONTENTS_DIR}/Info.plist" << EOF
     <key>CFBundleIconFile</key>
     <string>senoquant.icns</string>
     <key>LSMinimumSystemVersion</key>
-    <string>10.15</string>
+    <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSApplicationCategoryType</key>

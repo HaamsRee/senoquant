@@ -4,7 +4,7 @@ This directory contains scripts to build a macOS installer for SenoQuant.
 
 ## Prerequisites
 
-- macOS 10.15 or later
+- Apple Silicon Mac running macOS 14 or later
 - Python 3.11+
 - Build tools: `python -m pip install build`
 - Icon conversion tools (one of):

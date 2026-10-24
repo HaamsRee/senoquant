@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -97,6 +98,31 @@ class TestPlatformScripts(unittest.TestCase):
             post_install.index("Installing napari"),
             post_install.index("Installing SenoQuant wheel"),
         )
+
+    def test_postinstall_requires_bundled_constraints_before_setup(self) -> None:
+        powershell = _powershell()
+        if powershell is None:
+            self.skipTest("PowerShell is unavailable")
+
+        with tempfile.TemporaryDirectory(prefix="senoquant constraints ") as app_dir:
+            result = subprocess.run(
+                [
+                    powershell,
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(WINDOWS_INSTALLER / "post_install.ps1"),
+                    "-AppDir",
+                    app_dir,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Constraints file not found", result.stdout + result.stderr)
+            self.assertEqual(list(Path(app_dir).iterdir()), [])
 
     def test_development_setup_scripts_install_editable_package(self) -> None:
         for script_name in (
