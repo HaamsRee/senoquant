@@ -126,7 +126,7 @@ The build uses a staging directory (`pkg_staging/`) with `SenoQuant.app` at the 
 
 ### Architecture support
 
-The macOS installer targets Apple Silicon (`arm64`) and uses ARM64 micromamba.
+The macOS installer supports native Apple Silicon (`arm64`) only and uses ARM64 micromamba. Build, setup, and launch scripts reject Intel Macs and Rosetta before changing the environment.
 
 PyTorch is installed from standard channels and includes MPS support on Apple Silicon.
 

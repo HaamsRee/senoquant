@@ -110,6 +110,6 @@ If the app doesn't launch:
 
 ## Architecture Support
 
-The macOS installer targets Apple Silicon Macs and uses ARM64 micromamba.
+The macOS installer supports native Apple Silicon (`arm64`) only and uses ARM64 micromamba. Build, setup, and launch scripts reject Intel Macs and Rosetta before changing the environment.
 
 PyTorch is installed from standard channels and includes MPS (Metal Performance Shaders) acceleration.

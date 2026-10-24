@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "$(uname -m)" != "arm64" ]; then
+    echo "ERROR: SenoQuant requires native Apple Silicon macOS (arm64). Intel and Rosetta are unsupported." >&2
+    exit 1
+fi
+
 # Get the directory where the app bundle is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_PATH="${SCRIPT_DIR}/launch_senoquant.sh"
@@ -81,20 +86,7 @@ if [ -n "${APP_VERSION}" ]; then
     fi
 fi
 
-HOST_ARCH="$(uname -m)"
-case "${HOST_ARCH}" in
-    arm64)
-        EXPECTED_ARCH="osx-arm64"
-        ;;
-    x86_64)
-        EXPECTED_ARCH="osx-64"
-        ;;
-    *)
-        log "ERROR: Unsupported macOS architecture: ${HOST_ARCH}"
-        read -p "Press ENTER to close this window..."
-        exit 1
-        ;;
-esac
+EXPECTED_ARCH="osx-arm64"
 
 INSTALLED_ARCH=""
 if [ -f "${ARCH_FILE}" ]; then

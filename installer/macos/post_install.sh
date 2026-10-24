@@ -8,6 +8,12 @@ if [ -z "${RESOURCES_DIR}" ]; then
     RESOURCES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 
+HOST_ARCH="$(uname -m)"
+if [ "${HOST_ARCH}" != "arm64" ]; then
+    echo "ERROR: SenoQuant requires native Apple Silicon macOS (arm64). Intel and Rosetta are unsupported." >&2
+    exit 1
+fi
+
 # Use Application Support for writable data
 APP_SUPPORT="${HOME}/Library/Application Support/SenoQuant"
 mkdir -p "${APP_SUPPORT}"
@@ -38,19 +44,7 @@ WHEEL_DIR="${RESOURCES_DIR}/wheels"
 VERSION_FILE="${APP_SUPPORT}/installed_version"
 ARCH_FILE="${APP_SUPPORT}/installed_arch"
 
-HOST_ARCH="$(uname -m)"
-case "${HOST_ARCH}" in
-    arm64)
-        MICROMAMBA_ARCH="osx-arm64"
-        ;;
-    x86_64)
-        MICROMAMBA_ARCH="osx-64"
-        ;;
-    *)
-        echo "ERROR: Unsupported macOS architecture: ${HOST_ARCH}" | tee -a "${LOG_PATH}"
-        exit 1
-        ;;
-esac
+MICROMAMBA_ARCH="osx-arm64"
 
 PREFERRED_MICROMAMBA_BIN="${TOOLS_DIR}/${MICROMAMBA_ARCH}/micromamba"
 OLD_NAMED_MICROMAMBA_BIN="${TOOLS_DIR}/micromamba-${MICROMAMBA_ARCH}"
@@ -81,20 +75,10 @@ chmod +x "${MICROMAMBA_BIN}"
 
 if command -v file >/dev/null 2>&1; then
     MICROMAMBA_FILE_DESC="$(file -b "${MICROMAMBA_BIN}")"
-    case "${HOST_ARCH}" in
-        arm64)
-            if [[ "${MICROMAMBA_FILE_DESC}" != *"arm64"* ]]; then
-                echo "ERROR: bundled micromamba is not compatible with Apple Silicon (${MICROMAMBA_FILE_DESC})" | tee -a "${LOG_PATH}"
-                exit 1
-            fi
-            ;;
-        x86_64)
-            if [[ "${MICROMAMBA_FILE_DESC}" != *"x86_64"* ]]; then
-                echo "ERROR: bundled micromamba is not compatible with Intel macOS (${MICROMAMBA_FILE_DESC})" | tee -a "${LOG_PATH}"
-                exit 1
-            fi
-            ;;
-    esac
+    if [[ "${MICROMAMBA_FILE_DESC}" != *"arm64"* ]]; then
+        echo "ERROR: bundled micromamba is not compatible with Apple Silicon (${MICROMAMBA_FILE_DESC})" | tee -a "${LOG_PATH}"
+        exit 1
+    fi
 fi
 
 echo "[SenoQuant] Detected macOS architecture: ${HOST_ARCH} (${MICROMAMBA_ARCH})" | tee -a "${LOG_PATH}"

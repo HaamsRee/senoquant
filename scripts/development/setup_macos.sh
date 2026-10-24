@@ -11,6 +11,11 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
     exit 1
 fi
 
+if [ "$(uname -m)" != "arm64" ]; then
+    echo "ERROR: SenoQuant requires native Apple Silicon macOS (arm64). Intel and Rosetta are unsupported." >&2
+    exit 1
+fi
+
 if ! command -v conda >/dev/null 2>&1; then
     echo "conda was not found. Install Miniforge, Miniconda, or Anaconda first." >&2
     exit 1

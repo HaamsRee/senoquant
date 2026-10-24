@@ -43,6 +43,8 @@ Windows ARM64 PCs are supported on Windows 11 24H2 or later through x64 emulatio
 
 Download the macOS installer (`.pkg`) from the [latest release](https://github.com/HaamsRee/senoquant/releases/latest) under "Assets."
 
+The macOS installer supports native Apple Silicon (`arm64`) only. Intel Macs and Rosetta are unsupported.
+
 #### Linux
 
 Installer support for Linux is under construction.

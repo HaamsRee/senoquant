@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+if [ "$(uname -m)" != "arm64" ]; then
+    echo "ERROR: SenoQuant requires native Apple Silicon macOS (arm64). Intel and Rosetta are unsupported." >&2
+    exit 1
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DIST_ROOT="${REPO_ROOT}/dist/macos-installer"
 APP_DIR="${DIST_ROOT}/SenoQuant.app"
@@ -76,22 +81,11 @@ download_micromamba() {
 }
 
 download_micromamba "osx-arm64"
-download_micromamba "osx-64"
 
 # Keep the historical path populated for tooling that inspects the bundle.
 # Runtime setup uses the architecture-specific binaries above.
 if [ ! -f "${MICROMAMBA_BIN}" ]; then
-    case "$(uname -m)" in
-        arm64)
-            cp "${TOOLS_DIR}/osx-arm64/micromamba" "${MICROMAMBA_BIN}"
-            ;;
-        x86_64)
-            cp "${TOOLS_DIR}/osx-64/micromamba" "${MICROMAMBA_BIN}"
-            ;;
-        *)
-            cp "${TOOLS_DIR}/osx-64/micromamba" "${MICROMAMBA_BIN}"
-            ;;
-    esac
+    cp "${TOOLS_DIR}/osx-arm64/micromamba" "${MICROMAMBA_BIN}"
     chmod +x "${MICROMAMBA_BIN}"
 fi
 

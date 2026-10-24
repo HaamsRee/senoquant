@@ -13,7 +13,7 @@ Before installing, make sure your system meets these requirements:
 ### Platform support
 
 - **Windows installer**: x64 Windows, plus Windows ARM64 through x64 emulation on Windows 11 24H2 or later.
-- **macOS installer**: Apple Silicon Macs running macOS 10.15 or later.
+- **macOS installer**: Apple Silicon Macs running macOS 10.15 or later, using native `arm64`. Intel Macs and Rosetta are unsupported.
 - **Linux**: Installer support is under construction.
 
 ### Runtime notes
