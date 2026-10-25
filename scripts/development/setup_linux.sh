@@ -19,11 +19,11 @@ fi
 if conda run --name "${ENVIRONMENT_NAME}" python --version >/dev/null 2>&1; then
     echo "[SenoQuant] Updating existing conda environment: ${ENVIRONMENT_NAME}"
     conda install --yes --name "${ENVIRONMENT_NAME}" --channel conda-forge \
-        python=3.11 pip openjdk=21 jpype1 scyjava
+        python=3.11 "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava
 else
     echo "[SenoQuant] Creating conda environment: ${ENVIRONMENT_NAME}"
     conda create --yes --name "${ENVIRONMENT_NAME}" --channel conda-forge \
-        python=3.11 pip openjdk=21 jpype1 scyjava
+        python=3.11 "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava
 fi
 
 echo "[SenoQuant] Upgrading pip"

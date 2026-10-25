@@ -43,10 +43,10 @@ if ($environmentExists) {
         }
     }
     Write-Host "[SenoQuant] Updating existing conda environment: $EnvironmentName"
-    & conda install --yes --name $EnvironmentName --channel conda-forge python=3.11 pip openjdk=21 jpype1 scyjava
+    & conda install --yes --name $EnvironmentName --channel conda-forge python=3.11 "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava
 } else {
     Write-Host "[SenoQuant] Creating conda environment: $EnvironmentName"
-    & conda create --yes --name $EnvironmentName --channel conda-forge @platformArguments python=3.11 pip openjdk=21 jpype1 scyjava
+    & conda create --yes --name $EnvironmentName --channel conda-forge @platformArguments python=3.11 "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava
 }
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to create or update the conda environment."

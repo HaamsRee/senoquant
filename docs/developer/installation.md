@@ -53,6 +53,11 @@ bash scripts/development/setup_linux.sh my-senoquant-env
 
 On a Windows ARM64 PC, the Windows script creates a `win-64` conda environment. Python and native dependencies then run through Windows 11 x64 emulation, matching the supported installer configuration. Windows 11 24H2 or later is required.
 
+The setup scripts require patched `ca-certificates`, `certifi`, and seed `pip`
+in the target environment before Python package downloads. Rerun setup to refresh
+an existing development environment. Keep the Conda installation used to run setup
+updated separately; these scripts do not update its base environment.
+
 The following sections describe the equivalent manual process.
 
 ## Create an environment
@@ -60,7 +65,7 @@ The following sections describe the equivalent manual process.
 In your terminal (Command Prompt/PowerShell on Windows, Terminal on macOS/Linux), create and activate a new conda environment with Python 3.11.
 
 ```bash
-conda create -n senoquant python=3.11
+conda create -n senoquant -c conda-forge python=3.11 "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19"
 conda activate senoquant
 ```
 

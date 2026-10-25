@@ -131,9 +131,9 @@ if (Test-Path $envDir) {
 }
 
 if (!(Test-Path $envDir)) {
-    Invoke-Checked "Creating environment: $envDir" { & $micromambaExe create -y -p $envDir -c conda-forge python=3.11 pip openjdk=21 jpype1 scyjava }
+    Invoke-Checked "Creating environment: $envDir" { & $micromambaExe create -y -p $envDir -c conda-forge python=3.11 "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava }
 }
-Invoke-Checked "Ensuring bundled OpenJDK, JPype, and scyjava" { & $micromambaExe install -y -p $envDir -c conda-forge openjdk=21 jpype1 scyjava }
+Invoke-Checked "Ensuring patched certificates, pip, and Java dependencies" { & $micromambaExe install -y -p $envDir -c conda-forge "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava }
 
 $javaHome = Join-Path $envDir "Library"
 $env:JAVA_HOME = $javaHome

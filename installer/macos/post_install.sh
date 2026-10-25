@@ -132,11 +132,11 @@ fi
 
 if [ ! -d "${ENV_DIR}" ]; then
     log_exec "Creating environment: ${ENV_DIR}" \
-        "${MICROMAMBA_BIN}" create -y -p "${ENV_DIR}" -c conda-forge python=3.11 pip openjdk=21 jpype1 scyjava
+        "${MICROMAMBA_BIN}" create -y -p "${ENV_DIR}" -c conda-forge python=3.11 "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava
 fi
 
-log_exec "Ensuring bundled OpenJDK, JPype, and scyjava" \
-    "${MICROMAMBA_BIN}" install -y -p "${ENV_DIR}" -c conda-forge openjdk=21 jpype1 scyjava
+log_exec "Ensuring patched certificates, pip, and Java dependencies" \
+    "${MICROMAMBA_BIN}" install -y -p "${ENV_DIR}" -c conda-forge "pip>=26.2.2" "conda-forge::ca-certificates>=2026.10.19" "conda-forge::certifi>=2026.10.19" openjdk=21 jpype1 scyjava
 
 log_exec "Validating bundled Java" \
     "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" env JAVA_HOME="${ENV_DIR}" java -version

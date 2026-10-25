@@ -3,7 +3,9 @@ channels:
   - conda-forge
 dependencies:
   - python=3.11
-  - pip
+  - "pip>=26.2.2"
+  - "conda-forge::ca-certificates>=2026.10.19"
+  - "conda-forge::certifi>=2026.10.19"
   - openjdk=21
   - jpype1
   - scyjava
