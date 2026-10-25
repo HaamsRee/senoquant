@@ -91,6 +91,12 @@ pip install "napari[all]"
 uv pip install senoquant
 ```
 
+SenoQuant requires `pip-system-certs`, which is installed as a runtime dependency.
+Restart Python/napari after installing it. The plugin checks system-trust
+initialization before loading and stops with an error if the default SSL context
+is unavailable or certificate/hostname verification is disabled. This also applies
+to offline use.
+
 Alternatively, using standard `pip` (not recommended. This might be fine for napari, but often fails for SenoQuant):
 
 ```bash

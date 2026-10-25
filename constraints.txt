@@ -1,12 +1,4 @@
-# Python 3.11 baseline from senoquant-dev (Windows x64, 2026-10-24).
-# Usage: uv pip install --constraint constraints.txt ...
-# Constraints restrict requested packages; they do not install this entire list.
-# Tested compatibility fixes: fsspec 2026.7.0 and senoquant-stardist-ext 0.1.4.
-# Torch public versions retain the installer's existing CPU/CUDA index selection.
-# macOS uses the CPU ONNX Runtime counterpart and requires Apple Silicon, macOS 14+.
-# macOS wheel resolution was checked; native macOS execution remains untested.
-# Micromamba, Python/Java provisioning, isolated builds and model weights are separate.
-# Packages absent from this Windows baseline are not transitively frozen.
+# Shared Python dependency version constraints for SenoQuant.
 
 aicspylibczi==3.3.1
 aiobotocore==3.9.0
