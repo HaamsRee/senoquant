@@ -147,7 +147,7 @@ log_exec "Upgrading pip" \
 
 # Install uv for faster package installation
 log_exec "Installing uv" \
-    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" python -m pip install uv
+    "${MICROMAMBA_BIN}" run -p "${ENV_DIR}" python -m pip install --constraint "${CONSTRAINTS_FILE}" uv
 
 echo "[SenoQuant] uv installs will use system certificates and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment." | tee -a "${LOG_PATH}"
 

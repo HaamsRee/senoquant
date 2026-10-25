@@ -52,8 +52,14 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to create or update the conda environment."
 }
 
+Write-Host "[SenoQuant] Upgrading pip"
+& conda run --name $EnvironmentName python -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to upgrade pip."
+}
+
 Write-Host "[SenoQuant] Installing uv"
-& conda run --name $EnvironmentName python -m pip install --upgrade pip uv
+& conda run --name $EnvironmentName python -m pip install --constraint (Join-Path $repositoryRoot "constraints.txt") uv
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to install uv."
 }

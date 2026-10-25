@@ -142,7 +142,7 @@ Invoke-Checked "Validating bundled Java" { & $micromambaExe run -p $envDir java 
 
 Invoke-Checked "Upgrading pip" { & $micromambaExe run -p $envDir python -m pip install --upgrade pip }
 
-Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install uv }
+Invoke-Checked "Installing uv" { & $micromambaExe run -p $envDir python -m pip install --constraint $constraintsUri uv }
 Write-Host "[SenoQuant] uv installs will use system certificates and ignore SSL_CERT_FILE/SSL_CERT_DIR from the micromamba environment."
 Invoke-Checked "Installing pip-system-certs" { Invoke-UvPipInstall @("pip-system-certs") }
 

@@ -26,8 +26,11 @@ else
         python=3.11 pip openjdk=21 jpype1 scyjava
 fi
 
+echo "[SenoQuant] Upgrading pip"
+conda run --name "${ENVIRONMENT_NAME}" python -m pip install --upgrade pip
+
 echo "[SenoQuant] Installing uv"
-conda run --name "${ENVIRONMENT_NAME}" python -m pip install --upgrade pip uv
+conda run --name "${ENVIRONMENT_NAME}" python -m pip install --constraint "${REPOSITORY_ROOT}/constraints.txt" uv
 
 echo "[SenoQuant] Installing development dependencies and editable package"
 cd "${REPOSITORY_ROOT}"

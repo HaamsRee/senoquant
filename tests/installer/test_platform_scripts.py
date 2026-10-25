@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import shutil
 import subprocess
 import tempfile
@@ -123,6 +124,66 @@ class TestPlatformScripts(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Constraints file not found", result.stdout + result.stderr)
             self.assertEqual(list(Path(app_dir).iterdir()), [])
+
+    def test_windows_uv_bootstrap_uses_constraints_and_stops_after_pip_failure(self) -> None:
+        powershell = _powershell()
+        if powershell is None:
+            self.skipTest("PowerShell is unavailable")
+
+        with tempfile.TemporaryDirectory(prefix="senoquant uv bootstrap ") as directory:
+            checkout = Path(directory)
+            script = checkout / "scripts" / "development" / "setup_windows.ps1"
+            script.parent.mkdir(parents=True)
+            shutil.copy2(
+                REPOSITORY_ROOT / "scripts" / "development" / script.name, script,
+            )
+            for name in ("pyproject.toml", "constraints.txt"):
+                shutil.copy2(REPOSITORY_ROOT / name, checkout / name)
+            script_literal = str(script).replace("'", "''")
+            for fail_pip in (False, True):
+                with self.subTest(fail_pip=fail_pip):
+                    command = f"""
+$global:CondaCalls = [System.Collections.Generic.List[object]]::new()
+$global:FailPip = ${str(fail_pip).lower()}
+function conda {{
+    $global:CondaCalls.Add(@($args))
+    $global:LASTEXITCODE = 0
+    if ($args[-1] -eq '--version' -or
+        ($global:FailPip -and $args -contains '--upgrade')) {{
+        $global:LASTEXITCODE = 17
+    }}
+}}
+$failure = $null
+try {{ & '{script_literal}' }} catch {{ $failure = $_.Exception.Message }}
+@{{calls = $global:CondaCalls.ToArray(); failure = $failure}} |
+    ConvertTo-Json -Depth 5 -Compress
+"""
+                    result = subprocess.run(
+                        [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass",
+                         "-Command", command],
+                        cwd=checkout,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+                    receipt = json.loads(result.stdout.splitlines()[-1])
+                    calls = receipt["calls"]
+                    uv_calls = [call for call in calls if call[-1] == "uv"]
+                    dependency_calls = [call for call in calls if "--editable" in call]
+                    if fail_pip:
+                        self.assertIn("Failed to upgrade pip", receipt["failure"])
+                        self.assertEqual(uv_calls, [])
+                        self.assertEqual(dependency_calls, [])
+                    else:
+                        self.assertIsNone(receipt["failure"])
+                        self.assertEqual(len(uv_calls), 1)
+                        constraint = Path(
+                            uv_calls[0][uv_calls[0].index("--constraint") + 1]
+                        )
+                        self.assertEqual(constraint.resolve(), checkout / "constraints.txt")
+                        self.assertTrue(constraint.is_file())
+                        self.assertEqual(len(dependency_calls), 1)
+                        self.assertLess(calls.index(uv_calls[0]), calls.index(dependency_calls[0]))
 
     def test_development_setup_scripts_install_editable_package(self) -> None:
         for script_name in (

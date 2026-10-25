@@ -71,7 +71,7 @@ You should see `(senoquant)` at the beginning of your terminal prompt, indicatin
 We strongly recommend using `uv` instead of `pip` because standard pip often has difficulty solving complex dependencies. `uv` is also *much* faster.
 
 ```bash
-pip install uv
+python -m pip install --constraint https://raw.githubusercontent.com/HaamsRee/senoquant/main/constraints.txt uv
 uv pip install pip-system-certs
 uv pip install "napari[all]"
 ```
@@ -135,7 +135,7 @@ napari --with senoquant
 For development work without the setup scripts, install SenoQuant and the test dependencies from the repository in editable mode:
 
 ```bash
-pip install uv
+python -m pip install --constraint constraints.txt uv
 uv pip install "napari[all]" -r requirements-test.txt -e .
 ```
 
