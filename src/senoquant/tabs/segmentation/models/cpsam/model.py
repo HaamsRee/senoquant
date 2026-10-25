@@ -16,18 +16,18 @@ class CPSAMModel(SenoQuantSegmentationModel):
     def __init__(self, models_root=None) -> None:
         """Initialize the CPSAM model wrapper."""
         super().__init__("cpsam", models_root=models_root)
-        from cellpose.models import CellposeModel
-
         model_path = Path(self.model_dir) / "cpsam"
-        if not model_path.exists():
-            try:
-                model_path = ensure_hf_model(
-                    "cpsam",
-                    self.model_dir,
-                    repo_id=DEFAULT_REPO_ID,
-                )
-            except RuntimeError:
-                pass
+        if not model_path.is_file():
+            model_path = ensure_hf_model(
+                "cpsam",
+                self.model_dir,
+                repo_id=DEFAULT_REPO_ID,
+            )
+        # Require local weights to avoid Cellpose's unverified download fallback.
+        if not model_path.is_file():
+            raise FileNotFoundError(f"CPSAM model weights file not found: {model_path}")
+
+        from cellpose.models import CellposeModel
         # Always request GPU; Cellpose will fall back if unavailable.
         self._model = CellposeModel(gpu=True, pretrained_model=str(model_path))
 

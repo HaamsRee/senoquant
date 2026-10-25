@@ -8,10 +8,80 @@ Validates input preparation and error handling without running Cellpose.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from senoquant.tabs.segmentation.models.cpsam.model import CPSAMModel
+from senoquant.tabs.segmentation.models.cpsam import model as cpsam_module
+
+CPSAMModel = cpsam_module.CPSAMModel
+
+
+@pytest.fixture
+def cellpose_constructor(monkeypatch):
+    constructor = Mock()
+    monkeypatch.setattr("cellpose.models.CellposeModel", constructor)
+    return constructor
+
+
+def test_constructor_propagates_download_failure(
+    tmp_path, monkeypatch, cellpose_constructor,
+) -> None:
+    failure = RuntimeError("Model download failed")
+    download = Mock(side_effect=failure)
+    monkeypatch.setattr(cpsam_module, "ensure_hf_model", download)
+
+    with pytest.raises(RuntimeError, match="Model download failed") as caught:
+        CPSAMModel(models_root=tmp_path / "models")
+
+    assert caught.value is failure
+    download.assert_called_once()
+    cellpose_constructor.assert_not_called()
+
+
+@pytest.mark.parametrize("weights_kind", ("missing", "directory"))
+def test_constructor_rejects_invalid_downloaded_weights(
+    tmp_path, monkeypatch, cellpose_constructor, weights_kind,
+) -> None:
+    weights = tmp_path / "download-cache" / "cpsam"
+    if weights_kind == "directory":
+        weights.mkdir(parents=True)
+    download = Mock(return_value=weights)
+    monkeypatch.setattr(cpsam_module, "ensure_hf_model", download)
+
+    with pytest.raises(FileNotFoundError):
+        CPSAMModel(models_root=tmp_path / "models")
+
+    download.assert_called_once()
+    cellpose_constructor.assert_not_called()
+
+
+@pytest.mark.parametrize("downloaded", (False, True))
+def test_constructor_passes_local_weights_to_cellpose(
+    tmp_path, monkeypatch, cellpose_constructor, downloaded,
+) -> None:
+    models_root = tmp_path / "models"
+    weights = (
+        tmp_path / "download-cache" / "cpsam"
+        if downloaded else models_root / "cpsam" / "cpsam"
+    )
+    weights.parent.mkdir(parents=True)
+    weights.write_bytes(b"test weights")
+    download = Mock(return_value=weights)
+    monkeypatch.setattr(cpsam_module, "ensure_hf_model", download)
+
+    model = CPSAMModel(models_root=models_root)
+
+    cellpose_constructor.assert_called_once_with(
+        gpu=True, pretrained_model=str(weights),
+    )
+    assert model._model is cellpose_constructor.return_value
+    if downloaded:
+        download.assert_called_once_with(
+            "cpsam", models_root / "cpsam", repo_id=cpsam_module.DEFAULT_REPO_ID,
+        )
+    else:
+        download.assert_not_called()
 
 
 def test_prepare_input_2d_single_channel() -> None:
