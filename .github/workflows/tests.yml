@@ -30,8 +30,9 @@ jobs:
             --use-deprecated=legacy-certs \
             --cert /etc/ssl/certs/ca-certificates.crt \
             --constraint constraints.txt pip
-          python -m pip install -r requirements-test.txt
+          # Build before pip-system-certs installs its Python startup hook.
           python -m pip install -e . --no-deps
+          python -m pip install -r requirements-test.txt
 
       - name: Run tests
         run: |

@@ -83,21 +83,17 @@ class TestEnsureHfModel:
         assert mock_download.call_args.kwargs["cache_dir"] is None
         assert "local_dir" not in mock_download.call_args.kwargs
 
-    def test_ensure_hf_model_without_huggingface_hub(self, tmp_path) -> None:
+    def test_ensure_hf_model_without_huggingface_hub(self, tmp_path, monkeypatch) -> None:
         """Test ensure_hf_model raises when huggingface_hub not available."""
-        from senoquant.tabs.segmentation.models.hf import (
-            ensure_hf_model,
-            hf_hub_download,
-        )
+        from senoquant.tabs.segmentation.models.hf import ensure_hf_model
 
-        # When hf_hub_download is None, should raise RuntimeError
-        if hf_hub_download is None:
-            with pytest.raises(RuntimeError):
-                ensure_hf_model(
-                    "test_model.onnx",
-                    tmp_path,
-                    repo_id="test/repo",
-                )
+        monkeypatch.setattr("senoquant.tabs.segmentation.models.hf.hf_hub_download", None)
+        with pytest.raises(RuntimeError):
+            ensure_hf_model(
+                "test_model.onnx",
+                tmp_path,
+                repo_id="test/repo",
+            )
 
     def test_ensure_hf_model_file_exists(self, tmp_path) -> None:
         """Test ensure_hf_model returns existing file without downloading."""
