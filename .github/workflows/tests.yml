@@ -26,7 +26,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade \
+            --use-deprecated=legacy-certs \
+            --cert /etc/ssl/certs/ca-certificates.crt \
+            --constraint constraints.txt pip
           python -m pip install -r requirements-test.txt
           python -m pip install -e . --no-deps
 
