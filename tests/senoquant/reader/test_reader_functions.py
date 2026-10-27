@@ -13,6 +13,12 @@ from senoquant.reader import core
 import senoquant.reader.supported_extensions as supported_extensions
 
 
+_JAVA_REVOCATION_FLAGS = (
+    "-Dcom.sun.net.ssl.checkRevocation=true",
+    "-Dcom.sun.security.enableCRLDP=true",
+)
+
+
 def test_colormap_cycle_returns_iterator():
     """Test that _colormap_cycle returns an iterator."""
     cycle = core._colormap_cycle()
@@ -653,6 +659,9 @@ def test_ensure_java_truststore_sets_env_on_windows(monkeypatch) -> None:
     assert core._WINDOWS_TRUSTSTORE_PROVIDER_FLAG in java_opts
     assert core._WINDOWS_TRUSTSTORE_TYPE_FLAG in maven_opts
     assert core._WINDOWS_TRUSTSTORE_PROVIDER_FLAG in maven_opts
+    for opts in (java_opts, maven_opts):
+        for flag in _JAVA_REVOCATION_FLAGS:
+            assert flag in opts.split()
 
 
 def test_ensure_java_truststore_preserves_existing_options_on_windows(
@@ -677,6 +686,9 @@ def test_ensure_java_truststore_preserves_existing_options_on_windows(
     assert "-Dfoo=bar" in maven_opts
     assert maven_opts.count("javax.net.ssl.trustStoreType") == 1
     assert maven_opts.count("javax.net.ssl.trustStoreProvider") == 1
+    for opts in (java_opts, maven_opts):
+        for flag in _JAVA_REVOCATION_FLAGS:
+            assert opts.split().count(flag) == 1
 
 
 def test_ensure_java_truststore_sets_macos_keychain_flags(monkeypatch) -> None:
@@ -689,6 +701,9 @@ def test_ensure_java_truststore_sets_macos_keychain_flags(monkeypatch) -> None:
 
     assert core._MACOS_TRUSTSTORE_TYPE_FLAG in core.os.environ["JAVA_TOOL_OPTIONS"]
     assert core._MACOS_TRUSTSTORE_TYPE_FLAG in core.os.environ["MAVEN_OPTS"]
+    for env_name in ("JAVA_TOOL_OPTIONS", "MAVEN_OPTS"):
+        for flag in _JAVA_REVOCATION_FLAGS:
+            assert flag in core.os.environ[env_name].split()
 
 
 def test_ensure_java_truststore_sets_linux_cacerts_flags(monkeypatch) -> None:
@@ -710,6 +725,41 @@ def test_ensure_java_truststore_sets_linux_cacerts_flags(monkeypatch) -> None:
     assert expected_password in core.os.environ["JAVA_TOOL_OPTIONS"]
     assert expected_store in core.os.environ["MAVEN_OPTS"]
     assert expected_password in core.os.environ["MAVEN_OPTS"]
+    for env_name in ("JAVA_TOOL_OPTIONS", "MAVEN_OPTS"):
+        for flag in _JAVA_REVOCATION_FLAGS:
+            assert flag in core.os.environ[env_name].split()
+
+
+def test_ensure_java_truststore_sets_revocation_without_linux_store(monkeypatch) -> None:
+    """Enable revocation without inventing a missing Linux truststore."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(core, "_linux_java_truststore_path", lambda: None)
+    monkeypatch.setenv("SENOQUANT_JAVA_TRUSTSTORE_SETUP", "auto")
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS", raising=False)
+    monkeypatch.delenv("MAVEN_OPTS", raising=False)
+
+    core._ensure_java_truststore()
+
+    for env_name in ("JAVA_TOOL_OPTIONS", "MAVEN_OPTS"):
+        assert set(core.os.environ[env_name].split()) == set(_JAVA_REVOCATION_FLAGS)
+
+
+def test_ensure_java_truststore_preserves_explicit_revocation_options(monkeypatch) -> None:
+    """Keep explicit Java properties instead of appending conflicting defaults."""
+    monkeypatch.setattr(core.platform, "system", lambda: "Windows")
+    monkeypatch.setenv("SENOQUANT_JAVA_TRUSTSTORE_SETUP", "auto")
+    overrides = "-Dcom.sun.net.ssl.checkRevocation=false -Dcom.sun.security.enableCRLDP=false"
+    for env_name in ("JAVA_TOOL_OPTIONS", "MAVEN_OPTS"):
+        monkeypatch.setenv(env_name, f"-Xmx1g {overrides}")
+
+    core._ensure_java_truststore()
+
+    for env_name in ("JAVA_TOOL_OPTIONS", "MAVEN_OPTS"):
+        opts = core.os.environ[env_name].split()
+        assert "-Xmx1g" in opts
+        for flag in overrides.split():
+            assert opts.count(flag) == 1
+        assert not set(opts).intersection(_JAVA_REVOCATION_FLAGS)
 
 
 def test_ensure_java_truststore_noop_when_disabled(monkeypatch) -> None:

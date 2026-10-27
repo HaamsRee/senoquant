@@ -179,14 +179,15 @@ def _java_truststore_flags_for_platform() -> list[tuple[str, str]]:
 
 
 def _ensure_java_truststore() -> None:
-    """Configure Java/Maven truststore settings for current platform."""
+    """Configure Java/Maven truststore and revocation settings."""
     setup_mode = os.environ.get("SENOQUANT_JAVA_TRUSTSTORE_SETUP", "auto").strip().lower()
     if setup_mode in {"0", "false", "off", "no"}:
         return
 
-    flags = _java_truststore_flags_for_platform()
-    if not flags:
-        return
+    flags = _java_truststore_flags_for_platform() + [
+        ("com.sun.net.ssl.checkRevocation", "-Dcom.sun.net.ssl.checkRevocation=true"),
+        ("com.sun.security.enableCRLDP", "-Dcom.sun.security.enableCRLDP=true"),
+    ]
 
     for env_name in ("JAVA_TOOL_OPTIONS", "MAVEN_OPTS"):
         current = os.environ.get(env_name, "").strip()
