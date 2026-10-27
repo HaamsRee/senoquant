@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1466,16 +1466,20 @@ napari<span class="w"> </span>--with<span class="w"> </span>senoquant
 <div class="highlight"><pre><span></span><code><span class="p">.\</span><span class="n">scripts</span><span class="p">\</span><span class="n">development</span><span class="p">\</span><span class="n">setup_windows</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-EnvironmentName</span> <span class="n">my-senoquant-env</span>
 </code></pre></div>
 <p>On a Windows ARM64 PC, the Windows script creates a <code>win-64</code> conda environment. Python and native dependencies then run through Windows 11 x64 emulation, matching the supported installer configuration. Windows 11 24H2 or later is required.</p>
+<p>The setup scripts require patched <code>ca-certificates</code>, <code>certifi</code>, and seed <code>pip</code>
+in the target environment before Python package downloads. Rerun setup to refresh
+an existing development environment. Keep the Conda installation used to run setup
+updated separately; these scripts do not update its base environment.</p>
 <p>The following sections describe the equivalent manual process.</p>
 <h2 id="create-an-environment">Create an environment<a class="headerlink" href="#create-an-environment" title="Permanent link">&para;</a></h2>
 <p>In your terminal (Command Prompt/PowerShell on Windows, Terminal on macOS/Linux), create and activate a new conda environment with Python 3.11.</p>
-<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>senoquant<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
+<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>senoquant<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11<span class="w"> </span><span class="s2">"pip&gt;=26.2.2"</span><span class="w"> </span><span class="s2">"conda-forge::ca-certificates&gt;=2026.10.19"</span><span class="w"> </span><span class="s2">"conda-forge::certifi&gt;=2026.10.19"</span>
 conda<span class="w"> </span>activate<span class="w"> </span>senoquant
 </code></pre></div>
 <p>You should see <code>(senoquant)</code> at the beginning of your terminal prompt, indicating that the environment is active.</p>
 <h2 id="install-uv-and-napari">Install uv and napari<a class="headerlink" href="#install-uv-and-napari" title="Permanent link">&para;</a></h2>
 <p>We strongly recommend using <code>uv</code> instead of <code>pip</code> because standard pip often has difficulty solving complex dependencies. <code>uv</code> is also <em>much</em> faster.</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>uv
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--constraint<span class="w"> </span>https://raw.githubusercontent.com/HaamsRee/senoquant/main/constraints.txt<span class="w"> </span>uv
 uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>pip-system-certs
 uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span>
 </code></pre></div>
@@ -1489,6 +1493,11 @@ The bundled installers also run <code>uv</code> with <code>--system-certs</code>
 <h2 id="install-senoquant">Install SenoQuant<a class="headerlink" href="#install-senoquant" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>senoquant
 </code></pre></div>
+<p>SenoQuant requires <code>pip-system-certs</code>, which is installed as a runtime dependency.
+Restart Python/napari after installing it. The plugin checks system-trust
+initialization before loading and stops with an error if the default SSL context
+is unavailable or certificate/hostname verification is disabled. This also applies
+to offline use.</p>
 <p>Alternatively, using standard <code>pip</code> (not recommended. This might be fine for napari, but often fails for SenoQuant):</p>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>senoquant
 </code></pre></div>
@@ -1516,7 +1525,7 @@ The bundled installers also run <code>uv</code> with <code>--system-certs</code>
 </blockquote>
 <h2 id="development-installation">Development installation<a class="headerlink" href="#development-installation" title="Permanent link">&para;</a></h2>
 <p>For development work without the setup scripts, install SenoQuant and the test dependencies from the repository in editable mode:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>uv
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span>uv
 uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span><span class="w"> </span>-r<span class="w"> </span>requirements-test.txt<span class="w"> </span>-e<span class="w"> </span>.
 </code></pre></div>
 <p>This allows you to make changes to the code and see them reflected immediately without reinstalling.</p>
@@ -1575,10 +1584,10 @@ uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </s
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>
