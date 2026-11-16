@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1478,20 +1478,21 @@ conda<span class="w"> </span>activate<span class="w"> </span>senoquant
 </code></pre></div>
 <p>You should see <code>(senoquant)</code> at the beginning of your terminal prompt, indicating that the environment is active.</p>
 <h2 id="install-uv-and-napari">Install uv and napari<a class="headerlink" href="#install-uv-and-napari" title="Permanent link">&para;</a></h2>
+<p>For <code>1.0.0b14</code>, download the release's <a href="https://raw.githubusercontent.com/HaamsRee/senoquant/senoquant-v1.0.0-beta14/constraints.txt">constraints.txt</a> into your current directory before continuing. Use this file with every installation command below to retain the shared scientific dependency versions.</p>
 <p>We strongly recommend using <code>uv</code> instead of <code>pip</code> because standard pip often has difficulty solving complex dependencies. <code>uv</code> is also <em>much</em> faster.</p>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--constraint<span class="w"> </span>https://raw.githubusercontent.com/HaamsRee/senoquant/main/constraints.txt<span class="w"> </span>uv
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>pip-system-certs
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span>uv
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system-certs<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span>pip-system-certs
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system-certs<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span><span class="s2">"napari[all]"</span>
 </code></pre></div>
 <blockquote>
 <p><strong>Note:</strong> <code>pip-system-certs</code> enables Python to use your system's certificate store for SSL verification. This helps avoid certificate errors when downloading packages or models, especially on corporate networks or systems with custom certificate authorities.
 The bundled installers also run <code>uv</code> with <code>--system-certs</code> and clear <code>SSL_CERT_FILE</code> / <code>SSL_CERT_DIR</code> inside the micromamba child process so package downloads use the OS trust store during post-install setup.</p>
 </blockquote>
 <p>Alternatively, using standard <code>pip</code>:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span><span class="s2">"napari[all]"</span>
 </code></pre></div>
 <h2 id="install-senoquant">Install SenoQuant<a class="headerlink" href="#install-senoquant" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>senoquant
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system-certs<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span><span class="s2">"senoquant==1.0.0b14"</span>
 </code></pre></div>
 <p>SenoQuant requires <code>pip-system-certs</code>, which is installed as a runtime dependency.
 Restart Python/napari after installing it. The plugin checks system-trust
@@ -1499,7 +1500,7 @@ initialization before loading and stops with an error if the default SSL context
 is unavailable or certificate/hostname verification is disabled. This also applies
 to offline use.</p>
 <p>Alternatively, using standard <code>pip</code> (not recommended. This might be fine for napari, but often fails for SenoQuant):</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>senoquant
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span><span class="s2">"senoquant==1.0.0b14"</span>
 </code></pre></div>
 <blockquote>
 <p><strong>Warning (Windows):</strong> Installing via <code>pip</code>/<code>uv</code> may not pull a GPU-enabled PyTorch build on Windows. If you need GPU acceleration, use the <a href="../../user/installation/#windows">Windows installer</a> instead. Or, troubleshoot PyTorch installation manually by following the <a href="https://pytorch.org/get-started/locally/">official PyTorch instructions</a>.</p>
@@ -1513,7 +1514,7 @@ to offline use.</p>
 </ul>
 <h3 id="optional-dependencies">Optional dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>uv pip install senoquant[all]</code> for full stack.</li>
+<li><code>uv pip install --system-certs --constraint constraints.txt "senoquant[all]==1.0.0b14"</code> for full stack.</li>
 </ul>
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
 <p>Start napari from your terminal:</p>
@@ -1526,7 +1527,7 @@ to offline use.</p>
 <h2 id="development-installation">Development installation<a class="headerlink" href="#development-installation" title="Permanent link">&para;</a></h2>
 <p>For development work without the setup scripts, install SenoQuant and the test dependencies from the repository in editable mode:</p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span>uv
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari[all]"</span><span class="w"> </span>-r<span class="w"> </span>requirements-test.txt<span class="w"> </span>-e<span class="w"> </span>.
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system-certs<span class="w"> </span>--constraint<span class="w"> </span>constraints.txt<span class="w"> </span><span class="s2">"napari[all]"</span><span class="w"> </span>-r<span class="w"> </span>requirements-test.txt<span class="w"> </span>-e<span class="w"> </span>.
 </code></pre></div>
 <p>This allows you to make changes to the code and see them reflected immediately without reinstalling.</p>
 
@@ -1587,7 +1588,7 @@ uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </s
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
