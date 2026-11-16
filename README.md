@@ -35,13 +35,13 @@ Watch the tutorial for a guided walkthrough of the main workflow:
 
 #### Windows
 
-Download the Windows installer (`.exe`) from the [latest release](https://github.com/HaamsRee/senoquant/releases/latest) under "Assets."
+Download the Windows installer (`.exe`) from the [GitHub releases](https://github.com/HaamsRee/senoquant/releases) under "Assets."
 
 Windows ARM64 PCs are supported on Windows 11 24H2 or later through x64 emulation with CPU inference. Native ARM64, CUDA, and NPU execution are not currently supported.
 
 #### macOS
 
-Download the macOS installer (`.pkg`) from the [latest release](https://github.com/HaamsRee/senoquant/releases/latest) under "Assets."
+Download the macOS installer (`.pkg`) from the [GitHub releases](https://github.com/HaamsRee/senoquant/releases) under "Assets."
 
 The macOS installer supports native Apple Silicon (`arm64`) only. Intel Macs and Rosetta are unsupported.
 

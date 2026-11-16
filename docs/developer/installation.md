@@ -73,12 +73,14 @@ You should see `(senoquant)` at the beginning of your terminal prompt, indicatin
 
 ## Install uv and napari
 
+For `1.0.0b14`, download the release's [constraints.txt](https://raw.githubusercontent.com/HaamsRee/senoquant/senoquant-v1.0.0-beta14/constraints.txt) into your current directory before continuing. Use this file with every installation command below to retain the shared scientific dependency versions.
+
 We strongly recommend using `uv` instead of `pip` because standard pip often has difficulty solving complex dependencies. `uv` is also *much* faster.
 
 ```bash
-python -m pip install --constraint https://raw.githubusercontent.com/HaamsRee/senoquant/main/constraints.txt uv
-uv pip install pip-system-certs
-uv pip install "napari[all]"
+python -m pip install --constraint constraints.txt uv
+uv pip install --system-certs --constraint constraints.txt pip-system-certs
+uv pip install --system-certs --constraint constraints.txt "napari[all]"
 ```
 
 > **Note:** `pip-system-certs` enables Python to use your system's certificate store for SSL verification. This helps avoid certificate errors when downloading packages or models, especially on corporate networks or systems with custom certificate authorities.
@@ -87,13 +89,13 @@ uv pip install "napari[all]"
 Alternatively, using standard `pip`:
 
 ```bash
-pip install "napari[all]"
+python -m pip install --constraint constraints.txt "napari[all]"
 ```
 
 ## Install SenoQuant
 
 ```bash
-uv pip install senoquant
+uv pip install --system-certs --constraint constraints.txt "senoquant==1.0.0b14"
 ```
 
 SenoQuant requires `pip-system-certs`, which is installed as a runtime dependency.
@@ -105,7 +107,7 @@ to offline use.
 Alternatively, using standard `pip` (not recommended. This might be fine for napari, but often fails for SenoQuant):
 
 ```bash
-pip install senoquant
+python -m pip install --constraint constraints.txt "senoquant==1.0.0b14"
 ```
 
 > **Warning (Windows):** Installing via `pip`/`uv` may not pull a GPU-enabled PyTorch build on Windows. If you need GPU acceleration, use the [Windows installer](../user/installation.md#windows) instead. Or, troubleshoot PyTorch installation manually by following the [official PyTorch instructions](https://pytorch.org/get-started/locally/).
@@ -121,7 +123,7 @@ If you get a `JVMNotFoundException` when reading images, set `JAVA_HOME` manuall
 
 ### Optional dependencies
 
-- `uv pip install senoquant[all]` for full stack.
+- `uv pip install --system-certs --constraint constraints.txt "senoquant[all]==1.0.0b14"` for full stack.
 
 ## Launch
 
@@ -141,7 +143,7 @@ For development work without the setup scripts, install SenoQuant and the test d
 
 ```bash
 python -m pip install --constraint constraints.txt uv
-uv pip install "napari[all]" -r requirements-test.txt -e .
+uv pip install --system-certs --constraint constraints.txt "napari[all]" -r requirements-test.txt -e .
 ```
 
 This allows you to make changes to the code and see them reflected immediately without reinstalling.
